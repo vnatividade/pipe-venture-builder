@@ -1,0 +1,25 @@
+# Product
+
+Product strategy artifacts live here.
+
+This area should answer:
+
+- What idea are we evaluating?
+- Who is the specific target market?
+- What is the main problem?
+- What is the promised result?
+- What mechanism creates the result?
+- What should be validated before coding?
+- What should stay out of scope?
+
+Planned artifacts:
+
+- `idea-intake.md`
+- `founder-focus.md`
+- `controle-evaluation.md`
+- `working-backwards.md`
+- `prd.md`
+- `mvp-scope.md`
+- `anti-goals.md`
+
+Do not turn this folder into a wishlist. Product docs should force decisions.
