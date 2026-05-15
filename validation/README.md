@@ -7,6 +7,7 @@ This area should prove whether the idea is worth building before the team invest
 Planned artifacts:
 
 - [`customer-interview-template.md`](customer-interview-template.md)
+- [customer data retention policy](customer-data-retention-policy.md)
 - [`icp-profile.md`](icp-profile.md)
 - experiment test card
 - learning card
@@ -19,3 +20,5 @@ Validation should prioritize behavior, urgency, willingness to engage, repeated 
 The validation scorecard must link back to founder focus and C.O.N.T.R.O.L.E. before PRD, build, growth, or monetization work.
 
 Customer discovery artifacts must distinguish exact quotes, observed evidence, assumptions, and synthesis. Fictional personas do not count as real interviews.
+
+Customer discovery artifacts must follow the customer data retention policy before storing identifiable notes, recordings, transcripts, exact quotes, or sensitive customer context.

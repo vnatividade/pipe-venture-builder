@@ -70,6 +70,7 @@ The ICP is a hypothesis until supported by evidence. Do not treat fictional pers
 
 ## Privacy Notes
 
+- Follow `validation/customer-data-retention-policy.md` before storing customer discovery evidence.
 - Store only the minimum useful customer context.
 - Use anonymized labels for individuals.
 - Do not store sensitive personal or business data without approval.
