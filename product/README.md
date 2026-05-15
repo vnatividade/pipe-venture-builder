@@ -19,7 +19,7 @@ Planned artifacts:
 - [`founder-focus.md`](founder-focus.md)
 - [`controle-evaluation.md`](controle-evaluation.md)
 - `working-backwards.md`
-- `prd.md`
+- [`prd.md`](prd.md)
 - [`mvp-scope.md`](mvp-scope.md)
 - `anti-goals.md`
 
