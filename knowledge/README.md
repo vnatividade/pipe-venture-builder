@@ -8,6 +8,7 @@ Planned artifacts:
 
 - decision log
 - learning log
+- [customer-language memory](customer-language-memory.md)
 - memory map
 - knowledge-base integration notes
 
