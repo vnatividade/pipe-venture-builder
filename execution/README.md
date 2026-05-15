@@ -9,5 +9,6 @@ Planned artifacts:
 - [Linear governance model](linear-governance-model.md)
 - [ticket, PR, and handoff system](ticket-pr-handoff-system.md)
 - [core pipeline map](core-pipeline-map.md)
+- [agent readiness validator](agent-readiness-validator.md)
 
 Execution should stay ticket-sized, reviewable, and traceable.
