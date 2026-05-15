@@ -6,8 +6,7 @@ This area should define how work moves from approved product context into Linear
 
 Planned artifacts:
 
-- Linear project template
-- Linear usage rules
+- [Linear governance model](linear-governance-model.md)
 - ticket template
 - execution workflow
 - done criteria
