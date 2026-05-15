@@ -12,6 +12,6 @@ Planned artifacts:
 - execution workflow
 - done criteria
 - handoff protocol
-- execution map
+- [core pipeline map](core-pipeline-map.md)
 
 Execution should stay ticket-sized, reviewable, and traceable.
