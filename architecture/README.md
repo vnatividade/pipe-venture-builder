@@ -9,6 +9,7 @@ Planned artifacts:
 - engineering standards
 - system design
 - technical constraints
+- [architecture review template](architecture-review.md)
 - architecture decision records in `adr/`
 
 Architecture should optimize for learning speed, operational simplicity, and safe evolution.
