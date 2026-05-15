@@ -7,10 +7,7 @@ This area should define how work moves from approved product context into Linear
 Planned artifacts:
 
 - [Linear governance model](linear-governance-model.md)
-- ticket template
-- execution workflow
-- done criteria
-- handoff protocol
+- [ticket, PR, and handoff system](ticket-pr-handoff-system.md)
 - [core pipeline map](core-pipeline-map.md)
 
 Execution should stay ticket-sized, reviewable, and traceable.
