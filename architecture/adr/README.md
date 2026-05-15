@@ -12,3 +12,5 @@ Each ADR should include:
 - review trigger
 
 Do not create ADRs for trivia. Use them for structural decisions that affect future execution.
+
+Start from [adr-template.md](adr-template.md) when an ADR is needed.
