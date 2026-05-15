@@ -6,6 +6,8 @@ Start with the [core agent contracts](core-agent-contracts.md) when deciding whi
 
 Use the [agent and skill trigger rules](agent-skill-trigger-rules.md) to load only the smallest relevant agent, skill, and template set for a task.
 
+Use the [agent handoff protocol](agent-handoff-protocol.md) when passing context, decisions, risks, and next steps between agent roles.
+
 Each agent should define:
 
 - purpose
