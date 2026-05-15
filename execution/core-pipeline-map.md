@@ -20,7 +20,7 @@ If a required artifact does not exist yet, execute the setup or validation ticke
 |---|---|---|---|---|---|---|
 | 1. Idea intake | Raw idea, founder notes, observed problem | Initial idea record with target, problem, promise, assumptions, and unknowns | Founder or idea intake agent | Approval required only before external action or ticket creation | No implementation tickets; create only an approved setup or intake ticket if needed | Founder focus |
 | 2. Founder focus | Idea intake record | Narrow founder focus: market, problem, offer, channel, constraints, anti-sprawl notes | Founder or product strategist | Human review before expanding scope | Linear may track setup/strategy tickets only | C.O.N.T.R.O.L.E. evaluation |
-| 3. C.O.N.T.R.O.L.E. evaluation | Founder focus artifact and assumptions | Attack, Refine, Pivot, or Kill verdict with rationale and implications | Product strategist or validation agent | Human approval required before advancing on Attack or Refine | Linear may track validation tickets after verdict; no build tickets yet | Research and validation plan |
+| 3. C.O.N.T.R.O.L.E. evaluation | Founder focus artifact and assumptions | `product/controle-evaluation.md` with Attack, Refine, Pivot, or Kill verdict, rationale, MVP implication, validation implication, and next action | Product strategist or validation agent | Human approval required before advancing on Attack or Refine | Linear may track validation tickets after verdict; no build tickets yet | Research and validation plan |
 | 4. Research and validation plan | C.O.N.T.R.O.L.E. verdict and unknowns | Research questions, discovery plan, experiment plan, source needs, confidence gaps | Researcher or validation lead | Approval required before customer outreach or external communications | Create validation/research tickets only after project confirmation or approval | Working Backwards |
 | 5. Working Backwards | Validated problem framing and intended customer outcome | Press release, FAQ, promise, constraints, launch narrative, non-goals | Product strategist | Human review before treating claims as accepted | Linear may track product definition tickets | PRD |
 | 6. PRD | Working Backwards artifact and validation plan | Product requirements, user journeys, functional scope, constraints, assumptions, evidence links | Product strategist or PM agent | Human review before implementation ticket creation | Linear may track PRD completion and review | MVP scope review |
@@ -38,6 +38,7 @@ If a required artifact does not exist yet, execute the setup or validation ticke
 Implementation tickets are blocked until these are true:
 
 - C.O.N.T.R.O.L.E. verdict is Attack or Refine with human approval.
+- `product/controle-evaluation.md` distinguishes evidence from assumptions and records rationale.
 - The validation plan identifies what the MVP must prove.
 - PRD and MVP scope define included and excluded work.
 - Risk review does not contain unresolved P0/P1 blockers.
