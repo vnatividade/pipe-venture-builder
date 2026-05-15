@@ -11,5 +11,6 @@ Planned artifacts:
 - [core pipeline map](core-pipeline-map.md)
 - [agent readiness validator](agent-readiness-validator.md)
 - [risk reviewer and matrix lite](risk-reviewer-matrix-lite.md)
+- [ticket orchestrator workflow](ticket-orchestrator-workflow.md)
 
 Execution should stay ticket-sized, reviewable, and traceable.
