@@ -24,7 +24,7 @@ If a required artifact does not exist yet, execute the setup or validation ticke
 | 4. Research and validation plan | C.O.N.T.R.O.L.E. verdict and unknowns | Research questions, discovery plan, `validation/validation-scorecard.md`, experiment plan, source needs, confidence gaps | Researcher or validation lead | Approval required before customer outreach or external communications | Create validation/research tickets only after project confirmation or approval | Working Backwards |
 | 5. Working Backwards | Validated problem framing and intended customer outcome | Press release, FAQ, promise, constraints, launch narrative, non-goals | Product strategist | Human review before treating claims as accepted | Linear may track product definition tickets | PRD |
 | 6. PRD | Working Backwards artifact and validation plan | Product requirements, user journeys, functional scope, constraints, assumptions, evidence links | Product strategist or PM agent | Human review before implementation ticket creation | Linear may track PRD completion and review | MVP scope review |
-| 7. MVP scope review | PRD, anti-goals, validation evidence, constraints | Explicit MVP scope, excluded scope, release boundary, success criteria | Founder and product strategist | Human approval required before creating build tickets | Implementation tickets remain blocked until this phase is accepted | Risk review |
+| 7. MVP scope review | PRD, anti-goals, validation evidence, constraints | `product/mvp-scope.md` with core loop, riskiest assumption, smallest ethical test, explicit cuts, evidence threshold, and GO/NO-GO condition | Founder and product strategist | Human approval required before creating architecture or implementation tickets | Implementation tickets remain blocked until this phase is accepted | Risk review |
 | 8. Risk review | MVP scope, architecture notes, sensitive claims, data/billing/outreach needs | Risk register, required mitigations, approval blockers, follow-up tickets | Risk reviewer | Approval required for any gated action listed in `execution/approval-gates.md` | Create follow-ups for risks; unblock build tickets only when P0/P1 risks are handled or accepted | Architecture |
 | 9. Architecture | MVP scope and risk review | Minimum viable technical shape, standards, constraints, ADRs as needed | Architecture agent or engineer | Human review before production-impacting architecture changes | Linear may track architecture tickets and blockers | Linear project confirmation |
 | 10. Linear project confirmation | Approved product scope and execution plan | Confirmed Linear project, milestones, labels, and execution backlog boundary | Linear project orchestrator | Human approval required before creating or changing Linear projects/tickets | Confirm one source-of-truth project before implementation tickets | Ticket creation |
@@ -42,6 +42,7 @@ Implementation tickets are blocked until these are true:
 - The validation plan identifies what the MVP must prove.
 - `validation/validation-scorecard.md` meets GO or approved CONDITIONAL GO thresholds.
 - PRD and MVP scope define included and excluded work.
+- `product/mvp-scope.md` defines the core loop, cut list, evidence threshold, and GO/NO-GO condition.
 - Risk review does not contain unresolved P0/P1 blockers.
 - Linear project is confirmed.
 - The implementation ticket is approved and scoped.
