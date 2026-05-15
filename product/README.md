@@ -15,6 +15,7 @@ This area should answer:
 Planned artifacts:
 
 - `idea-intake.md`
+- [`product-context.md`](product-context.md)
 - [`founder-focus.md`](founder-focus.md)
 - [`controle-evaluation.md`](controle-evaluation.md)
 - `working-backwards.md`
@@ -23,6 +24,8 @@ Planned artifacts:
 - `anti-goals.md`
 
 Do not turn this folder into a wishlist. Product docs should force decisions.
+
+Product context must separate assumptions from evidence, identify the current stage, and keep private founder context, secrets, and sensitive customer data out of the repository unless explicitly approved.
 
 C.O.N.T.R.O.L.E. is a required gate before PRD, implementation tickets, growth, monetization, or build work.
 
