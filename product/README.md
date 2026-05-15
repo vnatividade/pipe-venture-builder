@@ -19,7 +19,7 @@ Planned artifacts:
 - [`controle-evaluation.md`](controle-evaluation.md)
 - `working-backwards.md`
 - `prd.md`
-- `mvp-scope.md`
+- [`mvp-scope.md`](mvp-scope.md)
 - `anti-goals.md`
 
 Do not turn this folder into a wishlist. Product docs should force decisions.
@@ -27,3 +27,5 @@ Do not turn this folder into a wishlist. Product docs should force decisions.
 C.O.N.T.R.O.L.E. is a required gate before PRD, implementation tickets, growth, monetization, or build work.
 
 Founder focus must declare one market, one problem, one offer, one channel, and explicit anti-goals before validation.
+
+MVP scope must define the core value loop, riskiest assumption, smallest ethical test, explicit cuts, evidence threshold, and GO/NO-GO condition before architecture or implementation tickets.
