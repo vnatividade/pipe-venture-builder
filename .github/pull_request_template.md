@@ -28,7 +28,8 @@ If a normal validation command does not exist, state that explicitly.
 ## Review Status
 
 - Review requested:
-- Review source:
+- Review source: Copilot / Codex / structured manual fallback / human reviewer
+- Fallback approval source, if used:
 - P0 findings:
 - P1 findings:
 - P2 findings:

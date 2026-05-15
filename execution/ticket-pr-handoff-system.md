@@ -156,6 +156,14 @@ PR descriptions must stay current if review findings, validations, scope, or fol
 
 Every PR must receive review before merge.
 
+Use this review path:
+
+1. Request the configured automated reviewer when one is available for the repository.
+2. Check whether Copilot has reviewed the PR.
+3. If Codex review is enabled, request Codex review using the repository-approved prompt or workflow.
+4. If no automated review appears in a reasonable wait window, use the structured manual fallback only when the user has approved that fallback for the current cycle or the assigned ticket explicitly allows it.
+5. If no automated review is available and no manual fallback approval exists, stop and document the blocker in the PR and Linear ticket.
+
 Review should cover:
 
 - correctness
@@ -175,7 +183,44 @@ Classify findings using `execution/approval-gates.md`:
 | P2 | No, unless trivial and in scope to fix | Important improvement that is not blocking. |
 | P3 | No | Cosmetic, style, or small improvement. |
 
-If automated review is unavailable, use a documented structured review only when the user has approved that fallback for the cycle.
+## Structured Manual Review Fallback
+
+The structured manual fallback counts as review only when it is explicitly approved for the current execution cycle or by the assigned ticket.
+
+When using the fallback, add a PR comment with:
+
+- why automated review was not used or did not appear
+- scope reviewed
+- correctness assessment
+- Linear ticket alignment
+- missing tests or validation gaps
+- security risk assessment
+- maintainability assessment
+- observability assessment when applicable
+- documentation and link assessment
+- P0, P1, P2, and P3 counts
+- fixes made in the PR
+- findings intentionally not fixed
+- validation results
+- merge readiness statement
+
+The fallback review must still block merge when it finds unresolved P0 or P1 issues.
+
+## Review Wait And Stop Rules
+
+For automated review, use a short, reasonable wait window rather than waiting indefinitely. A reasonable wait means:
+
+- check the PR immediately after opening it
+- wait briefly and check again when no review has appeared
+- proceed to the approved structured fallback if the reviewer still has not appeared
+
+Stop instead of using fallback when:
+
+- the user has not approved structured manual fallback for the cycle
+- the ticket requires a specific external reviewer
+- branch protection requires a GitHub review state that a PR comment cannot satisfy
+- review tooling returns a permission or configuration error that changes merge safety
+- the PR includes high-risk security, data, billing, production, customer, legal, compliance, or external communication changes
 
 ## Validation Expectations
 
