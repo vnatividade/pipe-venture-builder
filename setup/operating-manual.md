@@ -2,6 +2,8 @@
 
 This manual defines the first practical operating path for `pipe-venture-builder`. Keep it short, ticket-driven, and current as the repository gains concrete templates.
 
+For starting a new product repository from this base template, use [template-initialization-workflow.md](template-initialization-workflow.md).
+
 ## Default Execution Loop
 
 1. Start from a single product idea.
