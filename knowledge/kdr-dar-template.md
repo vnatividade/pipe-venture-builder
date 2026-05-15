@@ -65,13 +65,21 @@ Revisit this decision when:
 - Risk changes:
 - Date or phase:
 
+## Conflict Scan
+
+- Prior decisions checked:
+- Relationship: No conflict / Clarifies / Supersedes / Partial supersession / Potential conflict / Conflict unresolved
+- Conflict summary:
+- Authority used:
+- Human review needed: yes/no
+
 ## Supersession
 
 - Supersedes:
 - Superseded by:
 - Conflict status: None / Potential conflict / Conflict unresolved
 
-When superseding a decision, link both records and explain what changed.
+When superseding a decision, follow `knowledge/decision-conflict-protocol.md`, link both records, and explain what changed.
 
 ## Human Review
 
@@ -135,6 +143,14 @@ Revisit this decision when:
 - Customer segment changes: ICP changes materially.
 - Risk changes: manual test introduces unacceptable privacy or operational risk.
 - Date or phase: before architecture ticket creation.
+
+## Conflict Scan
+
+- Prior decisions checked: product/mvp-scope.md and validation/validation-scorecard.md.
+- Relationship: No conflict.
+- Conflict summary: No prior accepted KDR/DAR contradicts the manual-first MVP decision.
+- Authority used: MVP scope gate and validation scorecard.
+- Human review needed: yes.
 
 ## Supersession
 

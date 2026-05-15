@@ -9,6 +9,7 @@ Planned artifacts:
 - decision log
 - learning log
 - [KDR/DAR template](kdr-dar-template.md)
+- [decision conflict and supersession protocol](decision-conflict-protocol.md)
 - [knowledge curator workflow](knowledge-curator-workflow.md)
 - [customer-language memory](customer-language-memory.md)
 - memory map
