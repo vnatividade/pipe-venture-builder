@@ -4,6 +4,8 @@ Use this template for manual customer discovery after founder focus, C.O.N.T.R.O
 
 Do not contact customers without approval. Do not store sensitive personal data, private business data, or recordings without explicit approval and a clear retention reason.
 
+Follow `validation/customer-data-retention-policy.md` before storing identifiable notes, recordings, transcripts, exact quotes, or sensitive customer context.
+
 ## Interview Metadata
 
 - Interview date:
@@ -15,6 +17,7 @@ Do not contact customers without approval. Do not store sensitive personal data,
 - Consent to take notes:
 - Sensitive data captured: yes/no
 - Storage location:
+- Retention review or deletion date:
 
 ## Privacy Guardrails
 
@@ -23,6 +26,7 @@ Do not contact customers without approval. Do not store sensitive personal data,
 - Do not store credentials, personal addresses, payment details, health data, legal data, or private customer records.
 - Mark confidential details clearly and avoid copying them into public docs.
 - Get approval before recording, sharing, or using direct identifiable quotes externally.
+- Delete or anonymize raw notes after synthesis unless approval defines a retention reason and review date.
 
 ## Opening
 

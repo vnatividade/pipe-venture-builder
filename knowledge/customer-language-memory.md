@@ -6,6 +6,7 @@ This is not a fictional persona document. Separate direct quotes, observed evide
 
 ## Source Rules
 
+- Follow `validation/customer-data-retention-policy.md` before storing customer language from real discovery.
 - Direct quotes must come from real customer discovery or approved source artifacts.
 - Synthetic persona output may be stored only as hypothesis material, never as real evidence.
 - Remove or anonymize sensitive identifiers unless explicit approval exists.
