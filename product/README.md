@@ -15,7 +15,7 @@ This area should answer:
 Planned artifacts:
 
 - `idea-intake.md`
-- `founder-focus.md`
+- [`founder-focus.md`](founder-focus.md)
 - [`controle-evaluation.md`](controle-evaluation.md)
 - `working-backwards.md`
 - `prd.md`
@@ -25,3 +25,5 @@ Planned artifacts:
 Do not turn this folder into a wishlist. Product docs should force decisions.
 
 C.O.N.T.R.O.L.E. is a required gate before PRD, implementation tickets, growth, monetization, or build work.
+
+Founder focus must declare one market, one problem, one offer, one channel, and explicit anti-goals before validation.
