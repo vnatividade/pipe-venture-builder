@@ -10,5 +10,6 @@ Planned artifacts:
 - [ticket, PR, and handoff system](ticket-pr-handoff-system.md)
 - [core pipeline map](core-pipeline-map.md)
 - [agent readiness validator](agent-readiness-validator.md)
+- [risk reviewer and matrix lite](risk-reviewer-matrix-lite.md)
 
 Execution should stay ticket-sized, reviewable, and traceable.
