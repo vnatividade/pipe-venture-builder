@@ -75,6 +75,8 @@ If a phase produces no reusable knowledge, state that in the Linear handoff inst
 
 For strategic decisions, use `knowledge/kdr-dar-template.md` instead of burying the rationale in a generic handoff note.
 
+Before accepting a new strategic decision, run `knowledge/decision-conflict-protocol.md` to check prior KDRs, ADRs, MVP scope, risk review, PRD, and validation artifacts. Mark supersession or unresolved conflict in the KDR/DAR when needed.
+
 ## Evidence Separation Rules
 
 | Type | Definition | Allowed Source |
