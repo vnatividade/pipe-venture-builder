@@ -73,6 +73,8 @@ If a phase produces no reusable knowledge, state that in the Linear handoff inst
 7. Link the source ticket, PR, or artifact.
 8. Record any follow-up ticket needed for unresolved risk, stale context, or missing evidence.
 
+For strategic decisions, use `knowledge/kdr-dar-template.md` instead of burying the rationale in a generic handoff note.
+
 ## Evidence Separation Rules
 
 | Type | Definition | Allowed Source |
