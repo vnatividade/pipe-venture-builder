@@ -27,8 +27,9 @@ Default behavior: identify the request type, map it to the current pipeline phas
 | Customer discovery evidence | interview notes, customer language, observed behavior, ICP evidence | Customer Discovery Agent | Validation planning | `validation/customer-interview-template.md` |
 | PRD or requirements | PRD, requirements, stories, non-goals | Product Strategist Agent | PRD drafting | PRD placeholder or source artifact |
 | MVP scope | core loop, riskiest assumption, smallest ethical test | MVP Scope Reviewer Agent | Validation planning | `product/mvp-scope.md` |
-| Architecture | technical shape, constraints, integrations, data | Architecture Agent | None | `architecture/README.md` |
-| Risk review | approval, sensitive claim, privacy, security, billing, production | Risk Reviewer Agent | None | `execution/approval-gates.md` |
+| Architecture handoff | technical shape, constraints, integrations, data, implementation readiness | Architecture Agent / software_architect | None | `.codex/agents/execution-risk-specialization.md` |
+| Risk review | approval, sensitive claim, privacy, security, billing, production, P0, P1 | Risk Reviewer Agent | None | `.codex/agents/execution-risk-specialization.md` |
+| Ticket decomposition | scope split, readiness, dependencies, acceptance, PR checklist | Ticket Orchestrator Agent | Execution handoff | `.codex/agents/execution-risk-specialization.md` |
 | Roadmap sequencing | next ticket, dependencies, priority, future filter | Roadmap Orchestrator Agent | Linear governance | `execution/core-pipeline-map.md` |
 | Ticket execution | branch, PR, validation, review, merge | Ticket Orchestrator Agent | Execution handoff | `execution/ticket-pr-handoff-system.md` |
 | Linear state | status update, PR link, blocker, final handoff | Linear Steward Agent | Linear governance | `execution/linear-governance-model.md` |
@@ -49,7 +50,7 @@ If a request matches multiple rows, choose the earliest active pipeline phase un
 | Working Backwards / PRD | Product Strategist Agent | PRD drafting | implementation tickets, broadening MVP |
 | MVP scope review | MVP Scope Reviewer Agent, Validation Agent, Risk Reviewer Agent | Validation planning | architecture or implementation tickets without GO |
 | Risk review | Risk Reviewer Agent | None | accepting unresolved P0/P1 risk |
-| Architecture | Architecture Agent, Risk Reviewer Agent | None | production-impacting changes, secrets, external integrations |
+| Architecture | Architecture Agent / software_architect, Risk Reviewer Agent, Ticket Orchestrator Agent | None | production-impacting changes, secrets, external integrations |
 | Linear project and tickets | Roadmap Orchestrator Agent, Linear Steward Agent, Ticket Orchestrator Agent | Linear governance | creating projects or tickets without approval |
 | Ticket execution | Ticket Orchestrator Agent, Linear Steward Agent | Execution handoff | PR open/merge without approval or review |
 | First product trial | Roadmap Orchestrator Agent, Knowledge Curator Agent | Knowledge update | real external use without approval |
@@ -128,6 +129,7 @@ Stop instead of loading more context when:
 |---|---|
 | "Define customer interview evidence thresholds." | Validation Agent + Validation planning skill + validation scorecard. |
 | "Synthesize market and scientific research for a validation decision." | Research Orchestrator Agent + Research synthesis skill + research and validation specialization. |
+| "Check whether this implementation ticket is ready." | Ticket Orchestrator Agent + Execution handoff skill + execution and risk specialization. |
 | "Create a PRD from this validated idea." | Product Strategist Agent + PRD drafting skill + product and validation artifacts. |
 | "Update Linear after merge." | Linear Steward Agent + Linear governance skill + PR and ticket. |
 | "What should we execute next?" | Roadmap Orchestrator Agent + pipeline map + Linear backlog. |

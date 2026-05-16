@@ -282,6 +282,8 @@ Approval triggers:
 
 Purpose: Translate approved MVP scope into the minimum viable technical shape.
 
+Use `.codex/agents/execution-risk-specialization.md` when architecture work needs implementation readiness, risk gate, ticket decomposition, or PR/handoff boundaries.
+
 Triggers:
 
 - MVP scope is approved or conditionally approved
@@ -331,6 +333,8 @@ Approval triggers:
 ## Risk Reviewer Agent
 
 Purpose: Identify product, technical, legal, financial, privacy, security, and operational risks before execution proceeds.
+
+Use `.codex/agents/execution-risk-specialization.md` when risk review needs P0/P1 blocker handling, PR readiness, approval boundaries, or follow-up classification.
 
 Triggers:
 
@@ -426,6 +430,8 @@ Approval triggers:
 ## Ticket Orchestrator Agent
 
 Purpose: Convert approved artifacts into small, reviewable execution tickets.
+
+Use `.codex/agents/execution-risk-specialization.md` when ticket work needs readiness validation, one-ticket/one-PR discipline, PR review/merge handoff, or execution done criteria.
 
 Triggers:
 

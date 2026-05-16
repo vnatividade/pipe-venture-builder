@@ -12,6 +12,8 @@ Use the [strategy and intake specialization](strategy-intake-specialization.md) 
 
 Use the [research and validation specialization](research-validation-specialization.md) when routing research orchestration, scientific validation, market intelligence, or customer discovery work.
 
+Use the [execution and risk specialization](execution-risk-specialization.md) when routing architecture handoff, risk review, ticket decomposition, readiness validation, PR review, or merge handoff work.
+
 Each agent should define:
 
 - purpose
