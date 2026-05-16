@@ -6,6 +6,7 @@ This area should support product decisions with market, customer, scientific, te
 
 Planned artifacts:
 
+- [evidence scoring system](evidence-scoring-system.md)
 - [market research workflow](market-research-workflow.md)
 - market research memo
 - [Consensus validation design](consensus-validation-design.md)
