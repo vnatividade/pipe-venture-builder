@@ -8,6 +8,7 @@ Planned artifacts:
 
 - [market research workflow](market-research-workflow.md)
 - market research memo
+- [scientific validation workflow](scientific-validation-workflow.md)
 - scientific validation memo
 - source log
 - [research orchestrator workflow](research-orchestrator-workflow.md)
