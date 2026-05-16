@@ -9,6 +9,7 @@ Planned artifacts:
 - [evidence scoring system](evidence-scoring-system.md)
 - [idea ranking engine design](idea-ranking-engine-design.md)
 - [market research workflow](market-research-workflow.md)
+- [market signal ingestion template](market-signal-ingestion-template.md)
 - market research memo
 - [Consensus validation design](consensus-validation-design.md)
 - [NotebookLM discovery design](notebooklm-discovery-design.md)
