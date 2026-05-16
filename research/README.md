@@ -19,6 +19,7 @@ Planned artifacts:
 - [source quality and citation rules](source-quality-and-citation-rules.md)
 - source log
 - [research orchestrator workflow](research-orchestrator-workflow.md)
+- [research decision approval gates](research-decision-approval-gates.md)
 - [research synthesis template](research-synthesis-template.md)
 - assumptions register
 
