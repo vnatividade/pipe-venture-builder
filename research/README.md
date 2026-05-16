@@ -17,7 +17,7 @@ Planned artifacts:
 - [source quality and citation rules](source-quality-and-citation-rules.md)
 - source log
 - [research orchestrator workflow](research-orchestrator-workflow.md)
-- research synthesis
+- [research synthesis template](research-synthesis-template.md)
 - assumptions register
 
 Research should state confidence, uncertainty, sources, and implications for the MVP.
