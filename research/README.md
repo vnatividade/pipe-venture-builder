@@ -6,6 +6,7 @@ This area should support product decisions with market, customer, scientific, te
 
 Planned artifacts:
 
+- [market research workflow](market-research-workflow.md)
 - market research memo
 - scientific validation memo
 - source log
