@@ -8,6 +8,7 @@ Planned artifacts:
 
 - [market research workflow](market-research-workflow.md)
 - market research memo
+- [Consensus validation design](consensus-validation-design.md)
 - [NotebookLM discovery design](notebooklm-discovery-design.md)
 - [scientific validation workflow](scientific-validation-workflow.md)
 - scientific validation memo
