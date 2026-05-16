@@ -10,6 +10,7 @@ Planned artifacts:
 - market research memo
 - [Consensus validation design](consensus-validation-design.md)
 - [NotebookLM discovery design](notebooklm-discovery-design.md)
+- [Perplexity market and web research design](perplexity-research-design.md)
 - [scientific validation workflow](scientific-validation-workflow.md)
 - scientific validation memo
 - source log
