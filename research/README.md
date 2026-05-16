@@ -9,6 +9,7 @@ Planned artifacts:
 - market research memo
 - scientific validation memo
 - source log
+- [research orchestrator workflow](research-orchestrator-workflow.md)
 - research synthesis
 - assumptions register
 
