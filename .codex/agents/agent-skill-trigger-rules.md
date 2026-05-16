@@ -21,7 +21,10 @@ Default behavior: identify the request type, map it to the current pipeline phas
 | Strategy focus | target market, problem, offer, channel, anti-goals | Product Strategist Agent | None | `product/founder-focus.md` |
 | C.O.N.T.R.O.L.E. evaluation | strategic gate, Attack, Refine, Pivot, Kill | Product Strategist Agent | None | `product/controle-evaluation.md` |
 | Validation planning | scorecard, ICP, discovery, evidence threshold | Validation Agent | Validation planning | `validation/validation-scorecard.md` |
-| Research synthesis | market research, source quality, citations, current sources | Research Agent | Research synthesis | `research/README.md` |
+| Research orchestration | research question, source plan, evidence lanes, contradictions | Research Orchestrator Agent | Research synthesis | `.codex/agents/research-validation-specialization.md` |
+| Scientific validation | scientific claim, technical claim, evidence quality, expert source | Scientific Validation Agent | Research synthesis | `.codex/agents/research-validation-specialization.md` |
+| Market intelligence | market signals, substitutes, competition, channel reachability | Market Intelligence Agent | Research synthesis | `.codex/agents/research-validation-specialization.md` |
+| Customer discovery evidence | interview notes, customer language, observed behavior, ICP evidence | Customer Discovery Agent | Validation planning | `validation/customer-interview-template.md` |
 | PRD or requirements | PRD, requirements, stories, non-goals | Product Strategist Agent | PRD drafting | PRD placeholder or source artifact |
 | MVP scope | core loop, riskiest assumption, smallest ethical test | MVP Scope Reviewer Agent | Validation planning | `product/mvp-scope.md` |
 | Architecture | technical shape, constraints, integrations, data | Architecture Agent | None | `architecture/README.md` |
@@ -42,7 +45,7 @@ If a request matches multiple rows, choose the earliest active pipeline phase un
 | Idea intake | Idea Intake Agent | None | customer outreach, ticket creation, sensitive data |
 | Founder focus | Product Strategist Agent | None | validation claims, implementation tickets |
 | C.O.N.T.R.O.L.E. | Product Strategist Agent | None | advancing Attack/Refine without approval |
-| Research and validation plan | Validation Agent, Research Agent | Validation planning, Research synthesis | outreach, storing identifiable data, unsupported claims |
+| Research and validation plan | Validation Agent, Research Orchestrator Agent, Scientific Validation Agent, Market Intelligence Agent, Customer Discovery Agent | Validation planning, Research synthesis | outreach, storing identifiable data, unsupported claims |
 | Working Backwards / PRD | Product Strategist Agent | PRD drafting | implementation tickets, broadening MVP |
 | MVP scope review | MVP Scope Reviewer Agent, Validation Agent, Risk Reviewer Agent | Validation planning | architecture or implementation tickets without GO |
 | Risk review | Risk Reviewer Agent | None | accepting unresolved P0/P1 risk |
@@ -124,6 +127,7 @@ Stop instead of loading more context when:
 | User Request | Route |
 |---|---|
 | "Define customer interview evidence thresholds." | Validation Agent + Validation planning skill + validation scorecard. |
+| "Synthesize market and scientific research for a validation decision." | Research Orchestrator Agent + Research synthesis skill + research and validation specialization. |
 | "Create a PRD from this validated idea." | Product Strategist Agent + PRD drafting skill + product and validation artifacts. |
 | "Update Linear after merge." | Linear Steward Agent + Linear governance skill + PR and ticket. |
 | "What should we execute next?" | Roadmap Orchestrator Agent + pipeline map + Linear backlog. |

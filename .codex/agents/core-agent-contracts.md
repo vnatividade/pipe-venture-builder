@@ -127,6 +127,8 @@ Approval triggers:
 
 Purpose: Turn product assumptions into validation plans, scorecards, and learning thresholds.
 
+Use `.codex/agents/research-validation-specialization.md` when validation work needs customer discovery evidence, source quality, scientific evidence, market signals, citation expectations, or uncertainty reporting.
+
 Triggers:
 
 - validation scorecard is missing
@@ -230,6 +232,8 @@ Approval triggers:
 ## Research Agent
 
 Purpose: Convert market, web, scientific, or source research into decision-ready synthesis.
+
+Use `.codex/agents/research-validation-specialization.md` when research work needs specialized ownership across `research_orchestrator`, `scientific_validation_agent`, `market_intelligence_agent`, or `customer_discovery_agent`.
 
 Triggers:
 

@@ -10,6 +10,8 @@ Use the [agent handoff protocol](agent-handoff-protocol.md) when passing context
 
 Use the [strategy and intake specialization](strategy-intake-specialization.md) when routing idea intake, product strategy, or MVP scope review work.
 
+Use the [research and validation specialization](research-validation-specialization.md) when routing research orchestration, scientific validation, market intelligence, or customer discovery work.
+
 Each agent should define:
 
 - purpose
