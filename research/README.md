@@ -13,6 +13,7 @@ Planned artifacts:
 - [Perplexity market and web research design](perplexity-research-design.md)
 - [scientific validation workflow](scientific-validation-workflow.md)
 - scientific validation memo
+- [source quality and citation rules](source-quality-and-citation-rules.md)
 - source log
 - [research orchestrator workflow](research-orchestrator-workflow.md)
 - research synthesis
