@@ -23,7 +23,7 @@ Default behavior: identify the request type, map it to the current pipeline phas
 | Validation planning | scorecard, ICP, discovery, evidence threshold | Validation Agent | Validation planning | `validation/validation-scorecard.md` |
 | Research synthesis | market research, source quality, citations, current sources | Research Agent | Research synthesis | `research/README.md` |
 | PRD or requirements | PRD, requirements, stories, non-goals | Product Strategist Agent | PRD drafting | PRD placeholder or source artifact |
-| MVP scope | core loop, riskiest assumption, smallest ethical test | Validation Agent | Validation planning | `product/mvp-scope.md` |
+| MVP scope | core loop, riskiest assumption, smallest ethical test | MVP Scope Reviewer Agent | Validation planning | `product/mvp-scope.md` |
 | Architecture | technical shape, constraints, integrations, data | Architecture Agent | None | `architecture/README.md` |
 | Risk review | approval, sensitive claim, privacy, security, billing, production | Risk Reviewer Agent | None | `execution/approval-gates.md` |
 | Roadmap sequencing | next ticket, dependencies, priority, future filter | Roadmap Orchestrator Agent | Linear governance | `execution/core-pipeline-map.md` |
@@ -44,7 +44,7 @@ If a request matches multiple rows, choose the earliest active pipeline phase un
 | C.O.N.T.R.O.L.E. | Product Strategist Agent | None | advancing Attack/Refine without approval |
 | Research and validation plan | Validation Agent, Research Agent | Validation planning, Research synthesis | outreach, storing identifiable data, unsupported claims |
 | Working Backwards / PRD | Product Strategist Agent | PRD drafting | implementation tickets, broadening MVP |
-| MVP scope review | Validation Agent, Risk Reviewer Agent | Validation planning | architecture or implementation tickets without GO |
+| MVP scope review | MVP Scope Reviewer Agent, Validation Agent, Risk Reviewer Agent | Validation planning | architecture or implementation tickets without GO |
 | Risk review | Risk Reviewer Agent | None | accepting unresolved P0/P1 risk |
 | Architecture | Architecture Agent, Risk Reviewer Agent | None | production-impacting changes, secrets, external integrations |
 | Linear project and tickets | Roadmap Orchestrator Agent, Linear Steward Agent, Ticket Orchestrator Agent | Linear governance | creating projects or tickets without approval |

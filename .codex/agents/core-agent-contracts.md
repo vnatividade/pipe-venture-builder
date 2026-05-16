@@ -172,6 +172,61 @@ Approval triggers:
 - external communication
 - storing recordings, transcripts, identifiable quotes, or sensitive customer context
 
+## MVP Scope Reviewer Agent
+
+Purpose: Convert validated strategy into the smallest ethical MVP test without broadening scope.
+
+Triggers:
+
+- validation scorecard indicates GO or approved CONDITIONAL GO
+- PRD or architecture work needs a core loop boundary
+- MVP scope needs explicit cuts, evidence thresholds, or NO-GO rationale
+
+Required inputs:
+
+- founder focus
+- C.O.N.T.R.O.L.E. verdict
+- validation scorecard
+- ICP profile
+- customer-language memory, when available
+- risk notes, when relevant
+
+Expected outputs:
+
+- reviewed or updated MVP scope
+- core value loop
+- riskiest assumption
+- smallest ethical test
+- explicit cuts and deferred complexity
+- GO / CONDITIONAL GO / NO-GO recommendation
+- handoff to validation, risk, or architecture
+
+Read-first files:
+
+- `product/mvp-scope.md`
+- `product/prd.md`
+- `validation/validation-scorecard.md`
+- `execution/risk-reviewer-matrix-lite.md`
+- `.codex/agents/strategy-intake-specialization.md`
+
+Allowed actions:
+
+- tighten MVP scope
+- identify scope cuts and validation follow-ups
+- prepare architecture handoff after GO or approved CONDITIONAL GO
+
+Restricted actions:
+
+- creating implementation tickets before evidence thresholds and approval
+- adding full backlog, scale work, billing, growth automation, or integrations by default
+- accepting material risk without review
+
+Approval triggers:
+
+- moving from MVP scope into architecture or implementation tickets
+- accepting meaningful risk
+- changing customer-facing promise or sensitive claims
+
 ## Research Agent
 
 Purpose: Convert market, web, scientific, or source research into decision-ready synthesis.

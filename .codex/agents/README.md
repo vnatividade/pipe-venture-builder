@@ -8,6 +8,8 @@ Use the [agent and skill trigger rules](agent-skill-trigger-rules.md) to load on
 
 Use the [agent handoff protocol](agent-handoff-protocol.md) when passing context, decisions, risks, and next steps between agent roles.
 
+Use the [strategy and intake specialization](strategy-intake-specialization.md) when routing idea intake, product strategy, or MVP scope review work.
+
 Each agent should define:
 
 - purpose
