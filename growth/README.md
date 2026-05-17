@@ -8,6 +8,7 @@ Planned artifacts:
 
 - [distribution strategy framework](distribution-strategy-framework.md)
 - [channel experiment template](channel-experiment-template.md)
+- [growth experiment backlog template](growth-experiment-backlog-template.md)
 - content strategy
 - channel learning log
 - paid ads approval gate
