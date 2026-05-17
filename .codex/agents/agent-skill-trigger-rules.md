@@ -2,6 +2,8 @@
 
 These rules decide which small set of agents, skills, and templates should be loaded for a task. They are a lightweight routing guide, not a scoring engine or autonomous orchestrator.
 
+For Codex and Claude Code shared ticket-type routing, use `../../execution/context-routing-protocol.md`. This file keeps Codex-specific agent and skill trigger details compatible with that shared protocol.
+
 Default behavior: identify the request type, map it to the current pipeline phase, load the smallest useful context set, and stop when approval or scope is missing.
 
 ## Routing Principles

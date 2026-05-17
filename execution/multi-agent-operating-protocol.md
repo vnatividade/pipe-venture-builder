@@ -88,9 +88,10 @@ Default context order:
 
 1. `AGENTS.md`
 2. assigned Linear ticket
-3. relevant `execution/` protocol
-4. relevant domain folder such as `product/`, `validation/`, `research/`, `architecture/`, `growth/`, or `knowledge/`
-5. relevant `.agents/skills/` or `.codex/agents/` contract
+3. `execution/context-routing-protocol.md`
+4. relevant `execution/` protocol
+5. relevant domain folder such as `product/`, `validation/`, `research/`, `architecture/`, `growth/`, or `knowledge/`
+6. relevant `.agents/skills/` or `.codex/agents/` contract
 
 Do not load all agents, all skills, or all templates by default.
 

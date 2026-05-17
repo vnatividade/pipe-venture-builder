@@ -11,9 +11,10 @@ Before editing, read:
 1. `AGENTS.md`
 2. assigned Linear ticket
 3. `execution/multi-agent-operating-protocol.md`
-4. `execution/approval-gates.md`
-5. `execution/ticket-pr-handoff-system.md`
-6. only the smallest relevant domain files for the ticket scope
+4. `execution/context-routing-protocol.md`
+5. `execution/approval-gates.md`
+6. `execution/ticket-pr-handoff-system.md`
+7. only the smallest relevant domain files for the ticket scope
 
 Do not load every agent, skill, template, or domain folder by default.
 
