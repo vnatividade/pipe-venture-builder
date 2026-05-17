@@ -284,10 +284,19 @@ The final Linear handoff should include:
 ```md
 ## Final execution handoff
 
+Executor tool:
 Branch:
 PR:
 Merge:
 Merge commit:
+
+## Scope and ownership
+- Linear ticket:
+- Expected write set:
+- Actual files changed:
+- Restricted files touched:
+- Parallelization class:
+- Conflict or merge-order notes:
 
 ## Summary
 
@@ -299,6 +308,7 @@ Merge commit:
 ## Validation
 - Command/check:
 - Command/check:
+- Unavailable validation:
 
 ## Review
 - Review source:
@@ -309,17 +319,32 @@ Merge commit:
 - Fixed in this PR:
 - Not fixed:
 
+## Monitoring
+- Required follow-up monitoring:
+- Owner or agent:
+- Trigger or cadence:
+
+## Metrics
+- Success metric:
+- Current status:
+- Follow-up needed:
+
 ## Follow-ups
 - Link:
+- Reason:
 
 ## Knowledge updates
 - Repository artifact updated:
 - Decision or learning recorded:
 
 ## Residual risks
+
+## Next recommended action
+- Ticket:
+- Reason:
 ```
 
-If there is no follow-up or residual risk, say so directly.
+Do not include secrets, credentials, customer data, production data, private source material, or sensitive operational details in the handoff. If there is no follow-up, monitoring action, metric update, knowledge update, residual risk, or next action, say so directly.
 
 ## Knowledge Update Rules
 

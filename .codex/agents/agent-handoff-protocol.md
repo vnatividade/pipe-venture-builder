@@ -37,6 +37,10 @@ Date:
 Origin ticket:
 Origin PR:
 Repository branch:
+Executor tool:
+Expected write set:
+Actual files changed:
+Restricted files touched:
 
 ## Context
 - What was completed:
@@ -66,6 +70,7 @@ Repository branch:
 - P2/P3 risks:
 - Approval-gated risks:
 - Mitigations or blockers:
+- Residual risk after handoff:
 
 ## Approval Status
 - Customer outreach:
@@ -84,6 +89,13 @@ Repository branch:
 - Missing artifacts:
 - Artifact updates needed:
 
+## Validation, Monitoring, And Metrics
+- Validations executed:
+- Validations unavailable:
+- Monitoring required:
+- Success metrics affected:
+- Metrics follow-up needed:
+
 ## Unresolved Questions
 - Question:
 - Why it matters:
@@ -96,6 +108,7 @@ Repository branch:
 - Excluded scope:
 - Done criteria:
 - Validation or review needed:
+- Next recommended action:
 
 ## KDR / Knowledge Update
 - KDR needed: yes/no
@@ -120,7 +133,7 @@ Repository branch:
 | Architecture -> risk review | technical choices, data/integration boundaries, failure modes |
 | Risk review -> ticketing | accepted risks, blockers, mitigations, approval status |
 | Ticketing -> execution | ticket scope, dependencies, acceptance criteria, excluded scope |
-| Execution -> Linear steward | branch, PR, validation, review, merge, follow-ups, residual risks |
+| Execution -> Linear steward | executor tool, branch, PR, expected write set, actual files changed, restricted files touched, validation, review, merge, monitoring, metrics, follow-ups, residual risks, next recommended action |
 | Execution -> knowledge curator | durable decision, evidence, learning, KDR need, revisit trigger |
 
 ## Approval Handling
@@ -171,3 +184,5 @@ A handoff is complete only when:
 ## Alignment With PR And Linear Handoff
 
 For execution tickets, the agent handoff should not replace the final Linear handoff. Use it to transfer context between roles, then preserve final execution state in the Linear handoff required by `execution/ticket-pr-handoff-system.md`.
+
+Execution handoffs must stay safe for repository context. Do not include secrets, credentials, customer data, production data, private source material, or sensitive operational details.
