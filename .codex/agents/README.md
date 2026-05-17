@@ -14,6 +14,8 @@ Use the [research and validation specialization](research-validation-specializat
 
 Use the [execution and risk specialization](execution-risk-specialization.md) when routing architecture handoff, risk review, ticket decomposition, readiness validation, PR review, or merge handoff work.
 
+Use the [content strategy specialization](content-strategy-specialization.md) when routing founder-led content ideation from validated ICP, offer, channel, and customer-language artifacts.
+
 Each agent should define:
 
 - purpose
