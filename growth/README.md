@@ -6,6 +6,7 @@ Growth work should start only after the product has evidence of a real problem, 
 
 Planned artifacts:
 
+- [distribution strategy framework](distribution-strategy-framework.md)
 - growth experiment system
 - content strategy
 - channel learning log
