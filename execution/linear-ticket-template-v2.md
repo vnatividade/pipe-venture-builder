@@ -25,7 +25,7 @@ Use this template for new tickets that will be executed by agents. Do not use it
 | Conditional | Required only when the ticket type or risk profile makes it relevant. |
 | Optional | Useful context, but not required for readiness. |
 
-PIP-131 is expected to refine the full field matrix by ticket type. Until that matrix exists, use the conditional guidance in this file.
+Use `execution/ticket-type-field-matrix.md` to decide which fields are required, conditional, or not normally needed by ticket type.
 
 ## Fields Preserved From Current Pattern
 
@@ -285,7 +285,7 @@ For new backlog without a code, use:
 
 ## Conditional Guidance By Ticket Type
 
-PIP-131 will own the durable field matrix. Until then, use these rules.
+`execution/ticket-type-field-matrix.md` is the durable source for field requirements by ticket type. The guidance below summarizes the most common requirements and should not contradict the matrix.
 
 ### Technical, Code, Infrastructure, Automation, And Observability Tickets
 
