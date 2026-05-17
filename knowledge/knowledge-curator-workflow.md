@@ -42,6 +42,7 @@ Do not use conversation memory as the only source for a durable knowledge update
 | Evidence repository | Stores links and summaries for source artifacts. | New research, interviews, validation signals, scorecard inputs. |
 | Customer-language memory | Preserves exact customer language separately from synthesis. | Real interviews, approved source artifacts, customer objections or triggers. |
 | Handoff notes | Keeps future agents able to continue without chat memory. | Every merged PR or completed Linear ticket. |
+| Agentic operations learning | Captures recurring execution metrics or operating patterns from Codex, Claude Code, or future agents. | Batch-level pattern changes future sequencing, readiness, validation, parallelization, handoff, or orchestration decisions. |
 
 ## Update Cadence By Phase
 
@@ -58,9 +59,12 @@ Do not use conversation memory as the only source for a durable knowledge update
 | Risk review | Record accepted risks, blocked risks, and required mitigations. |
 | Architecture | Record decisions, tradeoffs, constraints, and ADR links. |
 | Ticket execution | Record branch, PR, validations, review findings, merge status, and follow-ups. |
+| Agentic operations review | Record only recurring metric patterns that change future execution decisions. Routine per-ticket metrics stay in Linear handoffs. |
 | Trial / feedback | Record observed behavior, learning, decision impact, and next action. |
 
 If a phase produces no reusable knowledge, state that in the Linear handoff instead of creating empty documentation.
+
+For agentic operations metrics, use `execution/agentic-operations-metrics.md`. Keep the initial metric record in PR and Linear handoffs. Update `knowledge/` only when a batch summary or repeated signal changes future execution.
 
 ## Update Workflow
 
