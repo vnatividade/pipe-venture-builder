@@ -117,6 +117,8 @@ Approval must be explicit and scoped. Do not treat silence, prior memory, or mod
 
 ## Parallel Execution Rules
 
+Use `execution/parallel-execution-governance.md` for detailed ownership, write set, merge order, and conflict rules.
+
 A ticket may be parallelized only when:
 
 - dependencies are clear

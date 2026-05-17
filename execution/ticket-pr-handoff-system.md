@@ -116,6 +116,8 @@ fix/pip-84-scorecard-threshold-copy
 
 Do not reuse a branch for a second ticket after merge. Start a new branch for the next ticket.
 
+For parallel Codex and Claude Code execution, use `execution/parallel-execution-governance.md` before starting branches that may overlap in files, domains, dependencies, or merge order.
+
 ## Execution Workflow
 
 1. Read the ticket and relevant repository artifacts.

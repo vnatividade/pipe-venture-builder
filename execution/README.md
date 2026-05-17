@@ -10,6 +10,7 @@ Planned artifacts:
 - [ticket, PR, and handoff system](ticket-pr-handoff-system.md)
 - [multi-agent operating protocol](multi-agent-operating-protocol.md)
 - [context routing protocol](context-routing-protocol.md)
+- [parallel execution governance](parallel-execution-governance.md)
 - [core pipeline map](core-pipeline-map.md)
 - [agent readiness validator](agent-readiness-validator.md)
 - [risk reviewer and matrix lite](risk-reviewer-matrix-lite.md)
