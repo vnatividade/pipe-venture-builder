@@ -6,8 +6,8 @@
 - Date: 2026-05-17
 - Owner: Claude Code executor; approved by vnatividade (project lead) via PR merge
 - Origin Linear ticket: PIP-139
-- Origin PR or artifact: branch `claude/pip-139-kdr-002-restore-pr-flow`; PR pending human approval
-- Status: Proposed
+- Origin PR or artifact: branch `claude/pip-139-kdr-002-restore-pr-flow`; PR https://github.com/vnatividade/pipe-venture-builder/pull/63
+- Status: Accepted (human approval 2026-05-17 via PR #63 merge)
 
 ## Decision
 
@@ -83,8 +83,8 @@ Revisit this decision when:
 ## Human Review
 
 - Human review required: yes.
-- Review source: PR review and merge of this KDR.
-- Approval or objection: pending (status remains `Proposed` until human approval at merge).
+- Review source: PR #63 — Copilot automated review attempted (errored both times); structured manual fallback approved by project lead for this cycle; merge by project lead.
+- Approval or objection: Approved by project lead on 2026-05-17 via PR #63 merge.
 
 ## Numbering Note
 
