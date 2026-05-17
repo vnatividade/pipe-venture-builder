@@ -2,6 +2,8 @@
 
 Codex agent definitions live here.
 
+Use the shared [multi-agent operating protocol](../../execution/multi-agent-operating-protocol.md) before applying Codex-specific routing. Codex-specific instructions must not redefine repository approval gates or Linear/Git execution rules.
+
 Start with the [core agent contracts](core-agent-contracts.md) when deciding which venture-builder agent role should own a task.
 
 Use the [agent and skill trigger rules](agent-skill-trigger-rules.md) to load only the smallest relevant agent, skill, and template set for a task.
