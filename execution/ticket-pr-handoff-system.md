@@ -329,6 +329,8 @@ Merge commit:
 - Current status:
 - Follow-up needed:
 
+For multi-agent execution, use `execution/agentic-operations-metrics.md` to keep metrics lightweight, manually collectible, and tied to decisions about throughput, quality, conflicts, readiness, rework, and handoff quality.
+
 ## Follow-ups
 - Link:
 - Reason:
