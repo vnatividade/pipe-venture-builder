@@ -100,6 +100,8 @@ Stores:
 - Do not close implementation tickets without a merged PR unless the ticket is explicitly documentary or investigative.
 - Create follow-up Linear tickets for relevant risks or opportunities discovered outside the current ticket scope.
 
+For Codex, Claude Code, or any future executor operating in this repository, use `execution/multi-agent-operating-protocol.md` as the shared execution protocol. It does not replace this file or weaken approval gates.
+
 ## Strategic Gates
 
 Before serious execution, ideas must pass through:
