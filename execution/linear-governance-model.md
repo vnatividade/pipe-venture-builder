@@ -151,6 +151,10 @@ Every Linear ticket should include:
 - approval requirement
 - risk level
 
+For new tickets intended for Codex, Claude Code, or future orchestrator consumption, use `execution/linear-ticket-template-v2.md`. The v2 template preserves the fields above and adds multi-agent readiness fields such as effort, complexity, parallelization, expected write set, DoR, DoD, validation plan, monitoring, success metrics, rollback or mitigation, follow-up criteria, and agent execution notes.
+
+The v2 template is an increment, not a migration mandate. Existing tickets do not need to be rewritten unless a separate approved ticket asks for that migration.
+
 ## Ticket Description Template
 
 ```md

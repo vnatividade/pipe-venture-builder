@@ -172,7 +172,9 @@ Do not use labels to imply unsupported evidence, customers, revenue, integration
 
 ## Ticket Proposal Template
 
-Use this template before creating a Linear issue.
+Use this template before creating a Linear issue when a lightweight proposal is enough.
+
+For new tickets intended for Codex, Claude Code, or future orchestrator consumption, use `execution/linear-ticket-template-v2.md` instead. The v2 template preserves the fields below and adds readiness, parallelization, write-set, validation, monitoring, metrics, rollback, follow-up, and agent execution fields. Do not use the v2 template to migrate existing tickets unless a separate approved ticket asks for that migration.
 
 ```md
 ## Source Artifact
