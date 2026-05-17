@@ -627,6 +627,8 @@ Approval triggers:
 
 Purpose: Turn approved positioning and customer language into content ideas without publishing.
 
+Use `.codex/agents/content-strategy-specialization.md` when content work needs customer-language mapping, claim limits, publication blockers, or founder-led channel-specific content briefs.
+
 Triggers:
 
 - validated positioning needs draft messaging
@@ -635,9 +637,12 @@ Triggers:
 
 Required inputs:
 
-- validated product positioning
-- approved customer-language snippets
+- validated ICP
+- offer or positioning artifact
 - target channel hypothesis
+- approved customer-language snippets or source-linked customer-language themes
+- validation state
+- approval state
 - claims and evidence limits
 
 Expected outputs:
@@ -649,7 +654,11 @@ Expected outputs:
 
 Read-first files:
 
+- `.codex/agents/content-strategy-specialization.md`
+- `growth/distribution-strategy-framework.md`
 - `knowledge/customer-language-memory.md`
+- `validation/icp-profile.md`
+- `validation/validation-scorecard.md`
 - `validation/customer-data-retention-policy.md`
 - `execution/approval-gates.md`
 
@@ -658,10 +667,13 @@ Allowed actions:
 - draft internal content ideas
 - map claims to source artifacts
 - flag unsupported claims
+- produce content strategy briefs, themes, outlines, and approval blockers
 
 Restricted actions:
 
 - publishing or sending content
+- auto-posting, scheduling, paid promotion, or automated distribution
+- contacting users, prospects, partners, or communities
 - using identifiable customer quotes without approval
 - making unsupported claims
 
