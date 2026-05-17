@@ -12,6 +12,33 @@ Skills should be small, composable, and loaded only when their trigger matches t
 - A skill must read repository artifacts before relying on memory.
 - A skill must state approval gates when the workflow touches Linear, PRs, customer data, external communication, billing, production, or sensitive claims.
 - A skill must not duplicate whole source repositories, broad playbooks, or future/evolution workflows.
+- A skill should be shared by Codex and Claude Code unless a tool-specific interface, runtime, context-window, command, or safety difference requires a separate adapter.
+- A tool-specific skill must state why it cannot be shared and which shared contract it still follows.
+
+## Skill, Prompt, Workflow, And Agent Specialization Boundaries
+
+Use this decision rule before adding a new artifact:
+
+| Need | Put It In | Reason |
+|---|---|---|
+| Repeatable workflow with trigger, inputs, steps, outputs, and stop conditions | Skill | The behavior should load only when the trigger matches. |
+| Reusable instruction pattern or response shape without a separate workflow | Prompt guidance in the nearest relevant artifact | The instruction is useful, but not enough to justify a skill. |
+| State transitions, execution policy, approval handling, dependency rules, or handoff structure | Workflow document under `execution/` or the relevant domain | The behavior coordinates work across agents or tools. |
+| Durable role responsibilities, owned outputs, escalation rules, and boundaries | Agent specialization under `.codex/agents/` or the shared agent layer | The concern belongs to a role, not a reusable task. |
+
+Shared-first rule:
+
+- Prefer one shared skill or prompt convention consumed by Codex and Claude Code.
+- Add Codex-specific or Claude-specific adapters only when the tool's mechanics require different commands, file locations, context format, or safety handling.
+- Do not fork a shared skill only to reword instructions for a tool.
+- If a tool-specific adapter exists, keep the shared contract as the source of truth and document the adapter delta.
+
+Prompt placement rule:
+
+- Do not create a top-level `prompts/` directory until an approved ticket needs a concrete shared prompt artifact.
+- Keep prompt guidance inside the closest skill, workflow, agent specialization, or template while the guidance is small.
+- If prompt guidance starts to duplicate across artifacts, create a focused follow-up ticket to extract it.
+- A future `prompts/README.md` must define ownership, trigger rules, shared vs tool-specific boundaries, and drift prevention before adding many prompts.
 
 ## Skill Contract Template
 
