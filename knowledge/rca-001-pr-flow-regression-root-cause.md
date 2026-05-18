@@ -55,10 +55,10 @@ Branch protection on `main`: not configured (`404 Branch not protected`).
 
 ## Actual root cause
 
-The regression has four contributing factors, none of which match the original "direct commit" framing:
+The regression has five contributing factors, none of which match the original "direct commit" framing:
 
 1. **PRs existed** for all six tickets (#57–#62). The ticket → branch → PR flow was followed.
-2. **Copilot reviewer is broken in this repository.** Every single Copilot review request returned the same generic error. The same failure pattern was observed independently on PIP-139 / PR #63. This is a repository-level integration failure, not a one-off transient.
+2. **Copilot reviewer was erroring during the observation window.** Every Copilot review request between 2026-05-17 17:08 UTC and 2026-05-17 23:49 UTC returned the same generic error. This appeared at the time to be a repository-level integration failure; subsequent investigation under PIP-143 found it was a transient GitHub-side service issue that resolved overnight (PR #64 at 2026-05-18 03:34 UTC was the first PR to receive a substantive Copilot review). See `.github/copilot-review-setup.md` for the operational state and verification path.
 3. **No human approving review** was recorded on any of the six PRs. With Copilot erroring, there was no second pair of eyes between author and merge.
 4. **Squash merge strategy** produces a single commit on `main` with no `Merge pull request` subject, which is what KDR-002 visually misread as a direct push.
 5. **No branch protection** on `main`. The repository-level policy in `execution/ticket-pr-handoff-system.md` ("every PR must be reviewed before merge") is text-only; nothing in GitHub enforces it. The author can self-merge immediately after a Copilot error response.

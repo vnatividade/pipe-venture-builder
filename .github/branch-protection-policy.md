@@ -24,7 +24,7 @@ Applied via `gh api --method PUT repos/vnatividade/pipe-venture-builder/branches
 
 The repository policy requires every PR to be reviewed before merge and defines a Structured Manual Review Fallback when automated reviewers are unavailable. Branch protection enforces a count (≥1 approving review) but does not know about the fallback path. Operational implication:
 
-- When Copilot review errors (as observed on PIP-130–135 and PIP-139 — see `knowledge/rca-001-pr-flow-regression-root-cause.md`), the author must perform a Structured Manual Review Fallback comment AND obtain an explicit approving review (their own approving review counts only if they were not the author of the changes; for solo work, a reviewer must approve via a second account or trusted bot).
+- When Copilot review errors (as observed on PIP-130–135 and PIP-139 — see `knowledge/rca-001-pr-flow-regression-root-cause.md` and `.github/copilot-review-setup.md`), the author must perform a Structured Manual Review Fallback comment AND obtain an explicit approving review. GitHub does not let PR authors approve their own PRs; for solo work, the approving review must come from a separate account (the project lead, a teammate, or a trusted reviewing bot). When no separate approver is available, use the documented admin override path below.
 - For Claude Code executor PRs: the project lead reviews and approves. The Claude Code self-review fallback comment is supplementary documentation, not a substitute for the GitHub approving review state.
 
 ## Override path
