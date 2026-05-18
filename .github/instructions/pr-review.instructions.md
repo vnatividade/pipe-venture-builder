@@ -26,7 +26,7 @@ The PR description must follow `.github/pull_request_template.md`. Flag the PR i
 
 ## Shared high-risk governance files
 
-Changes to these files are serialized by default. Per `execution/parallel-execution-governance.md` "Shared High-Risk Files", a PR touching any of them must explain why the change belongs in the current ticket and what other active tickets may be affected. Canonical list:
+Per `execution/parallel-execution-governance.md` "Shared High-Risk Files", changes to these files should be serialized by default, and a PR touching any of them should explain why the change belongs in the current ticket and what other active tickets may be affected. Canonical list:
 
 - `AGENTS.md`
 - `CLAUDE.md`
@@ -57,7 +57,7 @@ Compare the diff against the Linear ticket's `Expected Write Set`. Files outside
 ## KDR / RCA conventions
 
 - KDR files (`knowledge/kdr-*.md`) follow `knowledge/kdr-dar-template.md`. `knowledge/decision-conflict-protocol.md` states that the supersession protocol "does not automatically rewrite old decisions" — prefer changing strategic decisions by writing a NEW KDR that supersedes the prior one over rewriting the prior KDR's substantive content (Decision, Context, Options Considered, Evidence, Risks, etc.).
-- On the prior (superseded) KDR, the Status and Supersession fields ARE expected to be updated per the same protocol: `Status: Superseded`, `Superseded by: <new KDR id>`, plus the reason. These field updates are not content edits.
+- On the prior (superseded) KDR, the Status and Supersession fields should eventually show `Status: Superseded`, `Superseded by: <new KDR id>`, plus the reason, per the same protocol. Update those fields when safe and in-scope; otherwise create a follow-up ticket and mark the new decision's conflict fields accordingly. These field updates (when they happen) are not content edits.
 - RCA files (`knowledge/rca-*.md`) are evidence/learning artifacts. (Reviewer convention, not canonical: minor in-place corrections such as typos, count fixes, or factual refinements that don't change conclusions are acceptable when called out in the PR body. This convention emerged in PIP-143 and is not codified.)
 - (Reviewer convention, not canonical: a new KDR may carry `Status: Proposed` while awaiting human approval and be flipped to `Accepted` in the same PR's final commit if the PR's merge constitutes that approval. This convention emerged in PIP-139 / KDR-002 and is not codified in `knowledge/kdr-dar-template.md`. Treat divergence as a reviewer note, not a finding.)
 
