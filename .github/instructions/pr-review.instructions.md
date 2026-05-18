@@ -42,7 +42,7 @@ Changes to these files are serialized by default. Per `execution/parallel-execut
 - architecture decision records
 - top-level `README.md`
 
-Without that explanation, raise a **P1** finding. When the project lead has granted an explicit per-ticket carve-out for an autonomous executor, that grant must be referenced in the PR body or Linear ticket start comment (e.g. *"This PR edits `<file>`; project lead granted explicit per-ticket carve-out on `<date>`."*). Absence of explanation OR carve-out reference for an autonomous executor's PR is a **P0** finding.
+Without that explanation, raise a **P1** finding. When the project lead has granted an explicit per-ticket carve-out for an autonomous executor (e.g., Claude Code, Codex), that grant is expected in the PR body or Linear ticket start comment (typical form: *"This PR edits `<file>`; project lead granted explicit per-ticket carve-out on `<date>`."*). The "per-ticket carve-out" concept is a session-grant convention used by autonomous executors operating under the project lead's durable permission; it is not separately codified in the canonical repo docs. Apply the same **P1** severity if the explanation is missing for an autonomous-executor PR.
 
 The Linear ticket template defines a separate field called **Restricted Files** with a stricter meaning: files listed there MUST NOT appear in the diff at all (no carve-out path; the ticket explicitly forbade them). Verify the diff against the ticket's `Restricted Files` and raise **P0** if violated.
 
@@ -56,8 +56,8 @@ Compare the diff against the Linear ticket's `Expected Write Set`. Files outside
 
 ## KDR / RCA conventions
 
-- KDR files (`knowledge/kdr-*.md`) follow `knowledge/kdr-dar-template.md`. Once a KDR is merged as `Accepted`, do not change its substantive content (Decision, Context, Options Considered, Evidence, Risks, Revisit Trigger, etc.).
-- The Status and Supersession fields are an explicit exception: per `knowledge/decision-conflict-protocol.md`, when a new KDR supersedes a prior one the prior KDR's `Status:` becomes `Superseded` and `Superseded by:` is set to the new record. Updating those fields is required and is not a content edit.
+- KDR files (`knowledge/kdr-*.md`) follow `knowledge/kdr-dar-template.md`. Strategic decisions are changed by writing a NEW KDR that supersedes the prior one, per `knowledge/decision-conflict-protocol.md` — not by rewriting the prior KDR's substantive content (Decision, Context, Options Considered, Evidence, Risks, etc.).
+- On the prior (superseded) KDR, the Status and Supersession fields ARE expected to be updated per the same protocol: `Status: Superseded`, `Superseded by: <new KDR id>`, plus the reason. These field updates are not content edits.
 - RCA files (`knowledge/rca-*.md`) are evidence/learning artifacts; minor in-place corrections (typos, count fixes, factual refinements that don't change conclusions) are acceptable when called out in the PR body.
 - Status field on a new KDR must match approval state: `Proposed` while awaiting human approval; flipped to `Accepted` in the same PR's final commit if the PR's merge constitutes that approval.
 
@@ -81,7 +81,7 @@ If Copilot's own review fails (returns "Copilot encountered an error..."), the S
 
 Otherwise the correct action is to stop and document the blocker per `execution/ticket-pr-handoff-system.md` "Review Wait And Stop Rules". When reviewing a PR that did use the fallback, verify the cycle/ticket approval is referenced in the fallback comment; flag absence of that reference as **P1**.
 
-When a Claude Code-led PR uses the documented admin merge override (`gh pr merge --admin`) per `.github/branch-protection-policy.md` "Override path", the override usage and rationale must be recorded as a Linear comment on the originating ticket (mirroring this in the PR body is optional but recommended). Flag absence of the Linear audit record as **P1**.
+When a Claude Code-led PR uses the documented admin merge override per `.github/branch-protection-policy.md` "Override path" (either via the GitHub web UI's admin override, by temporarily disabling protection, or via `gh pr merge --admin`), the override usage and rationale must be recorded as a Linear comment on the originating ticket. Mirroring this in the PR body is optional but recommended. Flag absence of the Linear audit record as **P1**.
 
 ## References
 
