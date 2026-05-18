@@ -80,6 +80,16 @@ Use `codex/` for Codex-led work and `claude/` for Claude Code-led work unless th
 
 Do not reuse a branch after its ticket is merged.
 
+### Linear `gitBranchName` field is informational
+
+Linear auto-generates a `gitBranchName` value on every issue, by default `<displayName>/<ticket>-<slug>` (for example `vnatiivis/pip-141-...`). This value is informational only and does not override the executor-prefixed conventions above. When creating a branch:
+
+- Claude Code-led work uses `claude/<ticket>-short-description` (per `CLAUDE.md` "Operating Rules").
+- Codex-led work uses `codex/<ticket>-short-description` (per `AGENTS.md` "Branching").
+- Other work uses `feature/`, `fix/`, or `chore/` per the recommended patterns above.
+
+The Linear-suggested name may be used as a slug source, but the executor prefix takes precedence. Do not push branches under the auto-generated `<displayName>/` prefix when an executor convention applies.
+
 ## Context Boundary
 
 Agents should load the smallest useful context set.
