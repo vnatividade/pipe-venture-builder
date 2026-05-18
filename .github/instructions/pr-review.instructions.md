@@ -26,7 +26,7 @@ The PR description must follow `.github/pull_request_template.md`. Flag the PR i
 
 ## Shared high-risk governance files
 
-A PR that modifies any of these files must serialize and include an explicit per-ticket carve-out statement in the PR body. The canonical list lives in `execution/parallel-execution-governance.md` "Shared High-Risk Files":
+Changes to these files are serialized by default. Per `execution/parallel-execution-governance.md` "Shared High-Risk Files", a PR touching any of them must explain why the change belongs in the current ticket and what other active tickets may be affected. Canonical list:
 
 - `AGENTS.md`
 - `CLAUDE.md`
@@ -42,13 +42,13 @@ A PR that modifies any of these files must serialize and include an explicit per
 - architecture decision records
 - top-level `README.md`
 
-Without an explicit carve-out, raise a **P0** finding. A normal carve-out statement looks like: *"This PR edits `<file>`, which is normally serialized as a shared high-risk file. Project lead granted explicit per-ticket carve-out on `<date>`; documented in the Linear ticket start comment."*
+Without that explanation, raise a **P1** finding. When the project lead has granted an explicit per-ticket carve-out for an autonomous executor, that grant must be referenced in the PR body or Linear ticket start comment (e.g. *"This PR edits `<file>`; project lead granted explicit per-ticket carve-out on `<date>`."*). Absence of explanation OR carve-out reference for an autonomous executor's PR is a **P0** finding.
 
 The Linear ticket template defines a separate field called **Restricted Files** with a stricter meaning: files listed there MUST NOT appear in the diff at all (no carve-out path; the ticket explicitly forbade them). Verify the diff against the ticket's `Restricted Files` and raise **P0** if violated.
 
 ## Branch naming
 
-Branch must start with one of: `claude/`, `codex/`, `feature/`, `fix/`, `chore/`. The canonical rules are in `execution/multi-agent-operating-protocol.md` "Branch Ownership", `CLAUDE.md` (for `claude/<ticket>-...`), and `AGENTS.md` (for `codex/<ticket>-...`). Reject branches under `vnatiivis/` (Linear-auto-generated) or any personal prefix; the Linear `gitBranchName` field is informational only.
+Branches should follow the recommended patterns in `execution/multi-agent-operating-protocol.md` "Branch Ownership": `claude/<ticket>-...` for Claude Code-led work (per `CLAUDE.md`), `codex/<ticket>-...` for Codex-led work (per `AGENTS.md`), or `feature/`, `fix/`, `chore/` as appropriate. Per that same section, branches under the auto-generated `<displayName>/` prefix (Linear's `gitBranchName` field, which is informational only) should not be pushed when an executor convention applies. Flag a personal-prefix branch on an executor-led PR as **P2**.
 
 ## Scope discipline
 
