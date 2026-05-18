@@ -58,8 +58,8 @@ Compare the diff against the Linear ticket's `Expected Write Set`. Files outside
 
 - KDR files (`knowledge/kdr-*.md`) follow `knowledge/kdr-dar-template.md`. Strategic decisions are changed by writing a NEW KDR that supersedes the prior one, per `knowledge/decision-conflict-protocol.md` — not by rewriting the prior KDR's substantive content (Decision, Context, Options Considered, Evidence, Risks, etc.).
 - On the prior (superseded) KDR, the Status and Supersession fields ARE expected to be updated per the same protocol: `Status: Superseded`, `Superseded by: <new KDR id>`, plus the reason. These field updates are not content edits.
-- RCA files (`knowledge/rca-*.md`) are evidence/learning artifacts; minor in-place corrections (typos, count fixes, factual refinements that don't change conclusions) are acceptable when called out in the PR body.
-- Status field on a new KDR must match approval state: `Proposed` while awaiting human approval; flipped to `Accepted` in the same PR's final commit if the PR's merge constitutes that approval.
+- RCA files (`knowledge/rca-*.md`) are evidence/learning artifacts. (Reviewer convention, not canonical: minor in-place corrections such as typos, count fixes, or factual refinements that don't change conclusions are acceptable when called out in the PR body. This convention emerged in PIP-143 and is not codified.)
+- (Reviewer convention, not canonical: a new KDR may carry `Status: Proposed` while awaiting human approval and be flipped to `Accepted` in the same PR's final commit if the PR's merge constitutes that approval. This convention emerged in PIP-139 / KDR-002 and is not codified in `knowledge/kdr-dar-template.md`. Treat divergence as a reviewer note, not a finding.)
 
 ## Severity classification
 
