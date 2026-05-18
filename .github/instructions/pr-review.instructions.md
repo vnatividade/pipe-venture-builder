@@ -65,7 +65,7 @@ Compare the diff against the Linear ticket's `Expected Write Set`. Files outside
 
 When raising findings, use:
 
-- **P0** — critical, blocking, production/security risk, data loss, governance-rule violation, shared-high-risk-file edit without carve-out, or any change to a file listed in the ticket's Restricted Files.
+- **P0** — critical, blocking, production/security risk, data loss, governance-rule violation, or any change to a file listed in the ticket's `Restricted Files` field. (Edits to shared high-risk governance files are classified separately: missing explanation is **P1**; see "Shared high-risk governance files" above.)
 - **P1** — relevant correctness issue, likely regression, missing test on critical flow, factual error in governance documentation.
 - **P2** — important improvement that's not blocking; fix only if simple, safe, and in-scope.
 - **P3** — cosmetic, style, small improvement.
