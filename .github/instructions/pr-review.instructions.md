@@ -63,14 +63,20 @@ Compare the diff against the Linear ticket's `Expected Write Set`. Files outside
 
 ## Severity classification
 
-When raising findings, use:
+When raising findings, use the canonical severity model from `execution/approval-gates.md`:
 
-- **P0** — critical, blocking, production/security risk, data loss, governance-rule violation, or any change to a file listed in the ticket's `Restricted Files` field. (Edits to shared high-risk governance files are classified separately: missing explanation is **P1**; see "Shared high-risk governance files" above.)
-- **P1** — relevant correctness issue, likely regression, missing test on critical flow, factual error in governance documentation.
-- **P2** — important improvement that's not blocking; fix only if simple, safe, and in-scope.
-- **P3** — cosmetic, style, small improvement.
+- **P0** — critical, blocking, production risk, security risk, data loss, or unsafe external impact.
+- **P1** — relevant bug, likely regression, important architecture issue, or missing test on critical flow.
+- **P2** — important improvement that is not blocking.
+- **P3** — cosmetic suggestion, style preference, or small improvement.
 
-P0 and P1 block merge. P2 fixed only if trivial and in scope. P3 does not block merge. See `execution/approval-gates.md`.
+P0 and P1 findings block merge. P2 findings are fixed only when simple, safe, and inside the current ticket scope. P3 findings do not block merge.
+
+Governance-specific classification guidance for this repository (not part of the canonical model; applied by this reviewer-checklist):
+
+- A diff that includes a file listed in the ticket's `Restricted Files` field → treat as **P0** under "governance-rule violation" interpretation of the canonical P0 definition (the ticket explicitly forbade the change).
+- A diff touching a shared high-risk governance file (see "Shared high-risk governance files" above) without the required explanation → treat as **P1** under "important architecture issue" interpretation (governance drift risk).
+- A factual error in governance documentation that could mislead future agents → **P1** under the same interpretation.
 
 ## Manual fallback awareness
 
@@ -81,7 +87,7 @@ If Copilot's own review fails (returns "Copilot encountered an error..."), the S
 
 Otherwise the correct action is to stop and document the blocker per `execution/ticket-pr-handoff-system.md` "Review Wait And Stop Rules". When reviewing a PR that did use the fallback, verify the cycle/ticket approval is referenced in the fallback comment; flag absence of that reference as **P1**.
 
-When a Claude Code-led PR uses the documented admin merge override per `.github/branch-protection-policy.md` "Override path" (either via the GitHub web UI's admin override, by temporarily disabling protection, or via `gh pr merge --admin`), the override usage and rationale must be recorded as a Linear comment on the originating ticket. Mirroring this in the PR body is optional but recommended. Flag absence of the Linear audit record as **P1**.
+When a Claude Code-led PR uses the documented admin merge override per `.github/branch-protection-policy.md` "Override path" (the GitHub web UI's admin override or temporarily disabling the protection rule), the override usage and rationale must be recorded as a Linear comment on the originating ticket. Mirroring this in the PR body is optional but recommended. Flag absence of the Linear audit record as **P1**.
 
 ## References
 
