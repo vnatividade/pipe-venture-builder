@@ -43,6 +43,7 @@ Use this validator with:
 | Definition of Ready | DoR states the minimum conditions to start work and no start blocker remains open. | READY / READY WITH APPROVAL / NOT READY / BLOCKED |
 | Definition of Done | DoD states objective completion, validation, review, handoff, and merge expectations. | READY / READY WITH APPROVAL / NOT READY / BLOCKED |
 | Validation Plan | Expected validation commands, manual checks, and unavailable checks are clear. | READY / READY WITH APPROVAL / NOT READY / BLOCKED |
+| Market Validation Before Code | Product PRD, architecture, implementation, growth, monetization, and customer-facing build tickets link a GO or approved CONDITIONAL GO from `validation/market-validation-before-code-gate.md`; non-product governance, documentation, research, or internal operating tickets explicitly record `Gate decision: NOT APPLICABLE`. | READY / READY WITH APPROVAL / NOT READY / BLOCKED |
 | Parallelization | Parallelizable value and notes explain whether work is yes, no, or partial. | READY / READY WITH APPROVAL / NOT READY / BLOCKED |
 | Write Set | Expected write set and restricted files are declared and narrow enough. | READY / READY WITH APPROVAL / NOT READY / BLOCKED |
 | Risk Level | Risk level is stated and no unresolved P0/P1 risk blocks execution. | READY / READY WITH APPROVAL / NOT READY / BLOCKED |

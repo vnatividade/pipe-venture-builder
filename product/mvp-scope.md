@@ -4,11 +4,15 @@ Use this template after founder focus, C.O.N.T.R.O.L.E., validation scorecard, a
 
 The MVP is the smallest ethical test of the riskiest business assumption. It is not the smallest feature set, a launch backlog, or a platform foundation.
 
+Before this artifact creates architecture or implementation tickets, apply `validation/market-validation-before-code-gate.md`.
+
 ## Required Inputs
 
 - Founder focus:
 - C.O.N.T.R.O.L.E. verdict:
 - Validation scorecard result:
+- Market Validation Before Code gate decision:
+- Market Validation Before Code approval record or blocker:
 - ICP profile:
 - Customer-language memory:
 - Date:

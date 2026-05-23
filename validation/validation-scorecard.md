@@ -4,6 +4,8 @@ Use this scorecard after `product/founder-focus.md` and `product/controle-evalua
 
 This template decides whether an idea has enough measurable validation to move toward PRD, build tickets, growth, or monetization. It cannot be satisfied by internal opinion, synthetic personas, or founder excitement alone.
 
+Before creating downstream PRD, architecture, implementation, growth, monetization, or customer-facing build tickets, apply `validation/market-validation-before-code-gate.md`.
+
 ## Required Inputs
 
 - Founder focus artifact:
@@ -15,6 +17,9 @@ This template decides whether an idea has enough measurable validation to move t
 - Primary problem:
 - Offer:
 - Primary channel:
+- PMF triad - what to sell:
+- PMF triad - to whom:
+- PMF triad - how to reach:
 
 Only continue if the C.O.N.T.R.O.L.E. verdict is Attack or Refine with human approval.
 
@@ -92,6 +97,7 @@ Answer directly.
 - Score interpretation:
 - Decision: GO / CONDITIONAL GO / REFINE / NO-GO
 - Rationale:
+- Market Validation Before Code gate decision:
 - Required human approval before build-ticket creation:
 - Approval record or blocker:
 - Next validation action:
