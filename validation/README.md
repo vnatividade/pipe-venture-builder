@@ -20,7 +20,7 @@ Validation should prioritize behavior, urgency, willingness to engage, repeated 
 
 The validation scorecard must link back to founder focus and C.O.N.T.R.O.L.E. before PRD, build, growth, or monetization work.
 
-The [Market Validation Before Code Gate](market-validation-before-code-gate.md) must be applied before product PRD, architecture, implementation, growth, monetization, or customer-facing build tickets. For governance-only, documentation-only, research-only, or internal operating tickets, record the gate as not applicable instead of blocking execution.
+The [Market Validation Before Code Gate](market-validation-before-code-gate.md) must be applied before product PRD, architecture, implementation, growth, monetization, or customer-facing build tickets. For governance-only, documentation-only, research-only, or internal operating tickets, record `Gate decision: NOT APPLICABLE` instead of blocking execution.
 
 Customer discovery artifacts must distinguish exact quotes, observed evidence, assumptions, and synthesis. Fictional personas do not count as real interviews.
 

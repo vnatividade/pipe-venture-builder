@@ -37,7 +37,7 @@ Do not apply this gate as a blocker to:
 - research-only tickets
 - analysis or synthesis artifacts that do not authorize build work
 
-For non-product repository work, record this gate as `Not applicable - non-product/governance scope`.
+For non-product repository work, record `Gate decision: NOT APPLICABLE` and use the rationale field to note the non-product, governance, documentation, research, template, or internal operating scope.
 
 ## Required Inputs
 
