@@ -6,6 +6,8 @@ A PRD translates validated learning into product decisions. It must not invent c
 
 Do not create this PRD when validation is still internal opinion, synthetic persona output, or an unresolved C.O.N.T.R.O.L.E. Pivot / Kill.
 
+Before creating this PRD, apply `validation/market-validation-before-code-gate.md`. Continue only when the gate decision is GO or an explicitly approved CONDITIONAL GO.
+
 ## Required Inputs
 
 - Product or idea name:
@@ -16,6 +18,8 @@ Do not create this PRD when validation is still internal opinion, synthetic pers
 - C.O.N.T.R.O.L.E. verdict:
 - Validation scorecard:
 - Validation decision:
+- Market Validation Before Code gate decision:
+- Market Validation Before Code approval record or blocker:
 - ICP profile:
 - Customer-language memory:
 - MVP scope gate:
@@ -41,6 +45,18 @@ State the problem using sourced evidence.
 - What is still assumption:
 
 Do not treat assumptions as requirements.
+
+## PMF Triad
+
+Summarize the market validation that justifies creating this PRD.
+
+| Element | Decision | Source artifact | Remaining uncertainty |
+|---|---|---|---|
+| What to sell |  |  |  |
+| To whom |  |  |  |
+| How to reach them |  |  |  |
+
+If any element is broad, unsourced, or only internally assumed, stop and return to validation.
 
 ## ICP And User Boundary
 
@@ -151,6 +167,8 @@ The PRD is ready for architecture review when:
 
 - C.O.N.T.R.O.L.E. verdict is linked and not Pivot or Kill
 - validation scorecard is linked and supports GO or approved CONDITIONAL GO
+- Market Validation Before Code gate decision is GO or approved CONDITIONAL GO
+- PMF triad is specific and sourced
 - ICP profile is linked and specific
 - MVP core loop is copied from `product/mvp-scope.md`
 - non-goals are explicit and binding
