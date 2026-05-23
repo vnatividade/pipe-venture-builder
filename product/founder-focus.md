@@ -4,6 +4,8 @@ Use this template before C.O.N.T.R.O.L.E. evaluation and validation planning.
 
 The goal is to force one focused starting point for a solo founder. Do not use this document to justify a broad platform, multi-audience launch, or multi-channel growth plan.
 
+This focus statement becomes the first draft of the PMF triad used later in `validation/venture-validation-framework.md`: what to sell, to whom, and how to reach them.
+
 ## Focus Statement
 
 Complete this in one sentence.

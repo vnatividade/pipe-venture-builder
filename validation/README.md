@@ -10,6 +10,7 @@ Planned artifacts:
 - [customer data retention policy](customer-data-retention-policy.md)
 - [`icp-profile.md`](icp-profile.md)
 - [`market-validation-before-code-gate.md`](market-validation-before-code-gate.md)
+- [`venture-validation-framework.md`](venture-validation-framework.md)
 - experiment test card
 - learning card
 - GO / NO-GO decision record
@@ -21,6 +22,8 @@ Validation should prioritize behavior, urgency, willingness to engage, repeated 
 The validation scorecard must link back to founder focus and C.O.N.T.R.O.L.E. before PRD, build, growth, or monetization work.
 
 The [Market Validation Before Code Gate](market-validation-before-code-gate.md) must be applied before product PRD, architecture, implementation, growth, monetization, or customer-facing build tickets. For governance-only, documentation-only, research-only, or internal operating tickets, record `Gate decision: NOT APPLICABLE` instead of blocking execution.
+
+The [Venture Validation Framework](venture-validation-framework.md) adds MAYA, the 8 Innovation Flavors, and the PMF triad as upstream validation lenses. These are heuristics for better questions, not rigid scores or replacements for C.O.N.T.R.O.L.E.
 
 Customer discovery artifacts must distinguish exact quotes, observed evidence, assumptions, and synthesis. Fictional personas do not count as real interviews.
 
