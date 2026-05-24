@@ -4,7 +4,7 @@ Use this framework during validation planning and before the validation scorecar
 
 This framework adds three upstream lenses to the Pipe validation flow:
 
-- MAYA adoption fit
+- MAYA adoption risk
 - 8 Innovation Flavors
 - PMF triad
 
