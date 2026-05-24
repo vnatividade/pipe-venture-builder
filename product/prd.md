@@ -67,13 +67,14 @@ Use `architecture/proprietary-data-moat-strategy.md` when the venture depends on
 |---|---|---|---|
 | Data moat hypothesis |  |  |  |
 | Why it compounds |  |  |  |
-| Data category | Strategic learning / operational workflow data / customer evidence / sensitive / prohibited / synthetic / public-reference |  |  |
+| Data category | Strategic learning / operational workflow data / customer evidence / sensitive / prohibited / synthetic / Public/reference data |  |  |
 | Allowed capture |  |  |  |
 | Data explicitly avoided |  |  |  |
 | Learning loop |  |  |  |
 | Promotion criteria |  |  |  |
 | Retention expectation |  |  |  |
 | Privacy or trust risk |  |  |  |
+| Mitigation |  |  |  |
 
 If the MVP does not depend on a data moat yet, state that explicitly. Do not convert synthetic examples, internal assumptions, or generic model output into customer evidence.
 
