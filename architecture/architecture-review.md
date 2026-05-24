@@ -11,6 +11,7 @@ Architecture should support the smallest ethical MVP test. It must not propose p
 - Reviewer:
 - Lean PRD:
 - Data moat strategy, if applicable:
+- API dependency risk assessment, if applicable:
 - MVP scope gate:
 - MVP decision: GO / approved CONDITIONAL GO
 - MVP core loop:
@@ -85,6 +86,22 @@ Sensitive or prohibited data categories remain blockers unless an explicit appro
 |  | yes/no |  |  |  |
 
 If an integration is not needed to test the riskiest assumption, defer it.
+
+If the PRD includes API dependency risk, verify it against `architecture/api-dependency-risk-assessment.md`.
+
+| API dependency field | Architecture decision | Risk or blocker |
+|---|---|---|
+| External dependency |  |  |
+| Dependency role |  |  |
+| MVP necessity |  |  |
+| Substitution risk |  |  |
+| Provider-change risk |  |  |
+| Defensibility beyond API |  |  |
+| Mitigation |  |  |
+| Fallback path |  |  |
+| Revisit trigger |  |  |
+
+Medium or high API dependency risk without mitigation remains blocking before implementation tickets.
 
 ## Failure Modes And Edge Cases
 
