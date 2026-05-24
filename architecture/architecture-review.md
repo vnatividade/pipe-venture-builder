@@ -10,6 +10,7 @@ Architecture should support the smallest ethical MVP test. It must not propose p
 - Date:
 - Reviewer:
 - Lean PRD:
+- Data moat strategy, if applicable:
 - MVP scope gate:
 - MVP decision: GO / approved CONDITIONAL GO
 - MVP core loop:
@@ -62,6 +63,19 @@ Describe the smallest technical shape that can validate the MVP core loop.
 |  |  |  |  | yes/no | yes/no |
 
 Do not include secrets, credentials, private keys, production data, or customer data unless explicit approval and storage rules exist.
+
+If the PRD includes a Data Moat Hypothesis, verify it against `architecture/proprietary-data-moat-strategy.md`.
+
+| Data moat field | Architecture decision | Risk or blocker |
+|---|---|---|
+| Allowed capture |  |  |
+| Data explicitly avoided |  |  |
+| Learning loop support |  |  |
+| Promotion criteria |  |  |
+| Retention expectation |  |  |
+| Privacy or trust mitigation |  |  |
+
+Sensitive or prohibited data categories remain blockers unless an explicit approval record and storage boundary exist.
 
 ## Integration Boundary
 

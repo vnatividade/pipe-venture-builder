@@ -43,6 +43,7 @@ Do not use conversation memory as the only source for a durable knowledge update
 | Customer-language memory | Preserves exact customer language separately from synthesis. | Real interviews, approved source artifacts, customer objections or triggers. |
 | Handoff notes | Keeps future agents able to continue without chat memory. | Every merged PR or completed Linear ticket. |
 | Agentic operations learning | Captures recurring execution metrics or operating patterns from Codex, Claude Code, or future agents. | Batch-level pattern changes future sequencing, readiness, validation, parallelization, handoff, or orchestration decisions. |
+| Data moat learning | Captures validated learning loops, evidence boundaries, and defensibility assumptions that should influence future PRDs or architecture reviews. | A PRD, MVP, research artifact, or architecture review identifies a reusable proprietary data or workflow-learning pattern. |
 
 ## Update Cadence By Phase
 
@@ -58,6 +59,7 @@ Do not use conversation memory as the only source for a durable knowledge update
 | MVP scope | Record riskiest assumption, smallest ethical test, cuts, and threshold. |
 | Risk review | Record accepted risks, blocked risks, and required mitigations. |
 | Architecture | Record decisions, tradeoffs, constraints, and ADR links. |
+| Data moat strategy | Record only sourced, reusable learning that changes PRD, architecture, validation, or knowledge promotion decisions. |
 | Ticket execution | Record branch, PR, validations, review findings, merge status, and follow-ups. |
 | Agentic operations review | Record only recurring metric patterns that change future execution decisions. Routine per-ticket metrics stay in Linear handoffs. |
 | Trial / feedback | Record observed behavior, learning, decision impact, and next action. |
