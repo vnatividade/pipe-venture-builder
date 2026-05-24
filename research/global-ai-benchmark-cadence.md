@@ -19,7 +19,7 @@ Pipe should stay aware of relevant AI shifts in both Silicon Valley and China:
 
 The goal is not trend-chasing. The goal is to decide what should become:
 
-- a LearningRecord or knowledge update
+- a learning record or knowledge update
 - a KDR/DAR or architectural decision
 - a Linear backlog item
 - a parking-lot item for later review
@@ -65,7 +65,7 @@ Use one row per benchmark signal.
 | Evidence | What the source actually shows |
 | Risk | Why this may be hype, incomplete, unsafe, or not durable |
 | Relevance to Pipe | Which Pipe pillar or workflow it affects |
-| Action | LearningRecord / KDR-DAR / Linear backlog / parking lot / discard |
+| Action | learning record / knowledge update / KDR-DAR / Linear backlog / parking lot / discard |
 | Confidence | Low / Medium / High |
 | Revisit trigger | What would make this more or less important? |
 
@@ -73,7 +73,7 @@ Every row must separate trend, evidence, risk, relevance, and action.
 
 ## Action Rules
 
-### LearningRecord or knowledge update
+### Learning record or knowledge update
 
 Use when the benchmark changes how future agents should reason, validate, or execute.
 
@@ -145,7 +145,7 @@ This short validation confirms the template can separate trend, evidence, risk, 
 
 | Source | Trend | Evidence | Risk | Relevance to Pipe | Action | Confidence |
 |---|---|---|---|---|---|---|
-| [OpenAI Agents SDK docs](https://platform.openai.com/docs/guides/agents-sdk) | Agent SDKs are standardizing handoffs, tools, streaming, and tracing. | Official docs describe agentic applications with tools, handoffs, streaming, and trace history. | Vendor-specific defaults may not generalize across providers. | Reinforces Pipe's need for model/tool-agnostic execution protocols and traceable handoff. | LearningRecord / backlog only when implementation gap is concrete. | High |
+| [OpenAI Agents SDK docs](https://platform.openai.com/docs/guides/agents-sdk) | Agent SDKs are standardizing handoffs, tools, streaming, and tracing. | Official docs describe agentic applications with tools, handoffs, streaming, and trace history. | Vendor-specific defaults may not generalize across providers. | Reinforces Pipe's need for model/tool-agnostic execution protocols and traceable handoff. | Learning record or backlog only when implementation gap is concrete. | High |
 | [OpenAI Agents SDK evolution](https://openai.com/index/the-next-evolution-of-the-agents-sdk) | Agent execution is moving toward sandboxed computer use, MCP, skills, and AGENTS.md-style instruction layers. | OpenAI describes MCP support, skills, AGENTS.md, shell, and apply patch primitives for agent work. | Product announcement language may overstate maturity. | Reinforces current Codex/Claude baseline and future orchestrator readiness. | KDR/DAR candidate after multi-agent baseline stabilizes. | Medium |
 | [Anthropic MCP announcement](https://www.anthropic.com/research/model-context-protocol) | MCP is becoming a common connector pattern for AI tools and data. | Anthropic introduced MCP as an open protocol connecting AI systems to external tools and data. | Connector standards can create security and governance risk if adopted casually. | Supports Pipe's MCP/connectors strategy, but requires approval gates and source boundaries. | Parking lot for implementation; use for architecture awareness now. | High |
 | [LangGraph docs](https://docs.langchain.com/langgraph) | Stateful agent workflows emphasize persistence, observability, and evaluation. | Official docs position LangGraph for long-running, stateful workflows with observability/evaluation paths. | Framework adoption can create premature infrastructure gravity. | Reinforces need to keep orchestration future-facing, not immediate. | Parking lot / revisit after Codex + Claude baseline. | Medium |
@@ -155,9 +155,9 @@ This short validation confirms the template can separate trend, evidence, risk, 
 
 | Source | Trend | Evidence | Risk | Relevance to Pipe | Action | Confidence |
 |---|---|---|---|---|---|---|
-| [Alibaba Qwen3 announcement](https://alihome.alibaba-inc.com/en-US/document-1853940226976645120) | Chinese model platforms emphasize hybrid reasoning, multilingual capability, and agent capability. | Alibaba announced Qwen3 with dense/MoE models and agent-capability positioning. | Launch claims do not prove product adoption. | Reinforces model-agnostic architecture and provider benchmarking. | LearningRecord only if model selection becomes active. | Medium |
+| [Alibaba Qwen3 announcement](https://alihome.alibaba-inc.com/en-US/document-1853940226976645120) | Chinese model platforms emphasize hybrid reasoning, multilingual capability, and agent capability. | Alibaba announced Qwen3 with dense/MoE models and agent-capability positioning. | Launch claims do not prove product adoption. | Reinforces model-agnostic architecture and provider benchmarking. | Learning record only if model selection becomes active. | Medium |
 | [Alibaba Qwen + Taobao integration](https://www.alibabagroup.com/document-1991231293551017984) | Agentic commerce is moving from search/chat into transaction execution. | Alibaba says Qwen is embedded across Taobao's commerce stack as interface and executor. | Company announcement; adoption and user outcomes need independent validation. | Relevant to future agent-ready products and commerce, not immediate Pipe MVP. | Parking lot / future agentic commerce ticket. | Medium |
-| [Tencent scenario-based AI capabilities](https://www.tencent.net.cn/tencent-announces-global-rollout-of-scenario-based-ai-capabilities-to-accelerate-industrial-efficiency/) | Chinese platforms package AI as scenario-specific enterprise capabilities. | Tencent announced intelligent agent applications, SaaS + AI solutions, and model upgrades. | Broad platform announcement can blur actual usage. | Supports vertical workflow-depth lens and API dependency mitigation. | LearningRecord for verticalization pattern. | Medium |
+| [Tencent scenario-based AI capabilities](https://www.tencent.net.cn/tencent-announces-global-rollout-of-scenario-based-ai-capabilities-to-accelerate-industrial-efficiency/) | Chinese platforms package AI as scenario-specific enterprise capabilities. | Tencent announced intelligent agent applications, SaaS + AI solutions, and model upgrades. | Broad platform announcement can blur actual usage. | Supports vertical workflow-depth lens and API dependency mitigation. | Learning record for verticalization pattern. | Medium |
 | [SCMP on Yuanbao in WeChat](https://www.scmp.com/tech/big-tech/article/3303934/tencent-adds-ai-chatbot-friend-wechat-keep-users-glued-super-app) | AI assistants are being embedded into superapp distribution surfaces. | SCMP reports Tencent integrated Yuanbao into WeChat, giving users access without separate app install. | Paywalled/secondary reporting; usage depth must be validated. | Important for distribution thinking, but not directly portable to Pipe now. | Parking lot for distribution strategy. | Medium |
 | [Baidu ERNIE 4.5/X1 announcement](https://www.prnewswire.com/news-releases/baidu-unveils-ernie-4-5-and-reasoning-model-ernie-x1--makes-ernie-bot-free-ahead-of-schedule-302402490.html) | China model providers are reducing access friction and model cost. | Baidu announced ERNIE 4.5/X1 availability and API access through Qianfan with stated pricing. | PRNewswire/company release; pricing and performance can change. | Reinforces model economics monitoring and provider-change risk assessment. | Benchmark watch item; no ticket unless model economics affect build decisions. | Medium |
 
