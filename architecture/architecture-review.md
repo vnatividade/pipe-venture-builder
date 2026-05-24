@@ -73,7 +73,7 @@ If the PRD includes a Data Moat Hypothesis, verify it against `architecture/prop
 | Learning loop support |  |  |
 | Promotion criteria |  |  |
 | Retention expectation |  |  |
-| Privacy or trust risk |  |  |
+| Privacy/trust risk |  |  |
 | Mitigation |  |  |
 
 Sensitive or prohibited data categories remain blockers unless an explicit approval record and storage boundary exist.

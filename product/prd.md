@@ -73,7 +73,7 @@ Use `architecture/proprietary-data-moat-strategy.md` when the venture depends on
 | Learning loop |  |  |  |
 | Promotion criteria |  |  |  |
 | Retention expectation |  |  |  |
-| Privacy or trust risk |  |  |  |
+| Privacy/trust risk |  |  |  |
 | Mitigation |  |  |  |
 
 If the MVP does not depend on a data moat yet, state that explicitly. Do not convert synthetic examples, internal assumptions, or generic model output into customer evidence.
