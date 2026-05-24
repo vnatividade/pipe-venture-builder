@@ -20,6 +20,7 @@ Before creating this PRD, apply `validation/market-validation-before-code-gate.m
 - Validation decision:
 - Market Validation Before Code gate decision:
 - Market Validation Before Code approval record or blocker:
+- Data moat strategy, if applicable:
 - ICP profile:
 - Customer-language memory:
 - MVP scope gate:
@@ -57,6 +58,24 @@ Summarize the market validation that justifies creating this PRD.
 | How to reach them |  |  |  |
 
 If any element is broad, unsourced, or only internally assumed, stop and return to validation.
+
+## Data Moat Hypothesis
+
+Use `architecture/proprietary-data-moat-strategy.md` when the venture depends on proprietary data, workflow learning, personalization, accumulated evidence, or operational feedback.
+
+| Field | Decision | Source artifact | Risk or uncertainty |
+|---|---|---|---|
+| Data moat hypothesis |  |  |  |
+| Why it compounds |  |  |  |
+| Data category | Strategic learning / operational workflow data / customer evidence / sensitive / prohibited / synthetic / public-reference |  |  |
+| Allowed capture |  |  |  |
+| Data explicitly avoided |  |  |  |
+| Learning loop |  |  |  |
+| Promotion criteria |  |  |  |
+| Retention expectation |  |  |  |
+| Privacy or trust risk |  |  |  |
+
+If the MVP does not depend on a data moat yet, state that explicitly. Do not convert synthetic examples, internal assumptions, or generic model output into customer evidence.
 
 ## ICP And User Boundary
 
@@ -169,6 +188,7 @@ The PRD is ready for architecture review when:
 - validation scorecard is linked and supports GO or approved CONDITIONAL GO
 - Market Validation Before Code gate decision is GO or approved CONDITIONAL GO
 - PMF triad is specific and sourced
+- data moat hypothesis is completed or explicitly marked not applicable
 - ICP profile is linked and specific
 - MVP core loop is copied from `product/mvp-scope.md`
 - non-goals are explicit and binding

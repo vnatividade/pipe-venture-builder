@@ -10,6 +10,7 @@ Planned artifacts:
 - system design
 - technical constraints
 - [architecture review template](architecture-review.md)
+- [proprietary data moat strategy](proprietary-data-moat-strategy.md)
 - [technical decision guide](technical-decision-guide.md)
 - [RFC template](rfc-template.md)
 - architecture decision records in `adr/`
