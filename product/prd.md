@@ -21,6 +21,7 @@ Before creating this PRD, apply `validation/market-validation-before-code-gate.m
 - Market Validation Before Code gate decision:
 - Market Validation Before Code approval record or blocker:
 - Data moat strategy, if applicable:
+- API dependency risk assessment, if applicable:
 - ICP profile:
 - Customer-language memory:
 - MVP scope gate:
@@ -77,6 +78,25 @@ Use `architecture/proprietary-data-moat-strategy.md` when the venture depends on
 | Mitigation |  |  |  |
 
 If the MVP does not depend on a data moat yet, state that explicitly. Do not convert synthetic examples, internal assumptions, or generic model output into customer evidence.
+
+## API Dependency Risk
+
+Use `architecture/api-dependency-risk-assessment.md` when the venture depends on public APIs, model providers, third-party platforms, marketplaces, app stores, enterprise systems, or integration partners.
+
+| Field | Decision | Source artifact | Risk or uncertainty |
+|---|---|---|---|
+| External dependency |  |  |  |
+| Dependency role | Core value / workflow support / infrastructure / optional enhancement |  |  |
+| MVP necessity | Required for MVP / can be manual / can be deferred |  |  |
+| Risk level | Low / Medium / High |  |  |
+| Substitution risk | Low / Medium / High |  |  |
+| Provider-change risk | Pricing / rate limits / policy / model behavior / roadmap / availability / permissions |  |  |
+| Defensibility beyond API | Workflow depth / proprietary data / UX / compliance / distribution / integration moat / trust / switching cost |  |  |
+| Mitigation |  |  |  |
+| Fallback path |  |  |  |
+| Revisit trigger |  |  |  |
+
+Medium or high API dependency risk without explicit mitigation is a blocker before architecture or implementation tickets. If the MVP does not materially depend on external APIs, state that explicitly.
 
 ## ICP And User Boundary
 
@@ -190,6 +210,8 @@ The PRD is ready for architecture review when:
 - Market Validation Before Code gate decision is GO or approved CONDITIONAL GO
 - PMF triad is specific and sourced
 - data moat hypothesis is completed or explicitly marked not applicable
+- API dependency risk is completed or explicitly marked not applicable
+- API dependency risk is Low, or Medium/High risk has explicit mitigation and fallback
 - ICP profile is linked and specific
 - MVP core loop is copied from `product/mvp-scope.md`
 - non-goals are explicit and binding
