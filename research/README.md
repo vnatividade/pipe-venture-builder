@@ -7,6 +7,7 @@ This area should support product decisions with market, customer, scientific, te
 Planned artifacts:
 
 - [evidence scoring system](evidence-scoring-system.md)
+- [global AI benchmark cadence](global-ai-benchmark-cadence.md)
 - [idea ranking engine design](idea-ranking-engine-design.md)
 - [market research workflow](market-research-workflow.md)
 - [market signal ingestion template](market-signal-ingestion-template.md)
