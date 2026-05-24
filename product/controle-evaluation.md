@@ -4,6 +4,8 @@ Use this template as the required strategic gate before PRD, implementation tick
 
 This gate does not replace customer evidence. It decides whether an idea is strategically coherent enough to enter validation and product definition.
 
+After this gate, use `validation/venture-validation-framework.md` to sharpen MAYA adoption risk, the primary innovation flavor, and the PMF triad before scoring evidence. Those lenses do not replace C.O.N.T.R.O.L.E.; they help design better validation questions.
+
 ## Idea Snapshot
 
 - Idea name:

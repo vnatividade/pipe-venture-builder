@@ -4,6 +4,8 @@ Use this scorecard after `product/founder-focus.md` and `product/controle-evalua
 
 This template decides whether an idea has enough measurable validation to move toward PRD, build tickets, growth, or monetization. It cannot be satisfied by internal opinion, synthetic personas, or founder excitement alone.
 
+Use `validation/venture-validation-framework.md` before scoring when the idea needs clearer adoption, innovation-pattern, or PMF-triad questions. MAYA, the 8 Innovation Flavors, and PMF triad are heuristics for validation design; they are not scores and do not replace C.O.N.T.R.O.L.E.
+
 Before creating downstream PRD, architecture, implementation, growth, monetization, or customer-facing build tickets, apply `validation/market-validation-before-code-gate.md`.
 
 ## Required Inputs
@@ -20,6 +22,8 @@ Before creating downstream PRD, architecture, implementation, growth, monetizati
 - PMF triad - what to sell:
 - PMF triad - to whom:
 - PMF triad - how to reach:
+- MAYA adoption risk:
+- Primary innovation flavor:
 
 Only continue if the C.O.N.T.R.O.L.E. verdict is Attack or Refine with human approval.
 
@@ -30,7 +34,20 @@ Only continue if the C.O.N.T.R.O.L.E. verdict is Attack or Refine with human app
 - Repeated urgency is stronger than one-off curiosity.
 - Willingness to pay or commit time is stronger than praise.
 - Synthetic persona output may help generate hypotheses, but it is not validation evidence.
+- MAYA, the 8 Innovation Flavors, and PMF triad help frame questions, but they do not count as validation evidence by themselves.
 - Paid ads, automated outreach, and build work remain blocked until explicitly approved.
+
+## Upstream Validation Lenses
+
+Summarize the lenses used before scoring.
+
+| Lens | Summary | Evidence or assumption | Risk if wrong |
+|---|---|---|---|
+| MAYA | What is advanced yet acceptable about the idea? |  |  |
+| 8 Innovation Flavors | Which flavor best describes the opportunity? |  |  |
+| PMF triad | What to sell, to whom, and how to reach them? |  |  |
+
+If these lenses are based only on internal reasoning, keep the relevant scorecard categories low until external evidence exists.
 
 ## Scorecard
 
@@ -86,6 +103,9 @@ Answer directly.
 - What painful behavior have we observed, not just heard?
 - What is the current workaround and why is it insufficient?
 - Who is excluded from the first ICP?
+- What makes the idea acceptable enough for the user to adopt now?
+- Which innovation flavor is being tested, and what observable friction supports it?
+- What is the PMF triad in one sentence: what to sell, to whom, and how to reach them?
 - What is the smallest wedge that can prove the promise?
 - What evidence would change the C.O.N.T.R.O.L.E. verdict?
 - What would make this idea a Kill decision?
