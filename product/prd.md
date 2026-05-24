@@ -88,6 +88,7 @@ Use `architecture/api-dependency-risk-assessment.md` when the venture depends on
 | External dependency |  |  |  |
 | Dependency role | Core value / workflow support / infrastructure / optional enhancement |  |  |
 | MVP necessity | Required for MVP / can be manual / can be deferred |  |  |
+| Risk level | Low / Medium / High |  |  |
 | Substitution risk | Low / Medium / High |  |  |
 | Provider-change risk | Pricing / rate limits / policy / model behavior / roadmap / availability / permissions |  |  |
 | Defensibility beyond API | Workflow depth / proprietary data / UX / compliance / distribution / integration moat / trust / switching cost |  |  |
@@ -210,6 +211,7 @@ The PRD is ready for architecture review when:
 - PMF triad is specific and sourced
 - data moat hypothesis is completed or explicitly marked not applicable
 - API dependency risk is completed or explicitly marked not applicable
+- API dependency risk is Low, or Medium/High risk has explicit mitigation and fallback
 - ICP profile is linked and specific
 - MVP core loop is copied from `product/mvp-scope.md`
 - non-goals are explicit and binding

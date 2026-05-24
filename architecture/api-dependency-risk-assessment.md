@@ -86,6 +86,7 @@ Use these fields in PRD and architecture review when external APIs or provider c
 | External dependency | Which API, model, platform, integration, or provider is required? |
 | Dependency role | Core value / workflow support / infrastructure / optional enhancement. |
 | MVP necessity | Required for MVP / can be manual / can be deferred. |
+| Risk level | Low / Medium / High, with reason. |
 | Substitution risk | Low / Medium / High, with reason. |
 | Provider-change risk | Pricing / rate limits / policy / model behavior / roadmap / availability / permissions. |
 | Defensibility beyond API | Workflow depth / proprietary data / UX / compliance / distribution / integration moat / trust / switching cost. |

@@ -94,6 +94,7 @@ If the PRD includes API dependency risk, verify it against `architecture/api-dep
 | External dependency |  |  |
 | Dependency role |  |  |
 | MVP necessity |  |  |
+| Risk level |  |  |
 | Substitution risk |  |  |
 | Provider-change risk |  |  |
 | Defensibility beyond API |  |  |
