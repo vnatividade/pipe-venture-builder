@@ -38,7 +38,7 @@ Add these fields to venture planning, PRD, and architecture review when the vent
 |---|---|
 | Data moat hypothesis | What data or learning could become more useful as the venture is used? |
 | Why it compounds | How does repeated use improve decision quality, workflow fit, trust, speed, cost, or defensibility? |
-| Data category | Strategic learning / operational workflow data / customer evidence / sensitive / prohibited / synthetic / public-reference. |
+| Data category | Strategic learning / operational workflow data / customer evidence / sensitive / prohibited / synthetic / Public/reference data. |
 | Source artifact | Which validation, PRD, interview, research, or architecture artifact supports the claim? |
 | Allowed capture | What may be captured now, if anything? |
 | Data explicitly avoided | What must not be collected, stored, or inferred? |
