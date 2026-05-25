@@ -10,6 +10,7 @@ Planned artifacts:
 - system design
 - technical constraints
 - [API dependency risk assessment](api-dependency-risk-assessment.md)
+- [executor capability matrix](executor-capability-matrix.md)
 - [architecture review template](architecture-review.md)
 - [proprietary data moat strategy](proprietary-data-moat-strategy.md)
 - [technical decision guide](technical-decision-guide.md)
