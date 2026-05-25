@@ -4,9 +4,10 @@ Execution artifacts live here.
 
 This area should define how work moves from approved product context into Linear, tickets, branches, PRs, review, and handoff.
 
-Planned artifacts:
+Artifacts:
 
 - [Linear governance model](linear-governance-model.md)
+- [Agent Master routing policy](agent-master-routing-policy.md)
 - [ticket, PR, and handoff system](ticket-pr-handoff-system.md)
 - [multi-agent operating protocol](multi-agent-operating-protocol.md)
 - [context routing protocol](context-routing-protocol.md)
