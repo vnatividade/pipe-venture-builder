@@ -11,6 +11,7 @@ Planned artifacts:
 - [KDR/DAR template](kdr-dar-template.md)
 - [decision conflict and supersession protocol](decision-conflict-protocol.md)
 - [knowledge curator workflow](knowledge-curator-workflow.md)
+- [learning record policy](learning-record-policy.md)
 - [customer-language memory](customer-language-memory.md)
 - memory map
 - knowledge-base integration notes

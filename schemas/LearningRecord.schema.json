@@ -1,0 +1,685 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pipe-venture-builder.local/schemas/LearningRecord.schema.json",
+  "title": "LearningRecord",
+  "description": "Canonical record for reusable learning discovered during Pipe Venture Builder execution, validation, review, or capability use. It normalizes lessons that may influence future agents, policies, templates, capabilities, or canonical artifacts. It does not create persistence, embeddings, automatic promotion, or a standalone knowledge runtime.",
+  "x-pipe-schema-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "recordId",
+    "title",
+    "learningType",
+    "source",
+    "scope",
+    "agent",
+    "capability",
+    "confidence",
+    "importance",
+    "tags",
+    "summary",
+    "insight",
+    "evidence",
+    "recommendation",
+    "promotion",
+    "sensitivity"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "0.1.0",
+      "description": "LearningRecord schema version used by this record."
+    },
+    "recordId": {
+      "type": "string",
+      "pattern": "^LR-[0-9]{4,}$",
+      "description": "Stable learning record identifier, such as LR-0001."
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Short human-readable learning title."
+    },
+    "learningType": {
+      "type": "string",
+      "enum": [
+        "execution_learning",
+        "failure",
+        "recurring_pattern",
+        "capability_usage",
+        "decision_learning",
+        "validation_learning",
+        "customer_learning",
+        "risk_learning"
+      ],
+      "description": "Primary type of reusable learning captured by the record."
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "originType",
+        "linearId",
+        "artifactPathOrUrl",
+        "observedAt",
+        "sourceSummary"
+      ],
+      "properties": {
+        "originType": {
+          "type": "string",
+          "enum": [
+            "linear_ticket",
+            "pull_request",
+            "knowledge_artifact",
+            "review",
+            "validation_artifact",
+            "incident",
+            "manual_observation"
+          ],
+          "description": "Where the learning originated."
+        },
+        "linearId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Z]+-[0-9]+$",
+          "description": "Originating Linear issue identifier, or null when no ticket exists yet."
+        },
+        "pullRequestUrl": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri",
+          "description": "Originating pull request URL, when applicable."
+        },
+        "artifactPathOrUrl": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Repository path or URL for the source artifact."
+        },
+        "observedAt": {
+          "type": "string",
+          "format": "date",
+          "description": "Date when the learning was observed or recorded."
+        },
+        "sourceSummary": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Brief factual source summary. Do not invent customer evidence or metrics."
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "domains",
+        "appliesToAgents",
+        "ticketTypes",
+        "horizon",
+        "limits"
+      ],
+      "properties": {
+        "domains": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": [
+              "strategy",
+              "validation",
+              "product",
+              "execution",
+              "governance",
+              "knowledge",
+              "architecture",
+              "capability",
+              "quality",
+              "observability",
+              "orchestration"
+            ]
+          }
+        },
+        "appliesToAgents": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": [
+              "codex",
+              "claude-code",
+              "human",
+              "future-orchestrator",
+              "any-agent"
+            ]
+          }
+        },
+        "ticketTypes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "architecture",
+              "automation",
+              "code",
+              "documentation",
+              "governance",
+              "infrastructure",
+              "observability",
+              "orchestration-prep",
+              "product",
+              "prompt",
+              "research",
+              "skill",
+              "validation",
+              "workflow"
+            ]
+          }
+        },
+        "horizon": {
+          "type": "string",
+          "enum": [
+            "now",
+            "foundation",
+            "next",
+            "future",
+            "parking-lot"
+          ]
+        },
+        "limits": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Where this learning should not be applied."
+        }
+      }
+    },
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recordedBy",
+        "agentRole",
+        "intendedConsumers"
+      ],
+      "properties": {
+        "recordedBy": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Agent or human who recorded the learning."
+        },
+        "agentRole": {
+          "type": "string",
+          "enum": [
+            "executor",
+            "reviewer",
+            "architect",
+            "knowledge-curator",
+            "operator",
+            "orchestrator"
+          ]
+        },
+        "intendedConsumers": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Agents, humans, workflows, or docs expected to consume this learning."
+        }
+      }
+    },
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "type",
+        "maturity",
+        "notes"
+      ],
+      "properties": {
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Capability, skill, MCP, workflow, or tool involved. Null when not capability-specific."
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "skill",
+            "mcp",
+            "workflow",
+            "prompt",
+            "schema",
+            "tool",
+            "manual-process",
+            "not-applicable"
+          ]
+        },
+        "maturity": {
+          "type": "string",
+          "enum": [
+            "experimental",
+            "pilot",
+            "operational",
+            "deprecated",
+            "not-applicable"
+          ]
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "confidence": {
+      "$ref": "#/$defs/scoredAssessment"
+    },
+    "importance": {
+      "$ref": "#/$defs/scoredAssessment"
+    },
+    "tags": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9-]*$"
+      }
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Short factual statement of what was learned."
+    },
+    "insight": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Interpretation of why the learning matters for future execution."
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/evidenceItem"
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action",
+        "owner",
+        "timing",
+        "rationale"
+      ],
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "record_only",
+            "update_policy",
+            "update_template",
+            "create_follow_up_ticket",
+            "promote_to_canonical_artifact",
+            "monitor_for_recurrence",
+            "discard"
+          ]
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "timing": {
+          "type": "string",
+          "enum": [
+            "immediate",
+            "next-ticket",
+            "batch-review",
+            "future-review",
+            "not-applicable"
+          ]
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "promotion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "humanReviewRequiredForPromotion",
+        "humanReviewStatus",
+        "automaticPromotionAllowed",
+        "targetCanonicalArtifact",
+        "promotionRationale"
+      ],
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": [
+            "candidate",
+            "proposed",
+            "approved_for_promotion",
+            "promoted",
+            "rejected",
+            "parked",
+            "superseded"
+          ],
+          "description": "Promotion state for the learning. Candidate records are not canonical rules."
+        },
+        "humanReviewRequiredForPromotion": {
+          "type": "boolean",
+          "const": true,
+          "description": "Canonical promotion always requires human review."
+        },
+        "humanReviewStatus": {
+          "type": "string",
+          "enum": [
+            "not_requested",
+            "pending",
+            "approved",
+            "rejected"
+          ]
+        },
+        "automaticPromotionAllowed": {
+          "type": "boolean",
+          "const": false,
+          "description": "LearningRecord does not allow automatic promotion to canonical rules."
+        },
+        "targetCanonicalArtifact": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Target policy, template, schema, prompt, skill, or architecture artifact if promotion is proposed."
+        },
+        "promotionRationale": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "enum": [
+                  "proposed",
+                  "approved_for_promotion",
+                  "promoted"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "targetCanonicalArtifact": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "enum": [
+                  "approved_for_promotion",
+                  "promoted"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "humanReviewStatus": {
+                "const": "approved"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "sensitivity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "containsSensitiveData",
+        "containsCustomerEvidence",
+        "redactionRequired",
+        "humanReviewStatus",
+        "notes"
+      ],
+      "properties": {
+        "containsSensitiveData": {
+          "type": "boolean"
+        },
+        "containsCustomerEvidence": {
+          "type": "boolean"
+        },
+        "redactionRequired": {
+          "type": "boolean"
+        },
+        "humanReviewStatus": {
+          "type": "string",
+          "enum": [
+            "not_required",
+            "pending",
+            "approved",
+            "rejected"
+          ],
+          "description": "Human review status for storing customer evidence, sensitive data, or private operational data."
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "anyOf": [
+              {
+                "properties": {
+                  "containsSensitiveData": {
+                    "const": true
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "containsCustomerEvidence": {
+                    "const": true
+                  }
+                }
+              }
+            ]
+          },
+          "then": {
+            "properties": {
+              "redactionRequired": {
+                "const": true
+              },
+              "humanReviewStatus": {
+                "const": "approved"
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "scoredAssessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "level",
+        "score",
+        "rationale"
+      ],
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ]
+        },
+        "score": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "evidenceItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "pathOrUrl",
+        "summary",
+        "confidence"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "repository_file",
+            "linear_ticket",
+            "pull_request",
+            "review_comment",
+            "validation_result",
+            "incident_note",
+            "manual_observation"
+          ]
+        },
+        "pathOrUrl": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ]
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "schemaVersion": "0.1.0",
+      "recordId": "LR-0001",
+      "title": "PR review enforcement requires substantive review, not only a review object",
+      "learningType": "failure",
+      "source": {
+        "originType": "knowledge_artifact",
+        "linearId": "PIP-140",
+        "pullRequestUrl": null,
+        "artifactPathOrUrl": "knowledge/rca-001-pr-flow-regression-root-cause.md",
+        "observedAt": "2026-05-18",
+        "sourceSummary": "RCA-001 found PRs existed but Copilot reviews errored and no human approving review was recorded."
+      },
+      "scope": {
+        "domains": [
+          "execution",
+          "governance"
+        ],
+        "appliesToAgents": [
+          "any-agent"
+        ],
+        "ticketTypes": [
+          "governance",
+          "workflow"
+        ],
+        "horizon": "foundation",
+        "limits": "Does not authorize bypassing branch protection or skipping review."
+      },
+      "agent": {
+        "recordedBy": "codex",
+        "agentRole": "knowledge-curator",
+        "intendedConsumers": [
+          "Codex executor",
+          "Claude Code executor",
+          "future orchestrator"
+        ]
+      },
+      "capability": {
+        "name": "GitHub PR review workflow",
+        "type": "workflow",
+        "maturity": "operational",
+        "notes": "Review must be substantive or explicitly documented as fallback."
+      },
+      "confidence": {
+        "level": "high",
+        "score": 5,
+        "rationale": "RCA evidence lists the affected PRs, review state, and branch protection status."
+      },
+      "importance": {
+        "level": "high",
+        "score": 5,
+        "rationale": "This changes merge governance for all future tickets."
+      },
+      "tags": [
+        "pr-review",
+        "governance",
+        "agentic-execution"
+      ],
+      "summary": "A PR review object is not enough when the reviewer errored or did not inspect content.",
+      "insight": "Future agents need to distinguish substantive review from a nominal review event.",
+      "evidence": [
+        {
+          "type": "repository_file",
+          "pathOrUrl": "knowledge/rca-001-pr-flow-regression-root-cause.md",
+          "summary": "RCA-001 identifies Copilot error reviews and missing human approval as the actual failure mode.",
+          "confidence": "high"
+        }
+      ],
+      "recommendation": {
+        "action": "update_policy",
+        "owner": "execution owner",
+        "timing": "next-ticket",
+        "rationale": "PR governance should require substantive review or documented fallback."
+      },
+      "promotion": {
+        "state": "candidate",
+        "humanReviewRequiredForPromotion": true,
+        "humanReviewStatus": "not_requested",
+        "automaticPromotionAllowed": false,
+        "targetCanonicalArtifact": "execution/ticket-pr-handoff-system.md",
+        "promotionRationale": "Promotion would affect merge policy and must be reviewed by the human operator."
+      },
+      "sensitivity": {
+        "containsSensitiveData": false,
+        "containsCustomerEvidence": false,
+        "redactionRequired": false,
+        "humanReviewStatus": "not_required",
+        "notes": "Repository governance evidence only."
+      }
+    }
+  ]
+}
