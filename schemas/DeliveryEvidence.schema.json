@@ -1,0 +1,438 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pipe-venture-builder.local/schemas/DeliveryEvidence.schema.json",
+  "title": "DeliveryEvidence",
+  "description": "Evidence package for a completed ticket delivery. It records what changed, what behavior was expected, how acceptance criteria were checked, which validations ran, what risks remain, and the delivery recommendation. It supports PR and Linear handoff, but does not replace PR review or approval gates.",
+  "x-pipe-schema-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "ticket",
+    "deliveryType",
+    "implementationSummary",
+    "expectedBehavior",
+    "acceptanceCriteria",
+    "tests",
+    "e2e",
+    "artifacts",
+    "risks",
+    "manualValidation",
+    "recommendation"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "0.1.0",
+      "description": "DeliveryEvidence schema version used by this evidence package."
+    },
+    "ticket": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "linearId",
+        "linearUrl",
+        "branch",
+        "pullRequestUrl"
+      ],
+      "properties": {
+        "linearId": {
+          "type": "string",
+          "pattern": "^[A-Z]+-[0-9]+$",
+          "description": "Linear issue identifier, such as PIP-149."
+        },
+        "linearUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "branch": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pullRequestUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "mergeCommit": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Merge commit SHA after merge, or null before merge."
+        }
+      }
+    },
+    "deliveryType": {
+      "type": "string",
+      "enum": [
+        "architecture",
+        "automation",
+        "code",
+        "documentation",
+        "governance",
+        "infrastructure",
+        "observability",
+        "orchestration-prep",
+        "product",
+        "prompt",
+        "research",
+        "skill",
+        "validation",
+        "workflow"
+      ],
+      "description": "Primary delivery type. Use the same type family as the Linear ticket when possible."
+    },
+    "implementationSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "summary",
+        "filesChanged",
+        "includedScopeDelivered",
+        "excludedScopePreserved"
+      ],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "filesChanged": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "includedScopeDelivered": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "excludedScopePreserved": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "expectedBehavior": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "description",
+        "userOrAgentVisibleChange",
+        "nonGoals"
+      ],
+      "properties": {
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "userOrAgentVisibleChange": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What a user, future agent, or reviewer should observe after the change."
+        },
+        "nonGoals": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "acceptanceCriteria": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/checkedItem"
+      }
+    },
+    "tests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requiredForDelivery",
+        "commands",
+        "notApplicableReason"
+      ],
+      "properties": {
+        "requiredForDelivery": {
+          "type": "boolean",
+          "description": "False is acceptable for documentation-only work when explained."
+        },
+        "commands": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/validationCommand"
+          }
+        },
+        "notApplicableReason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Required in practice when requiredForDelivery is false."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "requiredForDelivery": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "commands": {
+                "minItems": 1
+              },
+              "notApplicableReason": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "notApplicableReason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "e2e": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requiredForDelivery",
+        "checks",
+        "notApplicableReason"
+      ],
+      "properties": {
+        "requiredForDelivery": {
+          "type": "boolean",
+          "description": "False is expected for documentation-only tickets unless the ticket changes a user-facing flow."
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/validationCommand"
+          }
+        },
+        "notApplicableReason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Required in practice when requiredForDelivery is false."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "requiredForDelivery": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "checks": {
+                "minItems": 1
+              },
+              "notApplicableReason": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "notApplicableReason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "artifacts": {
+      "type": "array",
+      "description": "Repository files, PR links, screenshots, reports, or other artifacts used as evidence. Do not include secrets, customer data, or private operational data.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "pathOrUrl",
+          "description"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "file",
+              "pull_request",
+              "linear_comment",
+              "screenshot",
+              "report",
+              "other"
+            ]
+          },
+          "pathOrUrl": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "risk",
+          "severity",
+          "mitigationOrReasonAccepted"
+        ],
+        "properties": {
+          "risk": {
+            "type": "string",
+            "minLength": 1
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "P0",
+              "P1",
+              "P2",
+              "P3",
+              "none"
+            ]
+          },
+          "mitigationOrReasonAccepted": {
+            "type": "string",
+            "minLength": 1
+          },
+          "followUpUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          }
+        }
+      }
+    },
+    "manualValidation": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/checkedItem"
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "rationale"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "ready_for_review",
+            "ready_to_merge",
+            "blocked",
+            "needs_changes",
+            "do_not_merge"
+          ]
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "nextAction": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  },
+  "$defs": {
+    "checkedItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "item",
+        "status",
+        "evidence"
+      ],
+      "properties": {
+        "item": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "passed",
+            "failed",
+            "not_applicable",
+            "not_checked"
+          ]
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "validationCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "commandOrCheck",
+        "result",
+        "evidence"
+      ],
+      "properties": {
+        "commandOrCheck": {
+          "type": "string",
+          "minLength": 1
+        },
+        "result": {
+          "type": "string",
+          "enum": [
+            "passed",
+            "failed",
+            "not_run",
+            "not_applicable"
+          ]
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}
