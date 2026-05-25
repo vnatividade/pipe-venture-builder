@@ -12,4 +12,8 @@ Initial schema convention:
 schemas/<SchemaName>.schema.json
 ```
 
+Current schemas:
+
+- [DeliveryEvidence](DeliveryEvidence.schema.json)
+
 Do not add schemas without an approved Linear ticket.
