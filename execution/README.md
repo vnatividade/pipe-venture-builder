@@ -9,6 +9,7 @@ Artifacts:
 - [Linear governance model](linear-governance-model.md)
 - [Agent Master routing policy](agent-master-routing-policy.md)
 - [ticket, PR, and handoff system](ticket-pr-handoff-system.md)
+- [test-oriented delivery rule](test-oriented-delivery-rule.md)
 - [multi-agent operating protocol](multi-agent-operating-protocol.md)
 - [context routing protocol](context-routing-protocol.md)
 - [parallel execution governance](parallel-execution-governance.md)
