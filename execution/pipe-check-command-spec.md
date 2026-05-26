@@ -7,6 +7,7 @@ It does not implement a command runner, CI automation, GitHub Action, MCP tool, 
 Use it with:
 
 - `execution/test-oriented-delivery-rule.md`
+- `execution/e2e-applicability-matrix.md`
 - `execution/ticket-pr-handoff-system.md`
 - `execution/ticket-type-field-matrix.md`
 - `schemas/DeliveryEvidence.schema.json`
@@ -275,7 +276,7 @@ Return `not_applicable` only when:
 
 ## Type-Aware Evidence Matrix
 
-Use `execution/test-oriented-delivery-rule.md` as the source of truth.
+Use `execution/test-oriented-delivery-rule.md` as the source of truth for evidence categories and `execution/e2e-applicability-matrix.md` as the source of truth for Playwright, agent-browser, screenshot, video, trace, and exception decisions.
 
 Quick mapping:
 
