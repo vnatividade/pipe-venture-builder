@@ -17,4 +17,8 @@ Current schemas:
 - [DeliveryEvidence](DeliveryEvidence.schema.json)
 - [LearningRecord](LearningRecord.schema.json)
 
+Schema outlines:
+
+- [Planning schema outlines](planning-schema-outlines.md)
+
 Do not add schemas without an approved Linear ticket.
