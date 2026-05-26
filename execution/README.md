@@ -10,6 +10,7 @@ Artifacts:
 - [Agent Master routing policy](agent-master-routing-policy.md)
 - [ticket, PR, and handoff system](ticket-pr-handoff-system.md)
 - [test-oriented delivery rule](test-oriented-delivery-rule.md)
+- [Pipe command catalog](pipe-command-catalog.md)
 - [`/pipe:check` command specification](pipe-check-command-spec.md)
 - [E2E applicability matrix](e2e-applicability-matrix.md)
 - [multi-agent operating protocol](multi-agent-operating-protocol.md)
