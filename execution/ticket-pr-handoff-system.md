@@ -228,6 +228,8 @@ Stop instead of using fallback when:
 
 Run the strongest available validation for the ticket type.
 
+Use `execution/test-oriented-delivery-rule.md` to decide whether BDD-style acceptance examples, TDD/automated tests, E2E/browser evidence, schema checks, or manual documentary evidence are required.
+
 Examples:
 
 - Documentation-only: `git diff --check`, link/path sanity, scope review against the Linear ticket.
