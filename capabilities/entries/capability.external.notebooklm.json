@@ -1,0 +1,131 @@
+{
+  "schemaVersion": "0.1.0",
+  "capabilityId": "capability.external.notebooklm",
+  "name": "NotebookLM",
+  "summary": "External synthesis capability candidate for organizing approved source documents and extracting grounded summaries.",
+  "kind": "service",
+  "origin": "external",
+  "lifecycle": "proposed",
+  "owner": {
+    "primaryOwner": "Knowledge Steward Agent",
+    "supportingOwner": "Research Orchestrator Agent",
+    "reviewer": "human operator"
+  },
+  "source": {
+    "sourceType": "service",
+    "sourceName": "NotebookLM",
+    "sourceUrl": null,
+    "repositoryPath": null,
+    "licenseOrTerms": null,
+    "versionOrDate": "2026-05-26",
+    "notes": "Registered as a candidate synthesis service. No files are uploaded or processed by this ticket."
+  },
+  "routing": {
+    "useWhen": [
+      "A research or knowledge ticket needs synthesis across approved source documents.",
+      "The ticket explicitly allows use of an external document-synthesis service."
+    ],
+    "doNotUseWhen": [
+      "Sources include secrets, credentials, customer data, production data, or private evidence without explicit approval.",
+      "The output would replace human strategic judgment."
+    ],
+    "pipelineStages": [
+      "research-validation",
+      "feedback-learning"
+    ],
+    "ticketTypes": [
+      "research",
+      "documentation",
+      "validation"
+    ],
+    "primaryConsumers": [
+      "human",
+      "codex",
+      "claude-code"
+    ],
+    "fallback": "Synthesize directly from repository artifacts and cite source files."
+  },
+  "inputs": [
+    {
+      "name": "approvedSourceSet",
+      "required": true,
+      "description": "Explicit list of approved source documents or artifacts.",
+      "sourceOrDestination": "Repository or approved external source list"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "groundedSynthesis",
+      "required": true,
+      "description": "Summary, themes, contradictions, and source references.",
+      "sourceOrDestination": "Research or knowledge artifact"
+    }
+  ],
+  "schemas": {
+    "inputSchemas": [],
+    "outputSchemas": [],
+    "relatedSchemas": [
+      {
+        "name": "LearningRecord",
+        "pathOrUrl": "schemas/LearningRecord.schema.json",
+        "required": false
+      }
+    ],
+    "notes": "Future knowledge-runtime work may normalize synthesis outputs."
+  },
+  "toolAccess": {
+    "accessType": "web",
+    "requiresCredential": true,
+    "requiresNetwork": true,
+    "canMutateExternalState": true,
+    "allowedOperations": [
+      "Synthesize approved source documents",
+      "Extract themes and contradictions"
+    ],
+    "forbiddenOperations": [
+      "Upload secrets or customer data",
+      "Treat synthesis as source evidence",
+      "Publish outputs externally without approval"
+    ]
+  },
+  "cost": {
+    "costType": "unknown",
+    "expectedCostLevel": "unknown",
+    "costDriver": "External account limits, service terms, or paid features.",
+    "approvalRequiredBeforePaidUse": true
+  },
+  "risks": [
+    {
+      "category": "privacy",
+      "level": "medium",
+      "description": "Document upload can move private information outside the repository.",
+      "mitigation": "Require explicit source approval and avoid secrets, customer data, and private evidence."
+    }
+  ],
+  "governance": {
+    "approvalRequired": true,
+    "approvalTriggers": [
+      "Uploading non-public documents",
+      "Paid use",
+      "External publication",
+      "Sensitive claims"
+    ],
+    "dataBoundary": "Only approved public or non-sensitive documents may be used unless explicitly approved.",
+    "sensitiveActionBoundary": "NotebookLM synthesis is not customer evidence, legal advice, compliance proof, or final strategic decision.",
+    "loggingRequirement": "Record source set, limitations, and whether external synthesis was used.",
+    "updatePolicy": "Review before first operational use and whenever service behavior or terms change."
+  },
+  "review": {
+    "lastReviewedAt": null,
+    "reviewCadence": "before-use",
+    "reviewStatus": "not-reviewed",
+    "reviewNotes": "Future candidate only until privacy and source-boundary behavior is reviewed."
+  },
+  "examples": [
+    {
+      "scenario": "A research ticket provides approved public PDFs for synthesis.",
+      "expectedUse": "Use NotebookLM only if the ticket approves external synthesis and source boundaries are clear.",
+      "expectedNonUse": "Do not upload private founder notes, credentials, customer data, or production artifacts."
+    }
+  ]
+}

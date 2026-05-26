@@ -1,0 +1,134 @@
+{
+  "schemaVersion": "0.1.0",
+  "capabilityId": "capability.external.claude-code",
+  "name": "Claude Code",
+  "summary": "Peer agentic repository executor capability for scoped code and documentation work using shared Pipe protocols.",
+  "kind": "executor",
+  "origin": "external",
+  "lifecycle": "pilot",
+  "owner": {
+    "primaryOwner": "Execution Steward Agent",
+    "supportingOwner": "Ticket Orchestrator Agent",
+    "reviewer": "human operator"
+  },
+  "source": {
+    "sourceType": "local_tool",
+    "sourceName": "Claude Code",
+    "sourceUrl": null,
+    "repositoryPath": null,
+    "licenseOrTerms": null,
+    "versionOrDate": "2026-05-26",
+    "notes": "Peer executor entry. It must use CLAUDE.md as an adapter and repository protocols as the shared source of truth."
+  },
+  "routing": {
+    "useWhen": [
+      "A scoped code or documentation ticket has a clear write set and can be isolated from Codex work.",
+      "The task benefits from a peer executor and shared handoff protocol."
+    ],
+    "doNotUseWhen": [
+      "The ticket touches shared high-risk governance files without serialized ownership.",
+      "The task requires GitHub or Linear operations that are unavailable in that Claude Code session."
+    ],
+    "pipelineStages": [
+      "ticket-execution",
+      "review-merge",
+      "feedback-learning"
+    ],
+    "ticketTypes": [
+      "code",
+      "documentation",
+      "prompt",
+      "skill",
+      "workflow"
+    ],
+    "primaryConsumers": [
+      "human",
+      "future-orchestrator"
+    ],
+    "fallback": "Use Codex or the human operator when Claude Code lacks repository state, tool access, or safe write-set ownership."
+  },
+  "inputs": [
+    {
+      "name": "assignedLinearTicket",
+      "required": true,
+      "description": "Approved ticket with clear scope, expected write set, and handoff expectations.",
+      "sourceOrDestination": "Linear"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "agentHandoff",
+      "required": true,
+      "description": "Branch, changed files, validation, blockers, and next-step handoff for Codex or human continuation.",
+      "sourceOrDestination": "PR, Linear, or repository handoff artifact"
+    }
+  ],
+  "schemas": {
+    "inputSchemas": [],
+    "outputSchemas": [],
+    "relatedSchemas": [
+      {
+        "name": "LearningRecord",
+        "pathOrUrl": "schemas/LearningRecord.schema.json",
+        "required": false
+      }
+    ],
+    "notes": "Future multi-agent metrics may normalize Claude Code handoff outputs."
+  },
+  "toolAccess": {
+    "accessType": "local_cli",
+    "requiresCredential": true,
+    "requiresNetwork": true,
+    "canMutateExternalState": true,
+    "allowedOperations": [
+      "Edit scoped repository files",
+      "Run local validations",
+      "Prepare handoff for PR lifecycle"
+    ],
+    "forbiddenOperations": [
+      "Create a second policy system",
+      "Modify approval gates without explicit scope",
+      "Operate on another agent's branch without handoff"
+    ]
+  },
+  "cost": {
+    "costType": "unknown",
+    "expectedCostLevel": "unknown",
+    "costDriver": "Runtime usage and account limits.",
+    "approvalRequiredBeforePaidUse": true
+  },
+  "risks": [
+    {
+      "category": "scope",
+      "level": "medium",
+      "description": "Parallel executor use can create branch or file conflicts.",
+      "mitigation": "Require clear write set, branch ownership, and handoff before overlapping work."
+    }
+  ],
+  "governance": {
+    "approvalRequired": true,
+    "approvalTriggers": [
+      "Opening PRs",
+      "Merging PRs",
+      "Changing shared governance files",
+      "External mutations"
+    ],
+    "dataBoundary": "Do not handle secrets, customer data, production data, or private evidence without explicit approval.",
+    "sensitiveActionBoundary": "Do not weaken AGENTS.md, CLAUDE.md, approval gates, or multi-agent protocol.",
+    "loggingRequirement": "Record branch, write set, validations, blockers, and handoff details.",
+    "updatePolicy": "Update after Claude Code pilot tickets reveal routing or handoff gaps."
+  },
+  "review": {
+    "lastReviewedAt": "2026-05-26",
+    "reviewCadence": "quarterly",
+    "reviewStatus": "restricted",
+    "reviewNotes": "Pilot peer-executor entry; use only with clear branch and write-set ownership."
+  },
+  "examples": [
+    {
+      "scenario": "A small documentation ticket touches a disjoint file.",
+      "expectedUse": "Use Claude Code when it can follow shared protocols and produce a handoff.",
+      "expectedNonUse": "Do not assign Claude Code overlapping governance edits while Codex owns the same file set."
+    }
+  ]
+}

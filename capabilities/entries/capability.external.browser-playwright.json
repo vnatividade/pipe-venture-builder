@@ -1,0 +1,127 @@
+{
+  "schemaVersion": "0.1.0",
+  "capabilityId": "capability.external.browser-playwright",
+  "name": "Browser and Playwright",
+  "summary": "Browser automation capability for local UI inspection, screenshots, interaction checks, and E2E-style validation when a ticket requires it.",
+  "kind": "plugin",
+  "origin": "external",
+  "lifecycle": "pilot",
+  "owner": {
+    "primaryOwner": "Software Architecture Agent",
+    "supportingOwner": "QA Validation Agent",
+    "reviewer": "human operator"
+  },
+  "source": {
+    "sourceType": "plugin",
+    "sourceName": "Browser and Playwright automation",
+    "sourceUrl": null,
+    "repositoryPath": null,
+    "licenseOrTerms": null,
+    "versionOrDate": "2026-05-26",
+    "notes": "Registered for validation and inspection. PIP-153 does not add browser tests or install packages."
+  },
+  "routing": {
+    "useWhen": [
+      "A frontend, local web app, or UI workflow ticket needs visual or interaction validation.",
+      "A ticket asks for screenshots, browser navigation, or E2E-style evidence."
+    ],
+    "doNotUseWhen": [
+      "The ticket has no UI/browser surface.",
+      "The task requires authenticated production/customer data or external accounts without approval."
+    ],
+    "pipelineStages": [
+      "ticket-execution",
+      "review-merge"
+    ],
+    "ticketTypes": [
+      "code",
+      "automation",
+      "observability",
+      "validation"
+    ],
+    "primaryConsumers": [
+      "codex",
+      "claude-code"
+    ],
+    "fallback": "Use static review and local test commands, and record that browser validation was not applicable or unavailable."
+  },
+  "inputs": [
+    {
+      "name": "targetUrlOrApp",
+      "required": true,
+      "description": "Local URL, file, or application target to inspect.",
+      "sourceOrDestination": "Local runtime"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "uiValidationEvidence",
+      "required": true,
+      "description": "Screenshot, interaction result, console observation, or E2E-style validation note.",
+      "sourceOrDestination": "PR or Linear handoff"
+    }
+  ],
+  "schemas": {
+    "inputSchemas": [],
+    "outputSchemas": [],
+    "relatedSchemas": [],
+    "notes": "Future observability work may normalize UI validation evidence."
+  },
+  "toolAccess": {
+    "accessType": "plugin",
+    "requiresCredential": false,
+    "requiresNetwork": false,
+    "canMutateExternalState": false,
+    "allowedOperations": [
+      "Open local targets",
+      "Inspect UI state",
+      "Capture screenshots",
+      "Run local interaction checks"
+    ],
+    "forbiddenOperations": [
+      "Use production accounts without approval",
+      "Submit forms to real external systems without approval",
+      "Capture sensitive data"
+    ]
+  },
+  "cost": {
+    "costType": "none",
+    "expectedCostLevel": "none",
+    "costDriver": "Local validation only unless external browser services are introduced.",
+    "approvalRequiredBeforePaidUse": true
+  },
+  "risks": [
+    {
+      "category": "privacy",
+      "level": "medium",
+      "description": "Screenshots or browser sessions can reveal private data.",
+      "mitigation": "Use local/test data only and avoid authenticated private or production contexts unless approved."
+    }
+  ],
+  "governance": {
+    "approvalRequired": false,
+    "approvalTriggers": [
+      "Authenticated external browsing",
+      "Production data access",
+      "Submitting external forms",
+      "Capturing sensitive screenshots"
+    ],
+    "dataBoundary": "Prefer local fixtures and non-sensitive test data.",
+    "sensitiveActionBoundary": "Do not interact with production, payment, customer, or external communication flows without approval.",
+    "loggingRequirement": "Record target, validation result, and whether screenshots or browser checks were used.",
+    "updatePolicy": "Update when UI validation workflow or browser tooling changes."
+  },
+  "review": {
+    "lastReviewedAt": "2026-05-26",
+    "reviewCadence": "quarterly",
+    "reviewStatus": "restricted",
+    "reviewNotes": "Pilot validation capability; safe by default only for local non-sensitive targets."
+  },
+  "examples": [
+    {
+      "scenario": "A frontend PR changes a local app screen.",
+      "expectedUse": "Use browser automation to inspect layout and interaction on local targets.",
+      "expectedNonUse": "Do not browse authenticated production systems or expose private data."
+    }
+  ]
+}

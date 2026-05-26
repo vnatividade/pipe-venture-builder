@@ -1,0 +1,142 @@
+{
+  "schemaVersion": "0.1.0",
+  "capabilityId": "capability.external.codex",
+  "name": "Codex",
+  "summary": "Agentic repository executor capability for scoped implementation, documentation, GitHub, and Linear workflows inside approved ticket boundaries.",
+  "kind": "executor",
+  "origin": "external",
+  "lifecycle": "pilot",
+  "owner": {
+    "primaryOwner": "Execution Steward Agent",
+    "supportingOwner": "Ticket Orchestrator Agent",
+    "reviewer": "human operator"
+  },
+  "source": {
+    "sourceType": "service",
+    "sourceName": "Codex",
+    "sourceUrl": null,
+    "repositoryPath": null,
+    "licenseOrTerms": null,
+    "versionOrDate": "2026-05-26",
+    "notes": "Executor registry entry for the current operating model; it does not grant approval beyond repository policy and current-thread permissions."
+  },
+  "routing": {
+    "useWhen": [
+      "A ticket requires repository-grounded edits, validation, GitHub PR lifecycle, or Linear handoff.",
+      "The workspace has the relevant repository context and a clear assigned Linear ticket."
+    ],
+    "doNotUseWhen": [
+      "The work requires secrets, production data, customer outreach, deployment, billing, or sensitive claims without explicit approval.",
+      "Another agent owns the branch or write set."
+    ],
+    "pipelineStages": [
+      "ticket-execution",
+      "review-merge",
+      "feedback-learning"
+    ],
+    "ticketTypes": [
+      "architecture",
+      "automation",
+      "code",
+      "documentation",
+      "governance",
+      "infrastructure",
+      "observability",
+      "prompt",
+      "research",
+      "skill",
+      "validation",
+      "workflow"
+    ],
+    "primaryConsumers": [
+      "human",
+      "future-orchestrator"
+    ],
+    "fallback": "Use Claude Code or the human operator when Codex lacks context, access, or safe approval path."
+  },
+  "inputs": [
+    {
+      "name": "assignedLinearTicket",
+      "required": true,
+      "description": "Approved ticket with scope, acceptance criteria, expected artifacts, and validation plan.",
+      "sourceOrDestination": "Linear"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "mergedDelivery",
+      "required": true,
+      "description": "Branch, PR, validation, review, merge status, and Linear handoff.",
+      "sourceOrDestination": "GitHub and Linear"
+    }
+  ],
+  "schemas": {
+    "inputSchemas": [],
+    "outputSchemas": [],
+    "relatedSchemas": [
+      {
+        "name": "LearningRecord",
+        "pathOrUrl": "schemas/LearningRecord.schema.json",
+        "required": false
+      }
+    ],
+    "notes": "Executor outputs should align with PR and Linear delivery templates."
+  },
+  "toolAccess": {
+    "accessType": "local_cli",
+    "requiresCredential": true,
+    "requiresNetwork": true,
+    "canMutateExternalState": true,
+    "allowedOperations": [
+      "Edit repository files in ticket scope",
+      "Run local validations",
+      "Open and update PRs when approved",
+      "Update Linear when approved"
+    ],
+    "forbiddenOperations": [
+      "Deploy production",
+      "Handle secrets or customer data without approval",
+      "Bypass approval gates"
+    ]
+  },
+  "cost": {
+    "costType": "unknown",
+    "expectedCostLevel": "unknown",
+    "costDriver": "Runtime usage and account limits.",
+    "approvalRequiredBeforePaidUse": true
+  },
+  "risks": [
+    {
+      "category": "approval",
+      "level": "medium",
+      "description": "Executor can mutate GitHub and Linear state when credentials are available.",
+      "mitigation": "Require ticket scope, branch isolation, review, validation, and recorded approval for gated actions."
+    }
+  ],
+  "governance": {
+    "approvalRequired": true,
+    "approvalTriggers": [
+      "Opening PRs",
+      "Merging PRs",
+      "Creating Linear tickets or projects",
+      "External mutations"
+    ],
+    "dataBoundary": "Do not handle secrets, customer data, production data, or private evidence without explicit approval.",
+    "sensitiveActionBoundary": "Do not change legal, financial, compliance, privacy, security, or sensitive claims without explicit approval.",
+    "loggingRequirement": "Record branch, PR, validations, review findings, merge status, follow-ups, and residual risk.",
+    "updatePolicy": "Update when Codex permissions, branch policy, or operating protocol changes."
+  },
+  "review": {
+    "lastReviewedAt": "2026-05-26",
+    "reviewCadence": "quarterly",
+    "reviewStatus": "restricted",
+    "reviewNotes": "Pilot executor entry aligned with current temporary merge approval policy."
+  },
+  "examples": [
+    {
+      "scenario": "A documentation/governance ticket is approved and has clear artifacts.",
+      "expectedUse": "Use Codex to create a branch, edit files, validate, open PR, handle review, merge when allowed, and update Linear.",
+      "expectedNonUse": "Do not use Codex to deploy, contact customers, or operate outside the ticket scope."
+    }
+  ]
+}

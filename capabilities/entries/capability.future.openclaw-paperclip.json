@@ -1,0 +1,123 @@
+{
+  "schemaVersion": "0.1.0",
+  "capabilityId": "capability.future.openclaw-paperclip",
+  "name": "OpenClaw and Paperclip Future Runtime",
+  "summary": "Future orchestration and persistent-runtime evaluation placeholder for OpenClaw, Paperclip, or similar agent runtime options.",
+  "kind": "executor",
+  "origin": "external",
+  "lifecycle": "proposed",
+  "owner": {
+    "primaryOwner": "Orchestration Readiness Agent",
+    "supportingOwner": "Execution Steward Agent",
+    "reviewer": "human operator"
+  },
+  "source": {
+    "sourceType": "service",
+    "sourceName": "OpenClaw and Paperclip candidates",
+    "sourceUrl": null,
+    "repositoryPath": null,
+    "licenseOrTerms": null,
+    "versionOrDate": "2026-05-26",
+    "notes": "Future evaluation placeholder only. It is not a selected executor, dependency, or runtime."
+  },
+  "routing": {
+    "useWhen": [
+      "A future orchestration-prep ticket explicitly asks to evaluate persistent agent runtime readiness after Codex and Claude Code baseline maturity."
+    ],
+    "doNotUseWhen": [
+      "Any current execution, dispatch, merge, Linear mutation, GitHub mutation, scheduling, production, or MVP work is requested.",
+      "Codex and Claude Code baseline protocols, metrics, and handoffs are not yet stable."
+    ],
+    "pipelineStages": [
+      "orchestration-future"
+    ],
+    "ticketTypes": [
+      "orchestration-prep",
+      "architecture"
+    ],
+    "primaryConsumers": [
+      "human",
+      "future-orchestrator"
+    ],
+    "fallback": "Use Codex, Claude Code, and existing repository protocols until a future evaluation ticket approves runtime analysis."
+  },
+  "inputs": [
+    {
+      "name": "baselineEvidence",
+      "required": true,
+      "description": "Evidence that Codex and Claude Code baseline operation, handoff, metrics, and conflict controls are mature enough for runtime evaluation.",
+      "sourceOrDestination": "Repository architecture and execution artifacts"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "futureRuntimeEvaluation",
+      "required": true,
+      "description": "Comparison, readiness gaps, risks, and adaptation plan for future orchestration runtime.",
+      "sourceOrDestination": "Architecture artifact"
+    }
+  ],
+  "schemas": {
+    "inputSchemas": [],
+    "outputSchemas": [],
+    "relatedSchemas": [],
+    "notes": "Future orchestration tickets may define evaluation schemas."
+  },
+  "toolAccess": {
+    "accessType": "manual",
+    "requiresCredential": false,
+    "requiresNetwork": false,
+    "canMutateExternalState": false,
+    "allowedOperations": [
+      "Record as future evaluation candidate",
+      "Compare against implemented baseline when a future ticket allows it"
+    ],
+    "forbiddenOperations": [
+      "Dispatch agents",
+      "Create worktrees",
+      "Mutate Linear or GitHub",
+      "Run scheduled jobs",
+      "Access secrets or production systems"
+    ]
+  },
+  "cost": {
+    "costType": "unknown",
+    "expectedCostLevel": "unknown",
+    "costDriver": "Unknown until future runtime evaluation.",
+    "approvalRequiredBeforePaidUse": true
+  },
+  "risks": [
+    {
+      "category": "scope",
+      "level": "high",
+      "description": "Premature runtime adoption can distract from the Codex and Claude Code baseline.",
+      "mitigation": "Keep as future evaluation only until an approved orchestration-prep ticket reopens the topic."
+    }
+  ],
+  "governance": {
+    "approvalRequired": true,
+    "approvalTriggers": [
+      "Any installation",
+      "Any execution",
+      "Any external integration",
+      "Any autonomous dispatch"
+    ],
+    "dataBoundary": "No data may be sent to future runtime candidates under this entry.",
+    "sensitiveActionBoundary": "Future runtime candidates may not act on repository, Linear, GitHub, production, customer, billing, or external systems.",
+    "loggingRequirement": "If evaluated later, record baseline evidence, comparison criteria, gaps, and decisions.",
+    "updatePolicy": "Update only through a future orchestration-prep ticket after baseline maturity."
+  },
+  "review": {
+    "lastReviewedAt": null,
+    "reviewCadence": "before-use",
+    "reviewStatus": "not-reviewed",
+    "reviewNotes": "Future placeholder only; not approved for current operational use."
+  },
+  "examples": [
+    {
+      "scenario": "A future ticket asks whether Pipe is ready for persistent orchestrator evaluation.",
+      "expectedUse": "Use this entry to keep OpenClaw/Paperclip visible as future analysis candidates.",
+      "expectedNonUse": "Do not use either as an active executor or orchestrator now."
+    }
+  ]
+}

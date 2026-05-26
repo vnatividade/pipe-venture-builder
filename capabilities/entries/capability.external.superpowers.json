@@ -1,0 +1,132 @@
+{
+  "schemaVersion": "0.1.0",
+  "capabilityId": "capability.external.superpowers",
+  "name": "Superpowers",
+  "summary": "External skill framework capability for disciplined software execution patterns such as planning, TDD, debugging, review, and verification.",
+  "kind": "skill",
+  "origin": "external",
+  "lifecycle": "pilot",
+  "owner": {
+    "primaryOwner": "Execution Steward Agent",
+    "supportingOwner": "Software Architecture Agent",
+    "reviewer": "human operator"
+  },
+  "source": {
+    "sourceType": "plugin",
+    "sourceName": "Superpowers skill framework",
+    "sourceUrl": null,
+    "repositoryPath": null,
+    "licenseOrTerms": null,
+    "versionOrDate": "2026-05-26",
+    "notes": "Registered as an available execution discipline capability. PIP-153 does not evaluate quality claims or vendor source code."
+  },
+  "routing": {
+    "useWhen": [
+      "A code, workflow, debugging, planning, review, or verification ticket benefits from a structured execution method.",
+      "A ticket explicitly asks for TDD, systematic debugging, code review handling, or branch finishing discipline."
+    ],
+    "doNotUseWhen": [
+      "The task is purely strategic product judgment with no implementation workflow.",
+      "Using a skill would broaden the ticket scope or bypass repository approval gates."
+    ],
+    "pipelineStages": [
+      "ticket-execution",
+      "review-merge",
+      "feedback-learning"
+    ],
+    "ticketTypes": [
+      "code",
+      "workflow",
+      "governance",
+      "automation",
+      "documentation"
+    ],
+    "primaryConsumers": [
+      "codex",
+      "claude-code"
+    ],
+    "fallback": "Use the repository execution protocols and record that no external skill workflow was used."
+  },
+  "inputs": [
+    {
+      "name": "assignedTicket",
+      "required": true,
+      "description": "Linear ticket scope, acceptance criteria, and validation expectations.",
+      "sourceOrDestination": "Linear"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "executionDiscipline",
+      "required": true,
+      "description": "Structured plan, tests, review handling, or verification steps applied to the ticket.",
+      "sourceOrDestination": "PR or Linear handoff"
+    }
+  ],
+  "schemas": {
+    "inputSchemas": [],
+    "outputSchemas": [],
+    "relatedSchemas": [
+      {
+        "name": "LearningRecord",
+        "pathOrUrl": "schemas/LearningRecord.schema.json",
+        "required": false
+      }
+    ],
+    "notes": "Future adapter work may normalize skill invocation logs."
+  },
+  "toolAccess": {
+    "accessType": "plugin",
+    "requiresCredential": false,
+    "requiresNetwork": false,
+    "canMutateExternalState": false,
+    "allowedOperations": [
+      "Read skill instructions",
+      "Apply workflow guidance inside the assigned ticket scope"
+    ],
+    "forbiddenOperations": [
+      "Authorize gated actions",
+      "Expand ticket scope",
+      "Install or vendor external code"
+    ]
+  },
+  "cost": {
+    "costType": "unknown",
+    "expectedCostLevel": "unknown",
+    "costDriver": "Runtime or plugin availability may vary by environment.",
+    "approvalRequiredBeforePaidUse": true
+  },
+  "risks": [
+    {
+      "category": "scope",
+      "level": "medium",
+      "description": "A broad execution workflow can accidentally turn a narrow ticket into a larger refactor.",
+      "mitigation": "Apply only the minimum matching skill and preserve the assigned Linear scope."
+    }
+  ],
+  "governance": {
+    "approvalRequired": false,
+    "approvalTriggers": [
+      "Opening or merging PRs",
+      "Changing approval gates",
+      "Installing or updating external skill packages"
+    ],
+    "dataBoundary": "Do not send secrets, production data, customer data, or private evidence to external systems.",
+    "sensitiveActionBoundary": "Skill guidance cannot override AGENTS.md, approval gates, or the assigned ticket.",
+    "loggingRequirement": "Mention significant skill use in PR or Linear handoff when it materially shaped execution.",
+    "updatePolicy": "Update this entry when available skills, trigger rules, or operating constraints materially change."
+  },
+  "review": {
+    "lastReviewedAt": "2026-05-26",
+    "reviewCadence": "quarterly",
+    "reviewStatus": "restricted",
+    "reviewNotes": "Pilot registry entry for disciplined engineering use only."
+  },
+  "examples": [
+    {
+      "scenario": "A code ticket asks for a bug fix with tests.",
+      "expectedUse": "Use TDD, debugging, or verification skills as execution discipline.",
+      "expectedNonUse": "Do not use Superpowers to make product strategy decisions or bypass review."
+    }
+  ]
+}
