@@ -1,0 +1,890 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pipe-venture-builder.local/capabilities/capability.schema.json",
+  "title": "Capability",
+  "description": "Canonical registry entry for an internal or external capability that Pipe agents may use, route to, wrap, or avoid. It records what the capability is, when to use it, when not to use it, required inputs, expected outputs, schemas, risks, cost, tool access, and governance. It does not install, vendor, call, or grant access to any tool.",
+  "x-pipe-schema-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "capabilityId",
+    "name",
+    "summary",
+    "kind",
+    "origin",
+    "lifecycle",
+    "owner",
+    "source",
+    "routing",
+    "inputs",
+    "outputs",
+    "schemas",
+    "toolAccess",
+    "cost",
+    "risks",
+    "governance",
+    "review",
+    "examples"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "0.1.0",
+      "description": "Capability schema version used by this registry entry."
+    },
+    "capabilityId": {
+      "type": "string",
+      "pattern": "^capability\\.[a-z0-9][a-z0-9-]*(\\.[a-z0-9][a-z0-9-]*)*$",
+      "description": "Stable capability identifier, such as capability.internal.linear-governance or capability.external.consensus."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Short description of the capability and why it exists."
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "capability",
+        "adapter",
+        "executor",
+        "mcp",
+        "plugin",
+        "skill",
+        "prompt",
+        "workflow",
+        "model",
+        "service"
+      ],
+      "description": "Primary registry kind. Use this to distinguish capability, adapter, executor, MCP, prompt, skill, and related forms."
+    },
+    "origin": {
+      "type": "string",
+      "enum": [
+        "internal",
+        "external",
+        "hybrid"
+      ],
+      "description": "Whether the capability is native to this repository, external, or a governed wrapper around both."
+    },
+    "lifecycle": {
+      "type": "string",
+      "enum": [
+        "proposed",
+        "pilot",
+        "approved",
+        "restricted",
+        "deprecated",
+        "blocked"
+      ]
+    },
+    "owner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "primaryOwner",
+        "supportingOwner",
+        "reviewer"
+      ],
+      "properties": {
+        "primaryOwner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "supportingOwner": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reviewer": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceType",
+        "sourceName",
+        "sourceUrl",
+        "repositoryPath",
+        "licenseOrTerms",
+        "versionOrDate",
+        "notes"
+      ],
+      "properties": {
+        "sourceType": {
+          "type": "string",
+          "enum": [
+            "repository",
+            "mcp_server",
+            "plugin",
+            "skill",
+            "prompt",
+            "workflow_doc",
+            "api",
+            "service",
+            "local_tool",
+            "manual_process"
+          ]
+        },
+        "sourceName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceUrl": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri"
+        },
+        "repositoryPath": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Local repository path for internal capabilities or local wrappers."
+        },
+        "licenseOrTerms": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Known license, terms, or null when not applicable or not yet reviewed."
+        },
+        "versionOrDate": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Version, commit, release date, or review date."
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "routing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "useWhen",
+        "doNotUseWhen",
+        "pipelineStages",
+        "ticketTypes",
+        "primaryConsumers",
+        "fallback"
+      ],
+      "properties": {
+        "useWhen": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "doNotUseWhen": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "pipelineStages": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": [
+              "idea-intake",
+              "founder-focus",
+              "controle",
+              "research-validation",
+              "prd",
+              "mvp-scope",
+              "risk-review",
+              "architecture",
+              "linear-ticketing",
+              "ticket-execution",
+              "review-merge",
+              "feedback-learning",
+              "orchestration-future"
+            ]
+          }
+        },
+        "ticketTypes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "architecture",
+              "automation",
+              "code",
+              "documentation",
+              "governance",
+              "infrastructure",
+              "observability",
+              "orchestration-prep",
+              "product",
+              "prompt",
+              "research",
+              "skill",
+              "validation",
+              "workflow"
+            ]
+          }
+        },
+        "primaryConsumers": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": [
+              "codex",
+              "claude-code",
+              "human",
+              "future-orchestrator",
+              "any-agent"
+            ]
+          }
+        },
+        "fallback": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What agents should do if this capability is unavailable, unauthorized, or out of scope."
+        }
+      }
+    },
+    "inputs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/ioField"
+      }
+    },
+    "outputs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/ioField"
+      }
+    },
+    "schemas": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "inputSchemas",
+        "outputSchemas",
+        "relatedSchemas",
+        "notes"
+      ],
+      "properties": {
+        "inputSchemas": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/schemaReference"
+          }
+        },
+        "outputSchemas": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/schemaReference"
+          }
+        },
+        "relatedSchemas": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/schemaReference"
+          }
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "toolAccess": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "accessType",
+        "requiresCredential",
+        "requiresNetwork",
+        "canMutateExternalState",
+        "allowedOperations",
+        "forbiddenOperations"
+      ],
+      "properties": {
+        "accessType": {
+          "type": "string",
+          "enum": [
+            "none",
+            "local_file",
+            "local_cli",
+            "mcp",
+            "plugin",
+            "web",
+            "api",
+            "manual"
+          ]
+        },
+        "requiresCredential": {
+          "type": "boolean"
+        },
+        "requiresNetwork": {
+          "type": "boolean"
+        },
+        "canMutateExternalState": {
+          "type": "boolean"
+        },
+        "allowedOperations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "forbiddenOperations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "cost": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "costType",
+        "expectedCostLevel",
+        "costDriver",
+        "approvalRequiredBeforePaidUse"
+      ],
+      "properties": {
+        "costType": {
+          "type": "string",
+          "enum": [
+            "none",
+            "unknown",
+            "subscription",
+            "usage_based",
+            "infrastructure",
+            "human_time"
+          ]
+        },
+        "expectedCostLevel": {
+          "type": "string",
+          "enum": [
+            "none",
+            "low",
+            "medium",
+            "high",
+            "unknown"
+          ]
+        },
+        "costDriver": {
+          "type": "string",
+          "minLength": 1
+        },
+        "approvalRequiredBeforePaidUse": {
+          "type": "boolean"
+        }
+      }
+    },
+    "risks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/riskItem"
+      }
+    },
+    "governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "approvalRequired",
+        "approvalTriggers",
+        "dataBoundary",
+        "sensitiveActionBoundary",
+        "loggingRequirement",
+        "updatePolicy"
+      ],
+      "properties": {
+        "approvalRequired": {
+          "type": "boolean"
+        },
+        "approvalTriggers": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "dataBoundary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sensitiveActionBoundary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "loggingRequirement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "updatePolicy": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lastReviewedAt",
+        "reviewCadence",
+        "reviewStatus",
+        "reviewNotes"
+      ],
+      "properties": {
+        "lastReviewedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "reviewCadence": {
+          "type": "string",
+          "enum": [
+            "per-change",
+            "monthly",
+            "quarterly",
+            "before-use",
+            "not-applicable"
+          ]
+        },
+        "reviewStatus": {
+          "type": "string",
+          "enum": [
+            "not-reviewed",
+            "approved",
+            "restricted",
+            "needs-update",
+            "blocked"
+          ]
+        },
+        "reviewNotes": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "examples": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scenario",
+          "expectedUse",
+          "expectedNonUse"
+        ],
+        "properties": {
+          "scenario": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expectedUse": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expectedNonUse": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "ioField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "required",
+        "description",
+        "sourceOrDestination"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceOrDestination": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "schemaReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "pathOrUrl",
+        "required"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pathOrUrl": {
+          "type": "string",
+          "minLength": 1
+        },
+        "required": {
+          "type": "boolean"
+        }
+      }
+    },
+    "riskItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "category",
+        "level",
+        "description",
+        "mitigation"
+      ],
+      "properties": {
+        "category": {
+          "type": "string",
+          "enum": [
+            "approval",
+            "security",
+            "privacy",
+            "customer-data",
+            "cost",
+            "quality",
+            "reliability",
+            "vendor",
+            "scope",
+            "compliance",
+            "unsupported-claims"
+          ]
+        },
+        "level": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mitigation": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "schemaVersion": "0.1.0",
+      "capabilityId": "capability.internal.linear-governance",
+      "name": "Linear Governance",
+      "summary": "Internal workflow capability for reading Linear state, updating ticket status, linking PRs, and recording handoffs when approval allows it.",
+      "kind": "workflow",
+      "origin": "internal",
+      "lifecycle": "approved",
+      "owner": {
+        "primaryOwner": "Linear Steward Agent",
+        "supportingOwner": "Ticket Orchestrator Agent",
+        "reviewer": "human operator"
+      },
+      "source": {
+        "sourceType": "workflow_doc",
+        "sourceName": "Linear Governance Model",
+        "sourceUrl": null,
+        "repositoryPath": "execution/linear-governance-model.md",
+        "licenseOrTerms": null,
+        "versionOrDate": "2026-05-26",
+        "notes": "Internal repository workflow; does not itself grant permission to mutate Linear."
+      },
+      "routing": {
+        "useWhen": [
+          "A ticket status, blocker, PR link, final handoff, or follow-up needs to be recorded."
+        ],
+        "doNotUseWhen": [
+          "The action would create Linear projects or tickets without explicit approval."
+        ],
+        "pipelineStages": [
+          "linear-ticketing",
+          "ticket-execution",
+          "review-merge"
+        ],
+        "ticketTypes": [
+          "governance",
+          "workflow",
+          "documentation"
+        ],
+        "primaryConsumers": [
+          "codex",
+          "claude-code",
+          "future-orchestrator"
+        ],
+        "fallback": "Record the blocker in the PR or local handoff if Linear is unavailable; update Linear once access returns."
+      },
+      "inputs": [
+        {
+          "name": "linearIssueId",
+          "required": true,
+          "description": "Assigned Linear issue identifier.",
+          "sourceOrDestination": "Linear ticket"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "deliveryHandoff",
+          "required": true,
+          "description": "Status, branch, PR, review, validation, merge, follow-up, and residual-risk summary.",
+          "sourceOrDestination": "Linear comment"
+        }
+      ],
+      "schemas": {
+        "inputSchemas": [],
+        "outputSchemas": [
+          {
+            "name": "DeliveryEvidence",
+            "pathOrUrl": "schemas/DeliveryEvidence.schema.json",
+            "required": false
+          }
+        ],
+        "relatedSchemas": [
+          {
+            "name": "LearningRecord",
+            "pathOrUrl": "schemas/LearningRecord.schema.json",
+            "required": false
+          }
+        ],
+        "notes": "May use DeliveryEvidence structure for richer handoffs when a ticket requires it."
+      },
+      "toolAccess": {
+        "accessType": "mcp",
+        "requiresCredential": true,
+        "requiresNetwork": true,
+        "canMutateExternalState": true,
+        "allowedOperations": [
+          "Read assigned tickets",
+          "Update approved status fields",
+          "Add approved handoff comments"
+        ],
+        "forbiddenOperations": [
+          "Create projects without approval",
+          "Create tickets without approval",
+          "Change governance labels without approved scope"
+        ]
+      },
+      "cost": {
+        "costType": "none",
+        "expectedCostLevel": "none",
+        "costDriver": "Repository and Linear workspace usage only.",
+        "approvalRequiredBeforePaidUse": true
+      },
+      "risks": [
+        {
+          "category": "approval",
+          "level": "medium",
+          "description": "Linear mutations can change execution state.",
+          "mitigation": "Use only within approved ticket scope and record handoff."
+        }
+      ],
+      "governance": {
+        "approvalRequired": true,
+        "approvalTriggers": [
+          "Creating Linear projects",
+          "Creating Linear tickets",
+          "Changing project structure or labels"
+        ],
+        "dataBoundary": "No secrets, customer data, production data, or private evidence should be copied into Linear comments.",
+        "sensitiveActionBoundary": "Do not use Linear state changes to bypass approval gates.",
+        "loggingRequirement": "Record branch, PR, review, validation, merge status, and follow-ups in the ticket handoff.",
+        "updatePolicy": "Update registry entry only through approved capability-registry ticket and PR."
+      },
+      "review": {
+        "lastReviewedAt": "2026-05-26",
+        "reviewCadence": "per-change",
+        "reviewStatus": "approved",
+        "reviewNotes": "Example internal workflow capability for schema validation only."
+      },
+      "examples": [
+        {
+          "scenario": "PR has merged and ticket needs final handoff.",
+          "expectedUse": "Use Linear governance to comment merge, validation, review findings, follow-ups, and residual risk.",
+          "expectedNonUse": "Do not create unrelated follow-up tickets unless approval and concrete scope exist."
+        }
+      ]
+    },
+    {
+      "schemaVersion": "0.1.0",
+      "capabilityId": "capability.external.consensus-research",
+      "name": "Consensus Research",
+      "summary": "External research capability candidate for source-backed scientific or market-evidence synthesis when a ticket explicitly asks for research support.",
+      "kind": "plugin",
+      "origin": "external",
+      "lifecycle": "proposed",
+      "owner": {
+        "primaryOwner": "Research Orchestrator Agent",
+        "supportingOwner": "Validation Agent",
+        "reviewer": "human operator"
+      },
+      "source": {
+        "sourceType": "plugin",
+        "sourceName": "Consensus",
+        "sourceUrl": null,
+        "repositoryPath": null,
+        "licenseOrTerms": null,
+        "versionOrDate": "2026-05-26",
+        "notes": "External capability example only. PIP-152 does not call or configure the tool."
+      },
+      "routing": {
+        "useWhen": [
+          "A research or validation ticket needs source-backed synthesis and the tool is available."
+        ],
+        "doNotUseWhen": [
+          "The task can be answered from repository artifacts alone.",
+          "The result would be treated as customer evidence without source artifacts."
+        ],
+        "pipelineStages": [
+          "research-validation"
+        ],
+        "ticketTypes": [
+          "research",
+          "validation"
+        ],
+        "primaryConsumers": [
+          "codex",
+          "claude-code"
+        ],
+        "fallback": "Use repository research protocol and cite primary sources; record that external capability was unavailable or out of scope."
+      },
+      "inputs": [
+        {
+          "name": "researchQuestion",
+          "required": true,
+          "description": "Specific research question tied to a validation or research ticket.",
+          "sourceOrDestination": "Assigned ticket or research artifact"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "researchSynthesis",
+          "required": true,
+          "description": "Source-backed findings with confidence and contradictions.",
+          "sourceOrDestination": "Research or validation artifact"
+        }
+      ],
+      "schemas": {
+        "inputSchemas": [],
+        "outputSchemas": [],
+        "relatedSchemas": [
+          {
+            "name": "LearningRecord",
+            "pathOrUrl": "schemas/LearningRecord.schema.json",
+            "required": false
+          }
+        ],
+        "notes": "Future adapter tickets may define normalized research output schemas."
+      },
+      "toolAccess": {
+        "accessType": "plugin",
+        "requiresCredential": true,
+        "requiresNetwork": true,
+        "canMutateExternalState": false,
+        "allowedOperations": [
+          "Read research results",
+          "Summarize source-backed findings"
+        ],
+        "forbiddenOperations": [
+          "Store customer data",
+          "Invent customer validation",
+          "Make legal, medical, financial, or compliance conclusions without specialist review"
+        ]
+      },
+      "cost": {
+        "costType": "unknown",
+        "expectedCostLevel": "unknown",
+        "costDriver": "External service availability, account limits, or usage policy.",
+        "approvalRequiredBeforePaidUse": true
+      },
+      "risks": [
+        {
+          "category": "unsupported-claims",
+          "level": "medium",
+          "description": "Research synthesis can be over-promoted into product proof.",
+          "mitigation": "Keep research as evidence input, not customer validation or willingness-to-pay proof."
+        }
+      ],
+      "governance": {
+        "approvalRequired": true,
+        "approvalTriggers": [
+          "Paid use",
+          "Sensitive claims",
+          "Customer-data handling",
+          "External publication"
+        ],
+        "dataBoundary": "Use public or approved research questions only; do not send secrets, private founder context, or customer data.",
+        "sensitiveActionBoundary": "Do not convert research output into customer evidence, market proof, legal claims, compliance claims, or medical/financial advice.",
+        "loggingRequirement": "Record source links, confidence, contradictions, and external capability use in the artifact or handoff.",
+        "updatePolicy": "Update registry entry after a dedicated external-capability registration ticket reviews actual tool behavior."
+      },
+      "review": {
+        "lastReviewedAt": null,
+        "reviewCadence": "before-use",
+        "reviewStatus": "not-reviewed",
+        "reviewNotes": "Example external capability for schema validation only; not approved for operational use by this ticket."
+      },
+      "examples": [
+        {
+          "scenario": "Validation ticket asks for source-backed scientific research.",
+          "expectedUse": "Use the capability only if available and approved for the ticket, then cite sources and confidence.",
+          "expectedNonUse": "Do not use it to claim real customer demand or willingness to pay."
+        }
+      ]
+    }
+  ]
+}
