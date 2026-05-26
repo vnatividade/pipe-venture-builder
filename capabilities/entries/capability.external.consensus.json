@@ -1,0 +1,129 @@
+{
+  "schemaVersion": "0.1.0",
+  "capabilityId": "capability.external.consensus",
+  "name": "Consensus",
+  "summary": "External research capability candidate for source-backed evidence synthesis when a ticket explicitly requires research support.",
+  "kind": "plugin",
+  "origin": "external",
+  "lifecycle": "proposed",
+  "owner": {
+    "primaryOwner": "Research Orchestrator Agent",
+    "supportingOwner": "Validation Agent",
+    "reviewer": "human operator"
+  },
+  "source": {
+    "sourceType": "plugin",
+    "sourceName": "Consensus",
+    "sourceUrl": null,
+    "repositoryPath": null,
+    "licenseOrTerms": null,
+    "versionOrDate": "2026-05-26",
+    "notes": "Registered as a candidate evidence capability. This entry makes no claim about tool quality or coverage."
+  },
+  "routing": {
+    "useWhen": [
+      "A research or validation ticket asks for source-backed synthesis and external research capability use is approved.",
+      "Scientific or market-evidence claims need citations and contradiction checks."
+    ],
+    "doNotUseWhen": [
+      "Repository artifacts are sufficient.",
+      "The result would be treated as customer validation, willingness to pay, legal conclusion, medical conclusion, or compliance proof."
+    ],
+    "pipelineStages": [
+      "research-validation",
+      "risk-review"
+    ],
+    "ticketTypes": [
+      "research",
+      "validation"
+    ],
+    "primaryConsumers": [
+      "codex",
+      "claude-code"
+    ],
+    "fallback": "Use repository research protocol and cite primary sources directly."
+  },
+  "inputs": [
+    {
+      "name": "researchQuestion",
+      "required": true,
+      "description": "Narrow research question tied to a validation or research ticket.",
+      "sourceOrDestination": "Linear ticket or research artifact"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "evidenceSynthesis",
+      "required": true,
+      "description": "Cited findings, confidence, contradictions, and limits.",
+      "sourceOrDestination": "Research or validation artifact"
+    }
+  ],
+  "schemas": {
+    "inputSchemas": [],
+    "outputSchemas": [],
+    "relatedSchemas": [
+      {
+        "name": "LearningRecord",
+        "pathOrUrl": "schemas/LearningRecord.schema.json",
+        "required": false
+      }
+    ],
+    "notes": "Future adapter work may define normalized research result schemas."
+  },
+  "toolAccess": {
+    "accessType": "plugin",
+    "requiresCredential": true,
+    "requiresNetwork": true,
+    "canMutateExternalState": false,
+    "allowedOperations": [
+      "Read research results",
+      "Summarize source-backed findings"
+    ],
+    "forbiddenOperations": [
+      "Store private customer data",
+      "Invent customer validation",
+      "Make sensitive conclusions without specialist review"
+    ]
+  },
+  "cost": {
+    "costType": "unknown",
+    "expectedCostLevel": "unknown",
+    "costDriver": "External service availability, account limits, or usage policy.",
+    "approvalRequiredBeforePaidUse": true
+  },
+  "risks": [
+    {
+      "category": "unsupported-claims",
+      "level": "medium",
+      "description": "External research can be over-promoted into product proof.",
+      "mitigation": "Keep research as evidence input and preserve source citations, confidence, and limits."
+    }
+  ],
+  "governance": {
+    "approvalRequired": true,
+    "approvalTriggers": [
+      "Paid use",
+      "Sensitive claims",
+      "Customer-data handling",
+      "External publication"
+    ],
+    "dataBoundary": "Use public or approved research questions only; do not send secrets, private founder context, or customer data.",
+    "sensitiveActionBoundary": "Do not convert research output into customer evidence, market proof, legal claims, compliance claims, or medical/financial advice.",
+    "loggingRequirement": "Record source links, confidence, contradictions, and external capability use in the artifact or handoff.",
+    "updatePolicy": "Update this entry after a dedicated evaluation reviews actual tool behavior."
+  },
+  "review": {
+    "lastReviewedAt": null,
+    "reviewCadence": "before-use",
+    "reviewStatus": "not-reviewed",
+    "reviewNotes": "Proposed entry; not approved for autonomous use."
+  },
+  "examples": [
+    {
+      "scenario": "A validation ticket asks for evidence about a technical or scientific assumption.",
+      "expectedUse": "Use Consensus only if approved, then cite sources and call out uncertainty.",
+      "expectedNonUse": "Do not use Consensus output as proof of market demand or customer willingness to pay."
+    }
+  ]
+}

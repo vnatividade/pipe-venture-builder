@@ -1,0 +1,136 @@
+{
+  "schemaVersion": "0.1.0",
+  "capabilityId": "capability.external.pm-skills",
+  "name": "PM Skills",
+  "summary": "External product management skill capability for discovery, PRD, GTM, positioning, validation framing, and product decision support.",
+  "kind": "skill",
+  "origin": "external",
+  "lifecycle": "proposed",
+  "owner": {
+    "primaryOwner": "Product Strategy Agent",
+    "supportingOwner": "Validation Agent",
+    "reviewer": "human operator"
+  },
+  "source": {
+    "sourceType": "skill",
+    "sourceName": "PM Skills",
+    "sourceUrl": null,
+    "repositoryPath": null,
+    "licenseOrTerms": null,
+    "versionOrDate": "2026-05-26",
+    "notes": "Registered as a product/discovery capability candidate. PIP-153 does not evaluate or install the source."
+  },
+  "routing": {
+    "useWhen": [
+      "A product, validation, PRD, GTM, discovery, or positioning ticket needs structured product reasoning.",
+      "A ticket asks for upstream idea organization before execution."
+    ],
+    "doNotUseWhen": [
+      "The task is implementation-only and product scope is already fixed.",
+      "The output would be treated as customer evidence without source artifacts."
+    ],
+    "pipelineStages": [
+      "idea-intake",
+      "founder-focus",
+      "controle",
+      "research-validation",
+      "prd",
+      "mvp-scope"
+    ],
+    "ticketTypes": [
+      "product",
+      "validation",
+      "research",
+      "documentation"
+    ],
+    "primaryConsumers": [
+      "codex",
+      "claude-code",
+      "human"
+    ],
+    "fallback": "Use existing Pipe validation and product templates, then record missing product-skill coverage as a follow-up."
+  },
+  "inputs": [
+    {
+      "name": "productQuestion",
+      "required": true,
+      "description": "Specific product, discovery, PRD, GTM, or validation question.",
+      "sourceOrDestination": "Linear ticket or product artifact"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "productSynthesis",
+      "required": true,
+      "description": "Structured product recommendation, assumptions, evidence needs, and unresolved decisions.",
+      "sourceOrDestination": "Product, validation, or PRD artifact"
+    }
+  ],
+  "schemas": {
+    "inputSchemas": [],
+    "outputSchemas": [],
+    "relatedSchemas": [
+      {
+        "name": "LearningRecord",
+        "pathOrUrl": "schemas/LearningRecord.schema.json",
+        "required": false
+      }
+    ],
+    "notes": "Future product-output schemas may normalize discovery and PRD outputs."
+  },
+  "toolAccess": {
+    "accessType": "manual",
+    "requiresCredential": false,
+    "requiresNetwork": false,
+    "canMutateExternalState": false,
+    "allowedOperations": [
+      "Apply product reasoning patterns",
+      "Structure discovery, PRD, GTM, and validation outputs"
+    ],
+    "forbiddenOperations": [
+      "Invent customer evidence",
+      "Approve product strategy without human review",
+      "Contact customers"
+    ]
+  },
+  "cost": {
+    "costType": "unknown",
+    "expectedCostLevel": "unknown",
+    "costDriver": "Availability depends on the actual PM skill source and runtime.",
+    "approvalRequiredBeforePaidUse": true
+  },
+  "risks": [
+    {
+      "category": "unsupported-claims",
+      "level": "medium",
+      "description": "Product frameworks can sound like evidence even when no customer validation exists.",
+      "mitigation": "Separate assumptions, sources, and decisions; require source artifacts for claims."
+    }
+  ],
+  "governance": {
+    "approvalRequired": true,
+    "approvalTriggers": [
+      "Customer outreach",
+      "Sensitive claims",
+      "Changing MVP scope",
+      "External publication"
+    ],
+    "dataBoundary": "Use repository artifacts and approved public sources only unless a ticket explicitly approves other data.",
+    "sensitiveActionBoundary": "Do not convert product reasoning into legal, financial, clinical, compliance, or market-proof claims.",
+    "loggingRequirement": "Record assumptions, evidence gaps, and human decisions in the resulting artifact or Linear handoff.",
+    "updatePolicy": "Review before operational use and update after actual PM skill behavior is evaluated."
+  },
+  "review": {
+    "lastReviewedAt": null,
+    "reviewCadence": "before-use",
+    "reviewStatus": "not-reviewed",
+    "reviewNotes": "Proposed entry; should be evaluated before becoming an approved operational capability."
+  },
+  "examples": [
+    {
+      "scenario": "A ticket asks to refine an idea before PRD.",
+      "expectedUse": "Use PM Skills to structure assumptions, personas, validation questions, and MVP boundaries.",
+      "expectedNonUse": "Do not claim PMF, demand, revenue, or customer commitment without evidence."
+    }
+  ]
+}

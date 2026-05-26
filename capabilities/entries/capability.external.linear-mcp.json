@@ -1,0 +1,143 @@
+{
+  "schemaVersion": "0.1.0",
+  "capabilityId": "capability.external.linear-mcp",
+  "name": "Linear MCP",
+  "summary": "External Linear connector capability for reading tickets, updating approved execution state, and recording delivery handoffs.",
+  "kind": "mcp",
+  "origin": "external",
+  "lifecycle": "pilot",
+  "owner": {
+    "primaryOwner": "Ticket Orchestrator Agent",
+    "supportingOwner": "Execution Steward Agent",
+    "reviewer": "human operator"
+  },
+  "source": {
+    "sourceType": "mcp_server",
+    "sourceName": "Linear MCP or Linear plugin connector",
+    "sourceUrl": null,
+    "repositoryPath": null,
+    "licenseOrTerms": null,
+    "versionOrDate": "2026-05-26",
+    "notes": "Connector entry for Linear operations. Linear remains the execution-state source of truth."
+  },
+  "routing": {
+    "useWhen": [
+      "A ticket must be read, moved through approved states, linked to a branch/PR, or updated with delivery handoff.",
+      "A follow-up ticket is explicitly approved or required by repository policy and concrete scope exists."
+    ],
+    "doNotUseWhen": [
+      "Creating Linear projects or tickets lacks explicit approval.",
+      "The content would expose secrets, customer data, private evidence, or unsupported claims."
+    ],
+    "pipelineStages": [
+      "linear-ticketing",
+      "ticket-execution",
+      "review-merge",
+      "feedback-learning"
+    ],
+    "ticketTypes": [
+      "architecture",
+      "automation",
+      "code",
+      "documentation",
+      "governance",
+      "observability",
+      "product",
+      "research",
+      "skill",
+      "validation",
+      "workflow"
+    ],
+    "primaryConsumers": [
+      "codex",
+      "claude-code",
+      "future-orchestrator"
+    ],
+    "fallback": "Record local handoff in the PR or repository and update Linear when connector access returns."
+  },
+  "inputs": [
+    {
+      "name": "linearIssueId",
+      "required": true,
+      "description": "Linear issue identifier and approved action.",
+      "sourceOrDestination": "Linear"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "linearExecutionState",
+      "required": true,
+      "description": "Updated status, attachments, comments, or follow-up links.",
+      "sourceOrDestination": "Linear"
+    }
+  ],
+  "schemas": {
+    "inputSchemas": [],
+    "outputSchemas": [],
+    "relatedSchemas": [
+      {
+        "name": "LearningRecord",
+        "pathOrUrl": "schemas/LearningRecord.schema.json",
+        "required": false
+      }
+    ],
+    "notes": "Delivery comments should follow the repository handoff template."
+  },
+  "toolAccess": {
+    "accessType": "mcp",
+    "requiresCredential": true,
+    "requiresNetwork": true,
+    "canMutateExternalState": true,
+    "allowedOperations": [
+      "Read assigned tickets",
+      "Update approved status fields",
+      "Attach approved branch and PR links",
+      "Write delivery handoff comments"
+    ],
+    "forbiddenOperations": [
+      "Create projects without approval",
+      "Create tickets without approval",
+      "Move unrelated tickets"
+    ]
+  },
+  "cost": {
+    "costType": "none",
+    "expectedCostLevel": "none",
+    "costDriver": "Linear workspace usage only unless paid changes are introduced.",
+    "approvalRequiredBeforePaidUse": true
+  },
+  "risks": [
+    {
+      "category": "approval",
+      "level": "medium",
+      "description": "Linear state changes can misrepresent execution or priority.",
+      "mitigation": "Use only within assigned ticket scope and preserve branch, PR, validation, review, and merge evidence."
+    }
+  ],
+  "governance": {
+    "approvalRequired": true,
+    "approvalTriggers": [
+      "Creating projects",
+      "Creating tickets",
+      "Changing labels or project structure",
+      "Recording sensitive claims"
+    ],
+    "dataBoundary": "Do not store secrets, customer data, production data, or private evidence in Linear comments.",
+    "sensitiveActionBoundary": "Do not use Linear status updates to bypass PR review, approval gates, or evidence requirements.",
+    "loggingRequirement": "Record branch, PR, validations, review findings, merge status, follow-ups, and residual risk.",
+    "updatePolicy": "Update when Linear workflow states, labels, or connector permissions change."
+  },
+  "review": {
+    "lastReviewedAt": "2026-05-26",
+    "reviewCadence": "quarterly",
+    "reviewStatus": "restricted",
+    "reviewNotes": "Pilot connector entry with approval-gated creation and mutation."
+  },
+  "examples": [
+    {
+      "scenario": "A PR has merged and the ticket needs delivery update.",
+      "expectedUse": "Update the assigned ticket with branch, PR, merge commit, validations, findings, and residual risk.",
+      "expectedNonUse": "Do not create unrelated tickets or projects unless explicitly approved."
+    }
+  ]
+}

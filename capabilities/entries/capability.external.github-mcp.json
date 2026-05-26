@@ -1,0 +1,128 @@
+{
+  "schemaVersion": "0.1.0",
+  "capabilityId": "capability.external.github-mcp",
+  "name": "GitHub MCP",
+  "summary": "External GitHub connector capability for repository, issue, pull request, review, and CI metadata operations when approved.",
+  "kind": "mcp",
+  "origin": "external",
+  "lifecycle": "pilot",
+  "owner": {
+    "primaryOwner": "Execution Steward Agent",
+    "supportingOwner": "Software Architecture Agent",
+    "reviewer": "human operator"
+  },
+  "source": {
+    "sourceType": "mcp_server",
+    "sourceName": "GitHub MCP or GitHub plugin connector",
+    "sourceUrl": null,
+    "repositoryPath": null,
+    "licenseOrTerms": null,
+    "versionOrDate": "2026-05-26",
+    "notes": "Connector entry for GitHub operations. It does not replace gh CLI fallback or repository approval gates."
+  },
+  "routing": {
+    "useWhen": [
+      "A ticket requires GitHub PR metadata, review comments, CI state, repository issue context, or PR lifecycle actions.",
+      "The action is approved by the ticket or current thread approval."
+    ],
+    "doNotUseWhen": [
+      "The requested action would merge, close, delete, or mutate repository state without approval.",
+      "Local git or gh CLI is the safer source of truth for current workspace state."
+    ],
+    "pipelineStages": [
+      "ticket-execution",
+      "review-merge"
+    ],
+    "ticketTypes": [
+      "code",
+      "documentation",
+      "governance",
+      "workflow",
+      "automation"
+    ],
+    "primaryConsumers": [
+      "codex",
+      "claude-code",
+      "future-orchestrator"
+    ],
+    "fallback": "Use local git and gh CLI when connector access is unavailable; record fallback in handoff."
+  },
+  "inputs": [
+    {
+      "name": "repositoryOrPrReference",
+      "required": true,
+      "description": "Repository, branch, issue, or PR reference.",
+      "sourceOrDestination": "GitHub"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "githubState",
+      "required": true,
+      "description": "PR metadata, review status, CI state, comments, or links.",
+      "sourceOrDestination": "PR or Linear handoff"
+    }
+  ],
+  "schemas": {
+    "inputSchemas": [],
+    "outputSchemas": [],
+    "relatedSchemas": [],
+    "notes": "Future adapter contract may normalize PR review and CI status payloads."
+  },
+  "toolAccess": {
+    "accessType": "mcp",
+    "requiresCredential": true,
+    "requiresNetwork": true,
+    "canMutateExternalState": true,
+    "allowedOperations": [
+      "Read GitHub metadata",
+      "Comment on approved PRs",
+      "Open or merge PRs only when approved"
+    ],
+    "forbiddenOperations": [
+      "Bypass branch protection without recorded approval",
+      "Delete branches or repositories without explicit request",
+      "Mutate unrelated repositories"
+    ]
+  },
+  "cost": {
+    "costType": "none",
+    "expectedCostLevel": "none",
+    "costDriver": "GitHub workspace usage only unless external billing is introduced.",
+    "approvalRequiredBeforePaidUse": true
+  },
+  "risks": [
+    {
+      "category": "approval",
+      "level": "medium",
+      "description": "GitHub connector actions can mutate repository collaboration state.",
+      "mitigation": "Require assigned ticket scope, current-thread approval for gated actions, and PR handoff logging."
+    }
+  ],
+  "governance": {
+    "approvalRequired": true,
+    "approvalTriggers": [
+      "Opening PRs",
+      "Merging PRs",
+      "Deleting branches",
+      "Changing repository settings"
+    ],
+    "dataBoundary": "Do not expose secrets, tokens, customer data, or private evidence in PR comments.",
+    "sensitiveActionBoundary": "Do not use connector actions to override review, approval, or branch governance without recorded approval.",
+    "loggingRequirement": "Record PR URL, review status, checks, merge commit, and fallback path if used.",
+    "updatePolicy": "Update when GitHub connector permissions or branch policy changes."
+  },
+  "review": {
+    "lastReviewedAt": "2026-05-26",
+    "reviewCadence": "quarterly",
+    "reviewStatus": "restricted",
+    "reviewNotes": "Pilot connector entry with approval-gated mutation."
+  },
+  "examples": [
+    {
+      "scenario": "A PR needs review comments inspected before merge.",
+      "expectedUse": "Use GitHub MCP or gh CLI to read comments and summarize actionable findings.",
+      "expectedNonUse": "Do not merge or dismiss findings without satisfying review and approval rules."
+    }
+  ]
+}
