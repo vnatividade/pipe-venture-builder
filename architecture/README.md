@@ -14,6 +14,7 @@ Artifacts:
 - [canonical schema policy](canonical-schema-policy.md)
 - [capability registry policy](capability-registry-policy.md)
 - [executor capability matrix](executor-capability-matrix.md)
+- [context pack builder spec](context-pack-builder-spec.md)
 - [knowledge runtime architecture](knowledge-runtime-architecture.md)
 - [architecture review template](architecture-review.md)
 - [proprietary data moat strategy](proprietary-data-moat-strategy.md)
