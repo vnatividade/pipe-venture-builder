@@ -10,6 +10,7 @@ Artifacts:
 - system design
 - technical constraints
 - [API dependency risk assessment](api-dependency-risk-assessment.md)
+- [capability adapter contract](capability-adapter-contract.md)
 - [canonical schema policy](canonical-schema-policy.md)
 - [capability registry policy](capability-registry-policy.md)
 - [executor capability matrix](executor-capability-matrix.md)
