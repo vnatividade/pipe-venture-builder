@@ -16,6 +16,7 @@ Artifacts:
 - [executor capability matrix](executor-capability-matrix.md)
 - [context pack builder spec](context-pack-builder-spec.md)
 - [knowledge runtime architecture](knowledge-runtime-architecture.md)
+- [local pgvector Knowledge Runtime spike](local-pgvector-knowledge-runtime-spike.md)
 - [architecture review template](architecture-review.md)
 - [proprietary data moat strategy](proprietary-data-moat-strategy.md)
 - [technical decision guide](technical-decision-guide.md)
