@@ -11,6 +11,7 @@ Artifacts:
 - technical constraints
 - [API dependency risk assessment](api-dependency-risk-assessment.md)
 - [canonical schema policy](canonical-schema-policy.md)
+- [capability registry policy](capability-registry-policy.md)
 - [executor capability matrix](executor-capability-matrix.md)
 - [architecture review template](architecture-review.md)
 - [proprietary data moat strategy](proprietary-data-moat-strategy.md)
