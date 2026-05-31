@@ -2,6 +2,8 @@
 
 Use this template for manual customer discovery after founder focus, C.O.N.T.R.O.L.E., and validation scorecard setup.
 
+Use `validation/respondent-targeting-and-interview-planner.md` first when respondent profiles, exclusion criteria, manual source ideas, or interview questions still need to be defined.
+
 Do not contact customers without approval. Do not store sensitive personal data, private business data, or recordings without explicit approval and a clear retention reason.
 
 Follow `validation/customer-data-retention-policy.md` before storing identifiable notes, recordings, transcripts, exact quotes, or sensitive customer context.
@@ -14,6 +16,7 @@ Follow `validation/customer-data-retention-policy.md` before storing identifiabl
 - Role:
 - Segment:
 - Source or referral path:
+- Linked respondent targeting plan:
 - Consent to take notes:
 - Sensitive data captured: yes/no
 - Storage location:

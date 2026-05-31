@@ -12,6 +12,7 @@ Planned artifacts:
 - [`market-validation-before-code-gate.md`](market-validation-before-code-gate.md)
 - [`pmf-evidence-metrics.md`](pmf-evidence-metrics.md)
 - [`pre-user-security-privacy-readiness-gate.md`](pre-user-security-privacy-readiness-gate.md)
+- [`respondent-targeting-and-interview-planner.md`](respondent-targeting-and-interview-planner.md)
 - [`venture-validation-framework.md`](venture-validation-framework.md)
 - [`distribution-and-embedded-workflow-prompts.md`](distribution-and-embedded-workflow-prompts.md)
 - experiment test card
@@ -39,3 +40,5 @@ The [Distribution and Embedded Workflow Prompts](distribution-and-embedded-workf
 Customer discovery artifacts must distinguish exact quotes, observed evidence, assumptions, and synthesis. Fictional personas do not count as real interviews.
 
 Customer discovery artifacts must follow the customer data retention policy before storing identifiable notes, recordings, transcripts, exact quotes, or sensitive customer context.
+
+Use the [Respondent Targeting And Interview Planner](respondent-targeting-and-interview-planner.md) before manual customer discovery when agents need to suggest which respondent profiles the founder should seek and which questions should be asked. The planner does not authorize outreach, lead sourcing, scraping, automated messaging, AI calls, or storage of identifiable customer data.
