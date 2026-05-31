@@ -205,5 +205,6 @@ This workflow is complete when:
 - Use `validation/respondent-targeting-and-interview-planner.md` when BuilderPulse suggests personas to find manually.
 - Use `validation/validation-scorecard.md` for evidence scoring and insufficiency checks.
 - Use `validation/market-validation-before-code-gate.md` before downstream PRD, build, growth, monetization, or customer-facing work.
+- Use `growth/builderpulse-idea-ranking-contrast-workflow.md` when a captured signal needs to strengthen, weaken, question, or have no impact on an internal idea ranking.
 - Use `growth/idea-browser-validation-workflow.md` when BuilderPulse signals overlap with idea-comparison surfaces.
 - Use `knowledge/knowledge-curator-workflow.md` if repeated BuilderPulse patterns should become durable knowledge.
