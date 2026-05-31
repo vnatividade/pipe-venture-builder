@@ -18,6 +18,8 @@ Use the [execution and risk specialization](execution-risk-specialization.md) wh
 
 Use the [content strategy specialization](content-strategy-specialization.md) when routing founder-led content ideation from validated ICP, offer, channel, and customer-language artifacts.
 
+Use the [distribution and growth specialization](distribution-growth-specialization.md) when routing distribution strategy, channel experiment design, launch readiness, post-launch learning, or growth backlog work.
+
 Each agent should define:
 
 - purpose
