@@ -4,6 +4,8 @@ Use this template to define the initial ideal customer profile for validation.
 
 The ICP is a hypothesis until supported by evidence. Do not treat fictional personas, synthetic persona output, or internal opinions as real customer evidence.
 
+Use `validation/respondent-targeting-and-interview-planner.md` when the first respondent profiles, exclusion criteria, or manual source paths need to be defined before interviews.
+
 ## ICP Summary
 
 - ICP name:
@@ -12,6 +14,7 @@ The ICP is a hypothesis until supported by evidence. Do not treat fictional pers
 - Linked founder focus:
 - Linked C.O.N.T.R.O.L.E. evaluation:
 - Linked validation scorecard:
+- Linked respondent targeting plan:
 
 ## Segment Definition
 
