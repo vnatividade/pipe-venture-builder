@@ -10,6 +10,7 @@ Planned artifacts:
 - [customer data retention policy](customer-data-retention-policy.md)
 - [`icp-profile.md`](icp-profile.md)
 - [`market-validation-before-code-gate.md`](market-validation-before-code-gate.md)
+- [`persona-ranking-rubric.md`](persona-ranking-rubric.md)
 - [`pmf-evidence-metrics.md`](pmf-evidence-metrics.md)
 - [`pre-user-security-privacy-readiness-gate.md`](pre-user-security-privacy-readiness-gate.md)
 - [`raw-interview-evidence-intake-and-synthesis.md`](raw-interview-evidence-intake-and-synthesis.md)
@@ -45,3 +46,5 @@ Customer discovery artifacts must follow the customer data retention policy befo
 Use the [Respondent Targeting And Interview Planner](respondent-targeting-and-interview-planner.md) before manual customer discovery when agents need to suggest which respondent profiles the founder should seek and which questions should be asked. The planner does not authorize outreach, lead sourcing, scraping, automated messaging, AI calls, or storage of identifiable customer data.
 
 Use the [Raw Interview Evidence Intake And Synthesis](raw-interview-evidence-intake-and-synthesis.md) workflow after approved discovery conversations, interviews, notes, or call summaries to turn raw material into anonymized evidence, contradiction synthesis, scorecard inputs, customer-language memory, PMF signals, and follow-ups. It does not authorize upload pipelines, transcription services, automatic ingestion, recordings, or storage of identifiable raw data.
+
+Use the [Persona Ranking Rubric](persona-ranking-rubric.md) when comparing which target persona should be validated first for a given idea. Every persona score must include evidence type, confidence, and source; synthetic or fictional personas remain hypotheses and cannot outrank interview-backed evidence.
