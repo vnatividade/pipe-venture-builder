@@ -11,6 +11,7 @@ Planned artifacts:
 - [`icp-profile.md`](icp-profile.md)
 - [`market-validation-before-code-gate.md`](market-validation-before-code-gate.md)
 - [`pmf-evidence-metrics.md`](pmf-evidence-metrics.md)
+- [`pre-user-security-privacy-readiness-gate.md`](pre-user-security-privacy-readiness-gate.md)
 - [`venture-validation-framework.md`](venture-validation-framework.md)
 - [`distribution-and-embedded-workflow-prompts.md`](distribution-and-embedded-workflow-prompts.md)
 - experiment test card
@@ -24,6 +25,8 @@ Validation should prioritize behavior, urgency, willingness to engage, repeated 
 Validation should also capture contradiction. After meaningful discovery batches, agents must record evidence that supports the thesis, evidence that contradicts it, ambiguous signals, confidence changes, and the real-world evidence needed to resolve the contradiction. Synthetic or AI-generated critique may help find blind spots, but it does not count as validation evidence.
 
 The [PMF Evidence Metrics](pmf-evidence-metrics.md) guide should be used before treating MVP traction as product-market fit, launch readiness, scale readiness, or billing readiness.
+
+The [Pre-User Security And Privacy Readiness Gate](pre-user-security-privacy-readiness-gate.md) must be used before real users, prospects, customers, partners, or external participants touch a prototype, manual test, form, workflow, dataset, prompt output, product trial, or validation artifact.
 
 The validation scorecard must link back to founder focus and C.O.N.T.R.O.L.E. before PRD, build, growth, or monetization work.
 
