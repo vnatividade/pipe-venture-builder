@@ -32,6 +32,8 @@ Idea
 
 Do not skip the validation gates just because implementation is possible. The point of the system is to keep execution narrow, traceable, and evidence-led.
 
+For stage-level GO / REFINE / NO-GO boundaries across Idea, MVP, Launch, and Scale, use [execution/core-pipeline-map.md](execution/core-pipeline-map.md). A completed document is not evidence by itself; advancement requires sourced evidence, explicit assumptions, and the required approval state.
+
 ## First-Run Path
 
 Start here when using this template for a new product idea:
