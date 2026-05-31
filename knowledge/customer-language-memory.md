@@ -4,9 +4,12 @@ Use this file to preserve exact customer language and learning loops across agen
 
 This is not a fictional persona document. Separate direct quotes, observed evidence, assumptions, and synthesis.
 
+Use `validation/raw-interview-evidence-intake-and-synthesis.md` before promoting raw notes, call summaries, transcript summaries, or interview batches into this memory file.
+
 ## Source Rules
 
 - Follow `validation/customer-data-retention-policy.md` before storing customer language from real discovery.
+- Use `validation/raw-interview-evidence-intake-and-synthesis.md` to distinguish raw material, anonymized evidence, approved exact quotes, synthesis, assumptions, and decisions.
 - Direct quotes must come from real customer discovery or approved source artifacts.
 - Synthetic persona output may be stored only as hypothesis material, never as real evidence.
 - Remove or anonymize sensitive identifiers unless explicit approval exists.

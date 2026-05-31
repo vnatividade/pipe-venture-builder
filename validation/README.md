@@ -12,6 +12,7 @@ Planned artifacts:
 - [`market-validation-before-code-gate.md`](market-validation-before-code-gate.md)
 - [`pmf-evidence-metrics.md`](pmf-evidence-metrics.md)
 - [`pre-user-security-privacy-readiness-gate.md`](pre-user-security-privacy-readiness-gate.md)
+- [`raw-interview-evidence-intake-and-synthesis.md`](raw-interview-evidence-intake-and-synthesis.md)
 - [`respondent-targeting-and-interview-planner.md`](respondent-targeting-and-interview-planner.md)
 - [`venture-validation-framework.md`](venture-validation-framework.md)
 - [`distribution-and-embedded-workflow-prompts.md`](distribution-and-embedded-workflow-prompts.md)
@@ -42,3 +43,5 @@ Customer discovery artifacts must distinguish exact quotes, observed evidence, a
 Customer discovery artifacts must follow the customer data retention policy before storing identifiable notes, recordings, transcripts, exact quotes, or sensitive customer context.
 
 Use the [Respondent Targeting And Interview Planner](respondent-targeting-and-interview-planner.md) before manual customer discovery when agents need to suggest which respondent profiles the founder should seek and which questions should be asked. The planner does not authorize outreach, lead sourcing, scraping, automated messaging, AI calls, or storage of identifiable customer data.
+
+Use the [Raw Interview Evidence Intake And Synthesis](raw-interview-evidence-intake-and-synthesis.md) workflow after approved discovery conversations, interviews, notes, or call summaries to turn raw material into anonymized evidence, contradiction synthesis, scorecard inputs, customer-language memory, PMF signals, and follow-ups. It does not authorize upload pipelines, transcription services, automatic ingestion, recordings, or storage of identifiable raw data.
