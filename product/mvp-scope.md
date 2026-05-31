@@ -60,6 +60,8 @@ Do not run a test that hides material risk, misleads customers, mishandles data,
 
 Define the minimum evidence needed before architecture or implementation tickets.
 
+Use `validation/pmf-evidence-metrics.md` when defining activation, core result, continuation, willingness to commit, and false-positive warnings. The MVP threshold should prove the next narrow learning step, not full product-market fit.
+
 | Signal | Threshold | Source |
 |---|---|---|
 | Activation or first-use behavior |  |  |

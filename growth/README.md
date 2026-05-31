@@ -4,6 +4,8 @@ Growth artifacts live here.
 
 Growth work should start only after the product has evidence of a real problem, clear target market, and credible MVP value.
 
+Use [PMF Evidence Metrics](../validation/pmf-evidence-metrics.md) before treating MVP traction as launch readiness or scale readiness. Early channel interest, unqualified signups, and one-off praise do not prove product-market fit.
+
 Planned artifacts:
 
 - [distribution strategy framework](distribution-strategy-framework.md)

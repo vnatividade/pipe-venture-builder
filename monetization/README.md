@@ -14,3 +14,5 @@ Planned artifacts:
 Billing implementation should be deferred until market and value evidence justify it.
 
 Use the [Pricing Hypothesis Template](pricing-hypothesis-template.md) to validate buyer, value anchor, pricing metric, willingness-to-pay evidence, test method, and NO-GO threshold without implementing billing.
+
+Use [PMF Evidence Metrics](../validation/pmf-evidence-metrics.md) before treating willingness to pay, paid-pilot interest, or early revenue as launch or scale readiness. Billing remains separately approval-gated.
