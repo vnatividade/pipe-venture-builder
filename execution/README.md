@@ -22,5 +22,6 @@ Artifacts:
 - [risk reviewer and matrix lite](risk-reviewer-matrix-lite.md)
 - [ticket orchestrator workflow](ticket-orchestrator-workflow.md)
 - [hardening audit](hardening-audit.md)
+- [founder bottleneck audit](founder-bottleneck-audit.md)
 
 Execution should stay ticket-sized, reviewable, and traceable.
