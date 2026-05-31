@@ -129,6 +129,7 @@ Use a lightweight cadence:
 
 - Per PR: record metrics in the final Linear handoff.
 - Weekly or after 5 merged agentic tickets: summarize patterns if they affect execution decisions.
+- When founder approval, review, or context synthesis becomes the dominant delay, use `execution/founder-bottleneck-audit.md` to classify founder-only decisions, agent-assisted work, and future automation candidates.
 - Before Claude Code pilot review: compare Codex-only baseline with mixed Codex + Claude Code execution.
 - Before orchestration analysis: review whether metrics show enough stable handoff, readiness, and conflict data to justify evaluating Hermes, OpenClaw, or another orchestrator.
 
