@@ -143,6 +143,18 @@ Use it with this policy:
 - keep sensitive or confidential details out of the quote bank
 - treat synthetic persona output as hypothesis material, never customer evidence
 
+### Raw Interview Evidence Intake And Synthesis
+
+`validation/raw-interview-evidence-intake-and-synthesis.md` should be used when raw notes, call summaries, transcript summaries, objection logs, or interview batches need to become repository-safe evidence.
+
+Use it with this policy:
+
+- process raw material only after the source approval and retention boundary are clear
+- keep raw private notes, recordings, transcripts, and identifiable quotes outside the repository unless explicit approval permits retention
+- convert only anonymized, minimum-useful evidence into repository artifacts
+- record what was deleted, retained privately, or still needs retention review
+- do not let private raw material become hidden memory inside prompts, chats, embeddings, or undocumented files
+
 ## Handoff Requirements
 
 When a ticket handles real customer discovery data, the Linear or PR handoff should state:

@@ -8,6 +8,8 @@ Do not contact customers without approval. Do not store sensitive personal data,
 
 Follow `validation/customer-data-retention-policy.md` before storing identifiable notes, recordings, transcripts, exact quotes, or sensitive customer context.
 
+Use `validation/raw-interview-evidence-intake-and-synthesis.md` after the interview to decide what raw material stays private, what can be anonymized into repository artifacts, and which downstream artifacts should change.
+
 ## Interview Metadata
 
 - Interview date:
@@ -125,5 +127,6 @@ If synthetic or AI-generated critique is used, record it as hypothesis pressure-
 
 - Follow-up action:
 - Approval needed before contact:
+- Raw evidence synthesis:
 - Linear ticket:
 - Repository artifact to update:
