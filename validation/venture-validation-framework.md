@@ -138,6 +138,16 @@ Use these prompts to prepare customer discovery, research, or validation scoreca
 - What evidence would force REFINE or NO-GO?
 - What must remain out of scope even if the idea is promising?
 
+### Contradiction Seeking
+
+- What evidence would make the current problem framing weaker?
+- Which user behavior would prove the pain is occasional, mild, or already solved well enough?
+- Which ICP assumption would break if we weighted the negative signals first?
+- What would make the channel hypothesis inaccessible, expensive, slow, or low-trust?
+- What would make willingness to pay unlikely even if users like the idea?
+- Which part of the idea is being protected by founder preference instead of evidence?
+- What synthetic or AI-generated critique is useful only as a hypothesis, and what real-world evidence would be needed to confirm it?
+
 ## Handoff To Scorecard
 
 Before using `validation/validation-scorecard.md`, summarize:
@@ -146,6 +156,8 @@ Before using `validation/validation-scorecard.md`, summarize:
 - Primary innovation flavor:
 - PMF triad:
 - Strongest evidence:
+- Strongest contradictory evidence:
+- Ambiguous or mixed signals:
 - Weakest assumption:
 - Next evidence needed:
 

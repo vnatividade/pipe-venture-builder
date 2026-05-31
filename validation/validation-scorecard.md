@@ -35,6 +35,7 @@ Only continue if the C.O.N.T.R.O.L.E. verdict is Attack or Refine with human app
 - Willingness to pay or commit time is stronger than praise.
 - Synthetic persona output may help generate hypotheses, but it is not validation evidence.
 - MAYA, the 8 Innovation Flavors, and PMF triad help frame questions, but they do not count as validation evidence by themselves.
+- Evidence that contradicts the current thesis must be recorded before a GO or CONDITIONAL GO decision.
 - Paid ads, automated outreach, and build work remain blocked until explicitly approved.
 
 ## Upstream Validation Lenses
@@ -111,6 +112,32 @@ Answer directly.
 - What would make this idea a Kill decision?
 - What has the user committed: time, data, access, money, introduction, or repeated attention?
 - What evidence is still only founder opinion?
+- What evidence directly contradicts the current thesis?
+- What evidence would make the first ICP too broad, too weak, or wrong?
+- What customer behavior would make the current offer a false positive?
+
+## Contradiction Review
+
+Complete this section before selecting GO or CONDITIONAL GO. Re-run it after every meaningful evidence batch, such as 5 customer interviews, a focused research synthesis, a fake-door result, a manual test, or a channel experiment.
+
+| Question | Answer | Source |
+|---|---|---|
+| What evidence supports the current thesis? |  |  |
+| What evidence contradicts the current thesis? |  |  |
+| Which signals are ambiguous or low-confidence? |  |  |
+| Which score would decrease if contradictory evidence is weighted honestly? |  |  |
+| What remains only an internal assumption? |  |  |
+| What did synthetic or AI critique suggest, if used? |  |  |
+| What real-world evidence is needed to resolve the contradiction? |  |  |
+
+Decision impact:
+
+- Confidence change: Increased / unchanged / decreased
+- Scorecard impact:
+- C.O.N.T.R.O.L.E. impact:
+- Recommended next action: GO / CONDITIONAL GO / REFINE / NO-GO
+
+Synthetic or AI critique can identify blind spots, objections, and missing questions. It must not raise evidence scores, satisfy critical categories, or replace interviews, observed behavior, sourced research, willingness-to-engage signals, or willingness-to-pay evidence.
 
 ## Decision
 

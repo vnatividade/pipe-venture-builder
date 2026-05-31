@@ -86,6 +86,27 @@ Capture exact quotes separately from synthesis.
 | Objections |  |
 | Follow-up needed |  |
 
+## Contradiction Synthesis
+
+Complete this after each interview and again after every meaningful batch, such as 5 interviews, one focused research batch, or one approved validation experiment.
+
+Do not use this section to force a positive conclusion. Its job is to protect the Pipe from confirmation bias.
+
+| Field | Notes |
+|---|---|
+| Evidence supporting the thesis |  |
+| Evidence contradicting the thesis |  |
+| Ambiguous or mixed signals |  |
+| Evidence that weakens ICP specificity |  |
+| Evidence that weakens pain intensity |  |
+| Evidence that weakens willingness to engage or pay |  |
+| Internal assumption still unproven |  |
+| Synthetic or AI-generated critique used, if any |  |
+| Confidence change | Increased / unchanged / decreased |
+| Recommended decision impact | GO / CONDITIONAL GO / REFINE / NO-GO |
+
+If synthetic or AI-generated critique is used, record it as hypothesis pressure-testing only. It does not count as customer evidence, willingness to pay, market proof, or validation.
+
 ## Scorecard Inputs
 
 - Pain intensity evidence:
