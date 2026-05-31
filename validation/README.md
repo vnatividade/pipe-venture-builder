@@ -20,6 +20,8 @@ Planned artifacts:
 
 Validation should prioritize behavior, urgency, willingness to engage, repeated use, and willingness to pay over opinions alone.
 
+Validation should also capture contradiction. After meaningful discovery batches, agents must record evidence that supports the thesis, evidence that contradicts it, ambiguous signals, confidence changes, and the real-world evidence needed to resolve the contradiction. Synthetic or AI-generated critique may help find blind spots, but it does not count as validation evidence.
+
 The validation scorecard must link back to founder focus and C.O.N.T.R.O.L.E. before PRD, build, growth, or monetization work.
 
 The [Market Validation Before Code Gate](market-validation-before-code-gate.md) must be applied before product PRD, architecture, implementation, growth, monetization, or customer-facing build tickets. For governance-only, documentation-only, research-only, or internal operating tickets, record `Gate decision: NOT APPLICABLE` instead of blocking execution.
