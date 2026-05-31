@@ -19,6 +19,8 @@ For starting a new product repository from this base template, use [template-ini
 11. Review the PR before merge.
 12. Update Linear and `knowledge/` with the result.
 
+Use [execution/core-pipeline-map.md](../execution/core-pipeline-map.md) to check the Idea, MVP, Launch, and Scale exit criteria before advancing a venture. Do not treat completed templates as proof; each advancement should be tied to sourced evidence, explicit assumptions, and the required approval state.
+
 ## First-Run Checklist
 
 - `product/` contains the raw idea and initial assumptions.
