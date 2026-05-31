@@ -10,6 +10,7 @@ Planned artifacts:
 - [channel experiment template](channel-experiment-template.md)
 - [growth experiment backlog template](growth-experiment-backlog-template.md)
 - [fake-door and landing page validation workflow](fake-door-landing-page-validation-workflow.md)
+- [founder-led distribution playbook](founder-led-distribution-playbook.md)
 - content strategy
 - channel learning log
 - paid ads approval gate
