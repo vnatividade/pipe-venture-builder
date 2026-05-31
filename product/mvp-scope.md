@@ -56,6 +56,8 @@ If the loop cannot be described without secondary audiences or multiple jobs, re
 
 Do not run a test that hides material risk, misleads customers, mishandles data, or implies unavailable capability.
 
+Before any real user or external participant touches the test, apply `validation/pre-user-security-privacy-readiness-gate.md`.
+
 ## Evidence Threshold
 
 Define the minimum evidence needed before architecture or implementation tickets.

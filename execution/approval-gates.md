@@ -8,6 +8,8 @@ Approval gates protect founder control, legal and financial risk, customer trust
 
 Agents may prepare drafts, summarize options, or propose changes without approval. Agents must not execute gated actions until approval is explicit in the current conversation or recorded in the assigned Linear ticket.
 
+Before any real user, prospect, customer, partner, community member, or external participant touches a product, prototype, manual test, form, workflow, dataset, prompt output, trial, or validation artifact, apply `validation/pre-user-security-privacy-readiness-gate.md`.
+
 ## Required Approval Matrix
 
 | Action | Approval required before |
