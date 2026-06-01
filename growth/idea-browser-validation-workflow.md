@@ -248,6 +248,7 @@ This workflow is complete when:
 
 - Use `validation/validation-scorecard.md` for evidence scoring.
 - Use `validation/market-validation-before-code-gate.md` before downstream PRD, build, growth, monetization, or customer-facing work.
+- Use `growth/idea-browser-input-mapping.md` after a captured signal needs to feed ranking or validation planning with a required real-world test.
 - Use `validation/respondent-targeting-and-interview-planner.md` when Idea Browser suggests personas to test.
 - Use `growth/distribution-strategy-framework.md` when Idea Browser suggests a channel hypothesis.
 - Use `growth/channel-experiment-template.md` or `growth/fake-door-landing-page-validation-workflow.md` only after approval and readiness gates.
