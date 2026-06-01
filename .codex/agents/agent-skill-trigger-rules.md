@@ -27,6 +27,7 @@ Default behavior: identify the request type, map it to the current pipeline phas
 | Scientific validation | scientific claim, technical claim, evidence quality, expert source | Scientific Validation Agent | Research synthesis | `.codex/agents/research-validation-specialization.md` |
 | Market intelligence | market signals, substitutes, competition, channel reachability | Market Intelligence Agent | Research synthesis | `.codex/agents/research-validation-specialization.md` |
 | Customer discovery evidence | interview notes, customer language, observed behavior, ICP evidence | Customer Discovery Agent | Validation planning | `validation/customer-interview-template.md` |
+| Synthetic persona validation | synthetic persona, simulation, synthetic objections, synthetic-vs-real comparison | Synthetic Persona Validation Agent | Validation planning | `.codex/agents/synthetic-persona-validation-specialization.md` |
 | PRD or requirements | PRD, requirements, stories, non-goals | Product Strategist Agent | PRD drafting | PRD placeholder or source artifact |
 | MVP scope | core loop, riskiest assumption, smallest ethical test | MVP Scope Reviewer Agent | Validation planning | `product/mvp-scope.md` |
 | Architecture handoff | technical shape, constraints, integrations, data, implementation readiness | Architecture Agent / software_architect | None | `.codex/agents/execution-risk-specialization.md` |

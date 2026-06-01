@@ -14,6 +14,8 @@ Use the [strategy and intake specialization](strategy-intake-specialization.md) 
 
 Use the [research and validation specialization](research-validation-specialization.md) when routing research orchestration, scientific validation, market intelligence, or customer discovery work.
 
+Use the [synthetic persona validation specialization](synthetic-persona-validation-specialization.md) when routing synthetic persona generation, simulation, objection extraction, or comparison against real interviews. This agent is advisory-only and cannot treat synthetic output as market proof.
+
 Use the [execution and risk specialization](execution-risk-specialization.md) when routing architecture handoff, risk review, ticket decomposition, readiness validation, PR review, or merge handoff work.
 
 Use the [content strategy specialization](content-strategy-specialization.md) when routing founder-led content ideation from validated ICP, offer, channel, and customer-language artifacts.
