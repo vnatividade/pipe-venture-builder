@@ -14,6 +14,7 @@ Planned artifacts:
 - [fake-door and landing page validation workflow](fake-door-landing-page-validation-workflow.md)
 - [founder-led distribution playbook](founder-led-distribution-playbook.md)
 - [Idea Browser validation workflow](idea-browser-validation-workflow.md)
+- [Idea Browser input mapping](idea-browser-input-mapping.md)
 - [BuilderPulse monitoring workflow](builderpulse-monitoring-workflow.md)
 - [BuilderPulse idea ranking contrast workflow](builderpulse-idea-ranking-contrast-workflow.md)
 - [launch readiness checklist](launch-readiness-checklist.md)
@@ -29,6 +30,8 @@ Use the [Launch Readiness Checklist](launch-readiness-checklist.md) before treat
 Use the [Post-Launch Learning Loop](post-launch-learning-loop.md) after any approved launch step or experiment produces results. Every launch or experiment should end with a learning card and one decision: `KEEP`, `CHANGE`, `KILL`, `PAUSE`, or `ESCALATE`.
 
 Use the [Idea Browser Validation Workflow](idea-browser-validation-workflow.md) when Idea Browser or similar idea-comparison surfaces provide market, persona, channel, positioning, objection, or traction-proxy signals. These signals are advisory and must not replace real discovery, validation scorecards, or human prioritization review.
+
+Use the [Idea Browser Input Mapping](idea-browser-input-mapping.md) after an Idea Browser signal has been captured and needs to influence idea ranking, validation planning, respondent targeting, channel hypotheses, or follow-up tickets. Every mapped signal must remain advisory and point to a required real-world test.
 
 Use the [BuilderPulse Monitoring Workflow](builderpulse-monitoring-workflow.md) when BuilderPulse publications may provide market, builder ecosystem, product pattern, channel, persona, or contradiction signals. BuilderPulse signals are advisory, manually reviewed, and must not trigger scraping, automated polling, automatic ticket creation, or roadmap changes without separate approval.
 
