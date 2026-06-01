@@ -16,6 +16,7 @@ Planned artifacts:
 - [`pre-user-security-privacy-readiness-gate.md`](pre-user-security-privacy-readiness-gate.md)
 - [`raw-interview-evidence-intake-and-synthesis.md`](raw-interview-evidence-intake-and-synthesis.md)
 - [`respondent-targeting-and-interview-planner.md`](respondent-targeting-and-interview-planner.md)
+- [`synthetic-persona-schema.md`](synthetic-persona-schema.md)
 - [`venture-validation-framework.md`](venture-validation-framework.md)
 - [`distribution-and-embedded-workflow-prompts.md`](distribution-and-embedded-workflow-prompts.md)
 - experiment test card
@@ -51,3 +52,5 @@ Use the [Raw Interview Evidence Intake And Synthesis](raw-interview-evidence-int
 Use the [Persona Ranking Rubric](persona-ranking-rubric.md) when comparing which target persona should be validated first for a given idea. Every persona score must include evidence type, confidence, and source; synthetic or fictional personas remain hypotheses and cannot outrank interview-backed evidence.
 
 Use the [Geography Ranking Rubric](geography-ranking-rubric.md) when comparing country, region, city, or local-market fit for a given idea and persona. Every geography score must include source citation, source date or access date, evidence type, and confidence; regulatory, legal, compliance, tax, privacy, financial, healthcare, safety, or sensitive local-market claims require human or expert review.
+
+Use the [Synthetic Persona Schema](synthetic-persona-schema.md) only for pre-development critique and hypothesis pressure-testing. Synthetic personas must record source basis and confidence, include a synthetic-not-proof banner, and must never be treated as real customers, market proof, willingness-to-pay evidence, or validation evidence.
