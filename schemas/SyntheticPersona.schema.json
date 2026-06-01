@@ -1,0 +1,532 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pipe-venture-builder.local/schemas/SyntheticPersona.schema.json",
+  "title": "SyntheticPersona",
+  "description": "Canonical record for a synthetic persona used for pre-development critique and hypothesis pressure-testing. It records source basis, assumptions, confidence, limits, and explicit non-evidence boundaries. It must not be treated as a real customer, interview, market proof, willingness-to-pay proof, or validation evidence.",
+  "x-pipe-schema-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "personaId",
+    "title",
+    "syntheticNotProof",
+    "sourceBasis",
+    "personaProfile",
+    "jobToBeDone",
+    "painHypotheses",
+    "buyingContext",
+    "adoptionContext",
+    "objectionsAndRisks",
+    "confidence",
+    "limits",
+    "review"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "0.1.0",
+      "description": "SyntheticPersona schema version used by this record."
+    },
+    "personaId": {
+      "type": "string",
+      "pattern": "^SP-[0-9]{4,}$",
+      "description": "Stable synthetic persona identifier, such as SP-0001."
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Short human-readable synthetic persona title."
+    },
+    "syntheticNotProof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "banner",
+        "notCustomerEvidence",
+        "notValidationEvidence",
+        "requiresHumanReviewBeforePrioritization"
+      ],
+      "properties": {
+        "banner": {
+          "type": "string",
+          "const": "Synthetic persona for hypothesis pressure-testing only. Not customer evidence."
+        },
+        "notCustomerEvidence": {
+          "type": "boolean",
+          "const": true
+        },
+        "notValidationEvidence": {
+          "type": "boolean",
+          "const": true
+        },
+        "requiresHumanReviewBeforePrioritization": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "sourceBasis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "originLinearId",
+        "generatedAt",
+        "generatedBy",
+        "sourceContextSummary",
+        "sourceArtifacts",
+        "assumptions",
+        "forbiddenSourceState"
+      ],
+      "properties": {
+        "originLinearId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Z]+-[0-9]+$",
+          "description": "Originating Linear ticket identifier, or null when the persona is created inside an approved repository artifact."
+        },
+        "generatedAt": {
+          "type": "string",
+          "format": "date",
+          "description": "Date the synthetic persona was generated."
+        },
+        "generatedBy": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Agent or human role that generated the persona."
+        },
+        "sourceContextSummary": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Brief summary of evidence, assumptions, and artifacts used. Must not imply real customer evidence unless linked."
+        },
+        "sourceArtifacts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/sourceArtifact"
+          }
+        },
+        "assumptions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/assumption"
+          }
+        },
+        "forbiddenSourceState": {
+          "type": "string",
+          "const": "Do not create or use a synthetic persona generated from no source context."
+        }
+      }
+    },
+    "personaProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "personaLabel",
+        "personaSourceLabel",
+        "role",
+        "segment",
+        "companyOrCustomerContext",
+        "demographicContext",
+        "firmographicContext",
+        "exclusionCriteria"
+      ],
+      "properties": {
+        "personaLabel": {
+          "type": "string",
+          "minLength": 1
+        },
+        "personaSourceLabel": {
+          "type": "string",
+          "enum": [
+            "interview-informed-hypothesis",
+            "research-informed-hypothesis",
+            "founder-assumed-hypothesis",
+            "ai-generated-hypothesis",
+            "mixed-source-hypothesis"
+          ],
+          "description": "Synthetic persona source class. None of these classes convert the persona into customer evidence."
+        },
+        "role": {
+          "type": "string"
+        },
+        "segment": {
+          "type": "string"
+        },
+        "companyOrCustomerContext": {
+          "type": "string"
+        },
+        "demographicContext": {
+          "type": "string",
+          "description": "Use only broad, non-sensitive context. Do not store personal data."
+        },
+        "firmographicContext": {
+          "type": "string",
+          "description": "Use broad business context only; avoid private company identifiers unless approved."
+        },
+        "exclusionCriteria": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "jobToBeDone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "jobStatement",
+        "triggerEvent",
+        "desiredOutcome",
+        "currentWorkflow",
+        "evidenceBasis"
+      ],
+      "properties": {
+        "jobStatement": {
+          "type": "string"
+        },
+        "triggerEvent": {
+          "type": "string"
+        },
+        "desiredOutcome": {
+          "type": "string"
+        },
+        "currentWorkflow": {
+          "type": "string"
+        },
+        "evidenceBasis": {
+          "$ref": "#/$defs/evidenceBasis"
+        }
+      }
+    },
+    "painHypotheses": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/hypothesis"
+      }
+    },
+    "buyingContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "buyerRole",
+        "userRole",
+        "approverRole",
+        "budgetHypothesis",
+        "willingnessToPayHypothesis",
+        "procurementOrDecisionPath",
+        "evidenceBasis"
+      ],
+      "properties": {
+        "buyerRole": {
+          "type": "string"
+        },
+        "userRole": {
+          "type": "string"
+        },
+        "approverRole": {
+          "type": "string"
+        },
+        "budgetHypothesis": {
+          "type": "string"
+        },
+        "willingnessToPayHypothesis": {
+          "type": "string",
+          "description": "Hypothesis only. Must not be treated as willingness-to-pay evidence."
+        },
+        "procurementOrDecisionPath": {
+          "type": "string"
+        },
+        "evidenceBasis": {
+          "$ref": "#/$defs/evidenceBasis"
+        }
+      }
+    },
+    "adoptionContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "channelHypothesis",
+        "trustRequirements",
+        "maturityOrMayaRisk",
+        "workflowControlNeeds",
+        "evidenceBasis"
+      ],
+      "properties": {
+        "channelHypothesis": {
+          "type": "string"
+        },
+        "trustRequirements": {
+          "type": "string"
+        },
+        "maturityOrMayaRisk": {
+          "type": "string"
+        },
+        "workflowControlNeeds": {
+          "type": "string"
+        },
+        "evidenceBasis": {
+          "$ref": "#/$defs/evidenceBasis"
+        }
+      }
+    },
+    "objectionsAndRisks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/hypothesis"
+      }
+    },
+    "confidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "overallLevel",
+        "overallRationale",
+        "fieldConfidenceRequired",
+        "cannotRaiseValidationScore"
+      ],
+      "properties": {
+        "overallLevel": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ]
+        },
+        "overallRationale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fieldConfidenceRequired": {
+          "type": "boolean",
+          "const": true
+        },
+        "cannotRaiseValidationScore": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mustNotBeUsedFor",
+        "requiresRealWorldValidation",
+        "privacyNotes"
+      ],
+      "properties": {
+        "mustNotBeUsedFor": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": [
+              "customer_evidence",
+              "market_proof",
+              "willingness_to_pay_proof",
+              "product_market_fit",
+              "public_claim",
+              "automatic_prioritization",
+              "build_ticket_creation",
+              "outreach_targeting_without_approval"
+            ]
+          }
+        },
+        "requiresRealWorldValidation": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "privacyNotes": {
+          "type": "string",
+          "minLength": 1,
+          "description": "State whether any sensitive or identifiable information is present. Synthetic examples should avoid real personal data."
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "humanReviewRequiredBeforePrioritization",
+        "reviewStatus",
+        "reviewNotes"
+      ],
+      "properties": {
+        "humanReviewRequiredBeforePrioritization": {
+          "type": "boolean",
+          "const": true
+        },
+        "reviewStatus": {
+          "type": "string",
+          "enum": [
+            "not_reviewed",
+            "reviewed_as_hypothesis",
+            "rejected",
+            "superseded"
+          ]
+        },
+        "reviewNotes": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sourceArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifactType",
+        "pathOrUrl",
+        "summary",
+        "sourceStrength"
+      ],
+      "properties": {
+        "artifactType": {
+          "type": "string",
+          "enum": [
+            "founder_focus",
+            "controle_evaluation",
+            "icp_profile",
+            "respondent_targeting_plan",
+            "interview_synthesis",
+            "research_source",
+            "idea_browser_signal",
+            "builderpulse_signal",
+            "founder_assumption",
+            "other"
+          ]
+        },
+        "pathOrUrl": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceStrength": {
+          "type": "string",
+          "enum": [
+            "strong",
+            "medium",
+            "weak",
+            "invalid"
+          ]
+        }
+      }
+    },
+    "assumption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "statement",
+        "whyItMatters",
+        "confidence",
+        "validationNeeded"
+      ],
+      "properties": {
+        "statement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "whyItMatters": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ]
+        },
+        "validationNeeded": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "evidenceBasis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "basisType",
+        "sourceReference",
+        "confidence",
+        "notes"
+      ],
+      "properties": {
+        "basisType": {
+          "type": "string",
+          "enum": [
+            "customer_evidence",
+            "research_inference",
+            "founder_assumption",
+            "synthetic_inference",
+            "mixed"
+          ]
+        },
+        "sourceReference": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ]
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "hypothesis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "statement",
+        "evidenceBasis",
+        "confidence",
+        "realWorldTestNeeded"
+      ],
+      "properties": {
+        "statement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidenceBasis": {
+          "$ref": "#/$defs/evidenceBasis"
+        },
+        "confidence": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ]
+        },
+        "realWorldTestNeeded": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

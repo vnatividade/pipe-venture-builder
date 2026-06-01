@@ -16,6 +16,7 @@ Current schemas:
 
 - [DeliveryEvidence](DeliveryEvidence.schema.json)
 - [LearningRecord](LearningRecord.schema.json)
+- [SyntheticPersona](SyntheticPersona.schema.json)
 
 Schema outlines:
 
