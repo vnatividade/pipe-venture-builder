@@ -17,6 +17,7 @@ Planned artifacts:
 - [`raw-interview-evidence-intake-and-synthesis.md`](raw-interview-evidence-intake-and-synthesis.md)
 - [`respondent-targeting-and-interview-planner.md`](respondent-targeting-and-interview-planner.md)
 - [`synthetic-persona-generation-workflow.md`](synthetic-persona-generation-workflow.md)
+- [`synthetic-persona-simulation-prompt.md`](synthetic-persona-simulation-prompt.md)
 - [`synthetic-persona-schema.md`](synthetic-persona-schema.md)
 - [`venture-validation-framework.md`](venture-validation-framework.md)
 - [`distribution-and-embedded-workflow-prompts.md`](distribution-and-embedded-workflow-prompts.md)
@@ -57,3 +58,5 @@ Use the [Geography Ranking Rubric](geography-ranking-rubric.md) when comparing c
 Use the [Synthetic Persona Schema](synthetic-persona-schema.md) only for pre-development critique and hypothesis pressure-testing. Synthetic personas must record source basis and confidence, include a synthetic-not-proof banner, and must never be treated as real customers, market proof, willingness-to-pay evidence, or validation evidence.
 
 Use the [Synthetic Persona Generation Workflow](synthetic-persona-generation-workflow.md) before creating any synthetic persona record. The workflow requires source and privacy gating, separates evidence-backed traits from speculative traits, records source gaps, and blocks generation from sensitive data unless approval and privacy review are recorded.
+
+Use the [Synthetic Persona Simulation Prompt](synthetic-persona-simulation-prompt.md) only after a synthetic persona has been reviewed as a hypothesis. Simulation should challenge problem, offer, message, channel, buying, and MVP assumptions; it must include objections, confidence limits, source basis, and real-world tests, and must never be treated as proof of demand.
