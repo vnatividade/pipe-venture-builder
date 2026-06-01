@@ -19,6 +19,7 @@ Planned artifacts:
 - [`synthetic-persona-generation-workflow.md`](synthetic-persona-generation-workflow.md)
 - [`synthetic-objection-risk-extraction-workflow.md`](synthetic-objection-risk-extraction-workflow.md)
 - [`synthetic-persona-simulation-prompt.md`](synthetic-persona-simulation-prompt.md)
+- [`synthetic-vs-real-interview-comparison-template.md`](synthetic-vs-real-interview-comparison-template.md)
 - [`synthetic-persona-schema.md`](synthetic-persona-schema.md)
 - [`venture-validation-framework.md`](venture-validation-framework.md)
 - [`distribution-and-embedded-workflow-prompts.md`](distribution-and-embedded-workflow-prompts.md)
@@ -63,3 +64,5 @@ Use the [Synthetic Persona Generation Workflow](synthetic-persona-generation-wor
 Use the [Synthetic Persona Simulation Prompt](synthetic-persona-simulation-prompt.md) only after a synthetic persona has been reviewed as a hypothesis. Simulation should challenge problem, offer, message, channel, buying, and MVP assumptions; it must include objections, confidence limits, source basis, and real-world tests, and must never be treated as proof of demand.
 
 Use the [Synthetic Objection And Risk Extraction Workflow](synthetic-objection-risk-extraction-workflow.md) after a synthetic persona simulation to turn objections into validation questions, tests, ignored reasons, or risk-review inputs. Every synthetic objection must map to a real-world validation path or an explicit ignore reason; synthetic objections cannot change ranking or scope without real validation.
+
+Use the [Synthetic Vs Real Interview Comparison Template](synthetic-vs-real-interview-comparison-template.md) only after real customer interview synthesis exists. The template compares synthetic claims, objections, risks, and misses against real evidence; confidence or score updates must come from real interview evidence, never synthetic output alone.
