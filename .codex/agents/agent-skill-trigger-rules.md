@@ -26,6 +26,7 @@ Default behavior: identify the request type, map it to the current pipeline phas
 | Research orchestration | research question, source plan, evidence lanes, contradictions | Research Orchestrator Agent | Research synthesis | `.codex/agents/research-validation-specialization.md` |
 | Scientific validation | scientific claim, technical claim, evidence quality, expert source | Scientific Validation Agent | Research synthesis | `.codex/agents/research-validation-specialization.md` |
 | Market intelligence | market signals, substitutes, competition, channel reachability | Market Intelligence Agent | Research synthesis | `.codex/agents/research-validation-specialization.md` |
+| Venture intelligence curation | venture memory, opportunity radar, ranking hygiene, KDR/DAR linkage, evidence freshness, revisit trigger | Venture Intelligence Curator | Research synthesis / Knowledge update | `.codex/agents/venture-intelligence-curator-specialization.md` |
 | Customer discovery evidence | interview notes, customer language, observed behavior, ICP evidence | Customer Discovery Agent | Validation planning | `validation/customer-interview-template.md` |
 | Synthetic persona validation | synthetic persona, simulation, synthetic objections, synthetic-vs-real comparison | Synthetic Persona Validation Agent | Validation planning | `.codex/agents/synthetic-persona-validation-specialization.md` |
 | PRD or requirements | PRD, requirements, stories, non-goals | Product Strategist Agent | PRD drafting | PRD placeholder or source artifact |
@@ -49,7 +50,7 @@ If a request matches multiple rows, choose the earliest active pipeline phase un
 | Idea intake | Idea Intake Agent | None | customer outreach, ticket creation, sensitive data |
 | Founder focus | Product Strategist Agent | None | validation claims, implementation tickets |
 | C.O.N.T.R.O.L.E. | Product Strategist Agent | None | advancing Attack/Refine without approval |
-| Research and validation plan | Validation Agent, Research Orchestrator Agent, Scientific Validation Agent, Market Intelligence Agent, Customer Discovery Agent | Validation planning, Research synthesis | outreach, storing identifiable data, unsupported claims |
+| Research and validation plan | Validation Agent, Research Orchestrator Agent, Scientific Validation Agent, Market Intelligence Agent, Venture Intelligence Curator, Customer Discovery Agent | Validation planning, Research synthesis, Knowledge update | outreach, storing identifiable data, unsupported claims |
 | Working Backwards / PRD | Product Strategist Agent | PRD drafting | implementation tickets, broadening MVP |
 | MVP scope review | MVP Scope Reviewer Agent, Validation Agent, Risk Reviewer Agent | Validation planning | architecture or implementation tickets without GO |
 | Risk review | Risk Reviewer Agent | None | accepting unresolved P0/P1 risk |
@@ -102,6 +103,12 @@ Escalate to the knowledge curator when:
 - KDR output is required
 - customer language may be recorded
 - a prior decision may be superseded
+
+Escalate to the venture intelligence curator when:
+
+- market signals, ranking, opportunity radar, venture memory, KDR/DAR links, or revisit triggers need evidence hygiene
+- a recommendation needs source traceability, confidence labels, contradiction tracking, and allowed/forbidden next actions
+- a promising opportunity should be prepared for human review without approving execution, ticket creation, outreach, or build
 
 ## Broad Request Handling
 

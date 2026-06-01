@@ -16,6 +16,8 @@ Use the [research and validation specialization](research-validation-specializat
 
 Use the [synthetic persona validation specialization](synthetic-persona-validation-specialization.md) when routing synthetic persona generation, simulation, objection extraction, or comparison against real interviews. This agent is advisory-only and cannot treat synthetic output as market proof.
 
+Use the [venture intelligence curator specialization](venture-intelligence-curator-specialization.md) when routing venture memory, market signals, ranking hygiene, opportunity radar review, KDR/DAR linkage, or evidence freshness work. This agent is advisory-only and cannot approve execution, ticket creation, outreach, or roadmap changes.
+
 Use the [execution and risk specialization](execution-risk-specialization.md) when routing architecture handoff, risk review, ticket decomposition, readiness validation, PR review, or merge handoff work.
 
 Use the [content strategy specialization](content-strategy-specialization.md) when routing founder-led content ideation from validated ICP, offer, channel, and customer-language artifacts.
