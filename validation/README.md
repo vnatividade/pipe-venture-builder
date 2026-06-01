@@ -8,6 +8,7 @@ Planned artifacts:
 
 - [`customer-interview-template.md`](customer-interview-template.md)
 - [customer data retention policy](customer-data-retention-policy.md)
+- [`geography-ranking-rubric.md`](geography-ranking-rubric.md)
 - [`icp-profile.md`](icp-profile.md)
 - [`market-validation-before-code-gate.md`](market-validation-before-code-gate.md)
 - [`persona-ranking-rubric.md`](persona-ranking-rubric.md)
@@ -48,3 +49,5 @@ Use the [Respondent Targeting And Interview Planner](respondent-targeting-and-in
 Use the [Raw Interview Evidence Intake And Synthesis](raw-interview-evidence-intake-and-synthesis.md) workflow after approved discovery conversations, interviews, notes, or call summaries to turn raw material into anonymized evidence, contradiction synthesis, scorecard inputs, customer-language memory, PMF signals, and follow-ups. It does not authorize upload pipelines, transcription services, automatic ingestion, recordings, or storage of identifiable raw data.
 
 Use the [Persona Ranking Rubric](persona-ranking-rubric.md) when comparing which target persona should be validated first for a given idea. Every persona score must include evidence type, confidence, and source; synthetic or fictional personas remain hypotheses and cannot outrank interview-backed evidence.
+
+Use the [Geography Ranking Rubric](geography-ranking-rubric.md) when comparing country, region, city, or local-market fit for a given idea and persona. Every geography score must include source citation, source date or access date, evidence type, and confidence; regulatory, legal, compliance, tax, privacy, financial, healthcare, safety, or sensitive local-market claims require human or expert review.
