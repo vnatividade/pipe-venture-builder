@@ -14,6 +14,7 @@ Use this with:
 - `architecture/executor-capability-matrix.md`
 - `architecture/knowledge-runtime-architecture.md`
 - `architecture/context-pack-builder-spec.md`
+- `.codex/agents/conversational-founder-guide-specialization.md`
 - `.codex/agents/strategy-intake-specialization.md`
 - `.codex/agents/research-validation-specialization.md`
 - `knowledge/README.md`

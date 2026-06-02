@@ -18,6 +18,13 @@ Before editing, read:
 
 Do not load every agent, skill, template, or domain folder by default.
 
+For vague founder-facing requests, raw ideas, validation questions, or "what should I do next?" interactions, also read:
+
+- `execution/conversational-founder-guide.md`
+- `.codex/agents/conversational-founder-guide-specialization.md`
+
+Use those files to guide the user through the Pipe front door instead of asking the user to choose Markdown files, gates, skills, MCPs, or agents.
+
 ## Operating Rules
 
 Claude Code must follow the shared multi-agent workflow:
