@@ -9,6 +9,7 @@ Use it with:
 - `execution/agent-master-routing-policy.md`
 - `execution/context-routing-protocol.md`
 - `execution/approval-gates.md`
+- `execution/guided-session-artifact.md`
 - `architecture/capability-registry-policy.md`
 - `architecture/executor-capability-matrix.md`
 - `architecture/knowledge-runtime-architecture.md`
@@ -186,6 +187,8 @@ For internal handoff when needed:
 - next user-facing question or action
 - next internal artifact
 - follow-up candidate, if any
+
+Use `execution/guided-session-artifact.md` when the session changes stage, creates durable context, records a blocker, or hands off to another focused agent.
 
 ## Done Criteria
 
