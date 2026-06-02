@@ -10,6 +10,7 @@ Use it with:
 - `execution/context-routing-protocol.md`
 - `execution/approval-gates.md`
 - `execution/guided-session-artifact.md`
+- `validation/conversational-pipeline-mood-test-protocol.md`
 - `architecture/capability-registry-policy.md`
 - `architecture/executor-capability-matrix.md`
 - `architecture/knowledge-runtime-architecture.md`
