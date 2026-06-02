@@ -7,6 +7,7 @@ This area should define how work moves from approved product context into Linear
 Artifacts:
 
 - [Linear governance model](linear-governance-model.md)
+- [conversational founder guide](conversational-founder-guide.md)
 - [Agent Master routing policy](agent-master-routing-policy.md)
 - [ticket, PR, and handoff system](ticket-pr-handoff-system.md)
 - [test-oriented delivery rule](test-oriented-delivery-rule.md)
