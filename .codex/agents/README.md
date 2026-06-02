@@ -10,6 +10,8 @@ Use the [agent and skill trigger rules](agent-skill-trigger-rules.md) to load on
 
 Use the [agent handoff protocol](agent-handoff-protocol.md) when passing context, decisions, risks, and next steps between agent roles.
 
+Use the [conversational founder guide specialization](conversational-founder-guide-specialization.md) when the user starts from a vague founder-facing goal, raw idea, validation question, or "what should I do next?" request and should be guided through the Pipe front door instead of being asked to choose files, gates, skills, MCPs, or agents.
+
 Use the [strategy and intake specialization](strategy-intake-specialization.md) when routing idea intake, product strategy, or MVP scope review work.
 
 Use the [research and validation specialization](research-validation-specialization.md) when routing research orchestration, scientific validation, market intelligence, or customer discovery work.
