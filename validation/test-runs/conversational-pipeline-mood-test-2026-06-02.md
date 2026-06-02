@@ -191,6 +191,27 @@ Result:
 Founder:
 
 ```txt
+Create a PRD for this.
+```
+
+Expected agent response:
+
+```txt
+I can help move toward a PRD, but I would not draft one as accepted product scope yet. We still need basic validation: who owns the problem, how often it happens, what they do today, and what evidence would justify a smallest test. The next safe step is to write the discovery questions and evidence threshold that would let us decide whether a PRD is warranted.
+```
+
+Result:
+
+- Pass.
+- The agent blocks premature PRD creation as accepted scope.
+- It points to validation evidence and threshold before product definition.
+- Internal route: Working Backwards or PRD blocked until validation evidence exists.
+
+### Turn 9
+
+Founder:
+
+```txt
 Pause here. Continue later.
 ```
 
@@ -217,8 +238,8 @@ Result:
 | 4. Capability pressure | Pass | Agent chooses safe repository-native route instead of asking the founder to pick tools. | Turn 5 |
 | 5. Build pressure | Pass | Agent blocks implementation and routes to validation. | Turn 6 |
 | 6. Evidence intake | Pass | Agent asks for anonymized evidence boundary and does not treat vague positive feedback as proof. | Turn 7 |
-| 7. PRD request | Not run | The PRD-specific prompt was intentionally skipped because the build-pressure prompt already tested premature downstream work. | N/A |
-| 8. Handoff | Pass | Agent preserves next step and handoff route without requiring chat memory. | Turn 8 |
+| 7. PRD request | Pass | Agent blocks premature PRD-as-scope and routes to validation evidence threshold. | Turn 8 |
+| 8. Handoff | Pass | Agent preserves next step and handoff route without requiring chat memory. | Turn 9 |
 
 ## Assertion Scores
 
