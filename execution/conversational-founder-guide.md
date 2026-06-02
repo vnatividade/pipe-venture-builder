@@ -212,25 +212,88 @@ Bad first questions:
 
 The front door must include a capability routing checkpoint, even when no external capability is used.
 
+The user should not have to know the name of a capability, skill, MCP, plugin, or executor. The operating agent chooses the smallest safe route internally and explains the next founder-facing step in plain language.
+
+Capability routing follows these principles:
+
+- **Stage before tool:** infer the Pipe stage before choosing a capability.
+- **Availability is not authorization:** a connected MCP, installed plugin, or local skill is only a candidate until lifecycle, scope, approval, and data boundaries are checked.
+- **Use the registry lifecycle:** prefer `approved` and scoped `pilot` capabilities; treat `proposed` as unavailable for operational use unless the assigned ticket or human approval explicitly allows the use; do not use `blocked` capabilities.
+- **Fallback is a first-class route:** when a capability is unavailable, proposed, restricted, or too risky, use the repository-native fallback from the capability entry or the closest existing Pipe artifact.
+- **No hidden external mutation:** stop before creating tickets, opening or merging PRs, contacting people, uploading private sources, charging money, handling secrets, or mutating external systems unless approval is explicit and scoped.
+- **Record material routing:** when capability choice affects output, capture selected capability, fallback, approval state, and risks in the handoff, PR, Linear update, or future guided-session artifact.
+
 At this stage, the agent should answer internally:
 
-- Is this a product, validation, research, execution, knowledge, or governance need?
-- Is there an approved or pilot capability that improves this step?
+- What need is this: product, validation, research, execution, knowledge, governance, or external integration?
+- Which capability entries match the stage and need?
+- What is each candidate's lifecycle: `approved`, `pilot`, `proposed`, `restricted`, `deprecated`, or `blocked`?
 - Is the capability available in the current agent environment?
-- Does the capability require approval, credentials, network access, paid use, private data, external mutation, or sensitive claims?
+- Does the capability require approval, credentials, network access, paid use, private data, external mutation, source upload, sensitive claims, or customer contact?
+- What is the safest minimal capability route?
 - What is the repository-native fallback if the capability is unavailable or not approved?
 
-Examples:
+Use this internal decision shape:
 
-- Product/discovery framing may route to PM Skills when approved and available.
-- Implementation planning, TDD, debugging, review, or verification may route to Superpowers when appropriate.
-- Linear state updates may route to Linear MCP when approved.
-- GitHub PR and review work may route to GitHub MCP or `gh` when approved.
-- Scientific evidence review may route to Consensus only when source-backed research is in scope.
-- NotebookLM-style workflows require approved source sets and do not authorize private upload by default.
-- Future OpenClaw/Paperclip/OpenCloud routing stays blocked until future orchestration approval.
+```md
+## Capability route
 
-Detailed capability routing rules are owned by the capability-aware routing workstream. This protocol requires the checkpoint and boundary.
+- Need:
+- Candidate capabilities:
+- Selected capability:
+- Lifecycle and review state:
+- Approval required:
+- Data or mutation boundary:
+- Repository-native fallback:
+- Capability output to record:
+- Blocked capabilities:
+```
+
+The agent does not need to show this full block to the user unless the user asks for traceability or the workflow requires a handoff.
+
+## Capability Routing Rules By Stage
+
+| Pipeline moment | Candidate capability route | Allowed use | Do not use for |
+|---|---|---|---|
+| Idea intake and founder focus | `capability.external.pm-skills` when approved or explicitly allowed; repository product and validation artifacts as fallback | Structure target user, pain, promise, assumptions, unknowns, anti-goals, and first manual discovery path | Customer proof, outreach, PRD, build tickets, automated lead search |
+| C.O.N.T.R.O.L.E. and validation planning | PM Skills when approved; repository validation framework; `capability.external.consensus` only for approved source-backed research | Separate assumptions from evidence, define learning goals, identify respondent criteria, prepare questions | Treating research or synthetic output as customer validation |
+| Research synthesis | `capability.external.consensus` only when scientific/source-backed synthesis is in scope; `capability.external.notebooklm` only with approved source sets | Summarize cited sources, detect contradictions, support evidence review | Uploading private data by default, creating market proof, regulated conclusions |
+| Working Backwards, PRD, and MVP scope | PM Skills when approved; repository Working Backwards, PRD, and MVP templates | Draft or pressure-test product artifacts after validation gates allow | Skipping validation, broadening MVP, claiming demand without evidence |
+| Ticket execution | `capability.external.codex`, `capability.external.claude-code`, `capability.external.superpowers`, Linear MCP, GitHub MCP or `gh` when approved | Implement one ticket, use planning/TDD/debugging/review discipline, update Linear, manage PR lifecycle | Product strategy authority, scope expansion, bypassing review or approval gates |
+| Feedback and learning | Knowledge workflows, Linear MCP, LearningRecord/KDR/DAR candidates | Preserve reusable learning, follow-ups, routing lessons, residual risks | Storing sensitive/customer data without approval, inventing evidence |
+| Future orchestration | `capability.future.openclaw-paperclip` only as future evaluation placeholder | Record future analysis requirements after Codex/Claude baseline is stable | Installing, running, dispatching, scheduling, or depending on OpenClaw/Paperclip now |
+
+## Capability-Specific Front-Door Guidance
+
+Use these rules when the front-door loop sees an available capability:
+
+- **PM Skills:** candidate for product, discovery, validation, PRD, GTM, positioning, and upstream reasoning. Current registry lifecycle is `proposed`, so use only with explicit approval or a ticket that authorizes the experiment. Otherwise fall back to Pipe's repository-native product and validation artifacts. Never treat PM Skills output as customer evidence.
+- **Superpowers:** pilot execution-discipline capability for planning, TDD, debugging, review, and verification. Use for implementation or governance tickets when it helps execution discipline. Do not use it to decide product strategy, weaken approval gates, or broaden scope.
+- **Linear MCP:** pilot connector for reading assigned tickets, moving approved ticket state, linking branches/PRs, and recording delivery handoff. Creating projects or tickets still requires approval unless the current thread or ticket explicitly grants it.
+- **GitHub MCP or `gh`:** pilot route for PR metadata, review comments, CI checks, and merge state when approved. It does not remove the review requirement and cannot bypass P0/P1 findings.
+- **Consensus:** proposed research capability for source-backed synthesis. Use only when the task calls for cited research and the source/citation discipline is clear. Do not use it to manufacture validation, customer demand, or regulated advice.
+- **NotebookLM:** proposed source-synthesis capability. Use only with an approved source set and explicit source boundary. Do not upload private, customer, production, or sensitive material by default.
+- **Codex, Claude Code, and Cursor/IDE agents:** executor routes, not policy authorities. They must follow `AGENTS.md`, the assigned Linear ticket, repository protocols, approval gates, and handoff requirements.
+- **OpenClaw, Paperclip, OpenCloud, Hermes, or other orchestrators:** future placeholders only. Keep them blocked until a later orchestration-prep ticket authorizes evaluation.
+
+## Capability Fallback Behavior
+
+When a capability is not safe to use, the agent should continue the conversation without exposing tool friction to the user.
+
+| Condition | Agent behavior | User-facing posture |
+|---|---|---|
+| Capability is unavailable in the current runtime | Use repository-native fallback and record the unavailable capability internally | Continue guiding the user normally |
+| Capability is `proposed` or not reviewed | Use only if explicitly approved for this step; otherwise use fallback | Do not ask the user to choose a tool |
+| Capability is `restricted` | Stop or request the named approval before use | Explain the approval boundary in plain language |
+| Capability would mutate external state | Stop unless approved and scoped | Explain the action that needs approval |
+| Capability would handle private, customer, production, or sensitive data | Stop unless policy and approval allow it | Ask for safe, non-sensitive summary or approval path |
+| Capability would create unsupported evidence | Use it only for assumptions, synthesis, or planning; label output clearly | Make clear what is evidence vs assumption |
+
+For founder-facing guidance, the fallback should feel like:
+
+```txt
+I can guide this without invoking external tooling yet. First we need to identify the people who feel this pain most clearly and what we need to learn from them.
+```
 
 ## Knowledge Routing Checkpoint
 

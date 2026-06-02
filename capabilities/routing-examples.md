@@ -111,3 +111,48 @@ Expected normalized output:
 - Comparison criteria.
 - Risks and approval gates.
 - Future adaptation plan.
+
+## Example 4 - Conversational founder front-door request
+
+Task:
+
+```txt
+I have an idea and want to make it work.
+```
+
+Primary routing:
+
+- `capability.external.pm-skills` only when explicitly approved or when a ticket authorizes a product-skill experiment.
+- Repository-native product, validation, C.O.N.T.R.O.L.E., Working Backwards, and discovery artifacts as the default fallback.
+- `capability.external.linear-mcp` only when reading or updating approved execution state is part of the current scope.
+
+Why:
+
+- The user is expressing an abstract founder goal, not asking for an implementation task.
+- The earliest safe stage is idea intake or founder focus unless durable evidence already proves a later gate is ready.
+- PM Skills may help structure product reasoning, but its registry lifecycle is `proposed`, so it must not be treated as automatically approved.
+- Linear MCP may support state tracking after approval, but it should not create tickets or projects merely because the user described an idea.
+
+Do not route to:
+
+- `capability.external.github-mcp`, because there is no branch, PR, or implementation work yet.
+- `capability.external.superpowers`, because the request is upstream product guidance, not implementation discipline.
+- `capability.external.consensus`, unless the next approved step is source-backed research synthesis.
+- `capability.external.notebooklm`, unless an approved source set exists.
+- `capability.future.openclaw-paperclip`, because autonomous orchestration remains future-only.
+
+Expected normalized output:
+
+- User goal in plain language.
+- Inferred pipeline stage.
+- One next founder-facing question.
+- Capability route and fallback.
+- Durable context checked or missing.
+- Approval gates and blocked actions.
+- Evidence gaps and next internal artifact.
+
+Example safe user-facing response:
+
+```txt
+I understand the goal: you want to turn the idea into something that can work in the market. Before we talk about building, we need to identify who feels the pain most sharply and what evidence is still missing. Tell me the idea in plain language and who you imagine needs it most.
+```
