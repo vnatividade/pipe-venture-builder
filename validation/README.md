@@ -29,10 +29,13 @@ Planned artifacts:
 - GO / NO-GO decision record
 - MVP readiness review
 - [`validation-scorecard.md`](validation-scorecard.md)
+- [test runs](test-runs/)
 
 Validation should prioritize behavior, urgency, willingness to engage, repeated use, and willingness to pay over opinions alone.
 
 Use the [Conversational Pipeline Mood Test Protocol](conversational-pipeline-mood-test-protocol.md) to validate whether an operating agent can guide a founder from abstract intent through the Pipe pipeline without requiring the founder to choose repository files, internal gates, skills, MCPs, capabilities, or agent roles. The protocol tests user experience, stage routing, capability routing, knowledge routing, approval gates, pass/fail criteria, and guided session handoff.
+
+The first controlled run is captured in [`test-runs/conversational-pipeline-mood-test-2026-06-02.md`](test-runs/conversational-pipeline-mood-test-2026-06-02.md). It is a protocol validation artifact, not customer validation or product evidence.
 
 Validation should also capture contradiction. After meaningful discovery batches, agents must record evidence that supports the thesis, evidence that contradicts it, ambiguous signals, confidence changes, and the real-world evidence needed to resolve the contradiction. Synthetic or AI-generated critique may help find blind spots, but it does not count as validation evidence.
 
