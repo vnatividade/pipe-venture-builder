@@ -12,9 +12,12 @@ Use this with:
 - `execution/approval-gates.md`
 - `architecture/capability-registry-policy.md`
 - `architecture/executor-capability-matrix.md`
+- `architecture/knowledge-runtime-architecture.md`
+- `architecture/context-pack-builder-spec.md`
 - `.codex/agents/strategy-intake-specialization.md`
 - `.codex/agents/research-validation-specialization.md`
 - `knowledge/README.md`
+- `knowledge/venture-intelligence-memory-layer.md`
 
 This is a protocol, not a UI implementation, runtime, orchestrator, autonomous agent, or permission layer.
 
@@ -308,7 +311,106 @@ At this stage, the agent should answer internally:
 - Is the information only in chat memory? If yes, should it be captured durably before it affects future work?
 - Does using this knowledge touch privacy, customer data, sensitive claims, or private evidence?
 
-Detailed knowledge routing rules are owned by the knowledge-aware guidance workstream. This protocol requires the checkpoint and boundary.
+The agent must check durable knowledge before asking avoidable questions. This does not mean broad repository scans on every response. It means the agent should consult the smallest source-linked context that can prevent false continuity, repeated questions, unsupported evidence, or unsafe memory use.
+
+## Knowledge Source Classes
+
+Use these source classes in this order:
+
+| Source class | Examples | Use for | Boundary |
+|---|---|---|---|
+| Canonical repository memory | `product/`, `validation/`, `research/`, `architecture/`, `execution/`, `knowledge/`, `schemas/` | Rules, strategy, validation artifacts, decisions, architecture, templates, and knowledge policy | Canonical only after reviewed/merged or otherwise approved |
+| Operational state | Linear tickets, Linear delivery comments, GitHub PRs, review comments, merge commits | Current ticket state, blockers, handoffs, validations, and delivery evidence | Operational truth, not product/customer proof by itself |
+| Knowledge records | KDR/DAR, ADR, RCA, LearningRecord candidates, decision conflict records, customer-language memory, venture memory records | Reusable decisions, failures, lessons, customer language synthesis, and revisit triggers | Respect promotion level, supersession, sensitivity, and evidence type |
+| Capability records | `capabilities/entries/*.json`, routing examples, capability policies | Which skills, MCPs, plugins, executors, or workflows are candidates for the task | Registry entries guide routing; they are not authorization |
+| Context packs | `architecture/context-pack-builder-spec.md`, future ticket-specific packs | Bounded source-linked context for execution or guided sessions | Must include source manifest and omitted context; no broad prompt stuffing |
+| Future retrieval index | pgvector, embeddings, Knowledge MCP, or other recall service after approval | Finding candidate sources faster | Recall infrastructure only; must point back to canonical sources |
+| Conversation memory | Current chat only | Immediate continuity inside the current interaction | Not canonical; cannot supersede repository artifacts or future-agent decisions |
+
+If the agent cannot name the canonical source for a memory, it must treat the memory as non-canonical.
+
+## Knowledge Retrieval By Pipeline Stage
+
+Retrieve only what helps the current stage.
+
+| Pipeline moment | Retrieve first | Avoid |
+|---|---|---|
+| Idea intake | Existing product context, prior idea records, similar venture memory, active KDR/DAR constraints, customer-language memory if approved | Asking the user to repeat known idea context; treating synthetic or stale notes as evidence |
+| Founder focus | Founder focus artifacts, anti-goals, prior market/channel decisions, decision conflicts, relevant venture memory | Expanding to multiple markets because memory contains many options |
+| C.O.N.T.R.O.L.E. | Prior C.O.N.T.R.O.L.E. evaluations, evidence scoring rules, KDR/DAR, relevant risk decisions | Reusing old scores without checking freshness or supersession |
+| Research and validation | Validation scorecards, persona/geography rubrics, research synthesis, customer-language memory, evidence records, source-quality rules | Using raw or identifiable customer data; treating research as customer proof |
+| Working Backwards, PRD, MVP scope | Working Backwards artifacts, PRDs, MVP scope reviews, validated assumptions, unresolved risks, revisit triggers | Drafting product claims from chat memory alone |
+| Ticket execution | Assigned Linear ticket, context pack inputs, capability registry, related PR handoffs, known failures, approval gates | Broad repo scans when expected write set is narrow |
+| Feedback and learning | PR review, validation output, Linear delivery comments, KDR/DAR candidates, LearningRecord policy, venture memory update triggers | Promoting learning into canonical rules automatically |
+
+## Knowledge Route Decision Shape
+
+Use this internal shape when the knowledge checkpoint affects the next response:
+
+```md
+## Knowledge route
+
+- User intent:
+- Inferred pipeline stage:
+- Durable sources checked:
+- Relevant canonical memory:
+- Relevant operational state:
+- Relevant candidate memory:
+- Supersession or conflict notes:
+- Sensitive or private context excluded:
+- Missing knowledge:
+- Clarifying question or blocker:
+- New durable learning candidate:
+```
+
+The agent should not show this full block unless the user asks for traceability or a handoff artifact requires it.
+
+## Missing Knowledge Rules
+
+Missing knowledge becomes a clarifying question when:
+
+- the user can safely answer in plain language
+- the missing item is needed to classify stage or next step
+- the answer does not require private/customer/production/sensitive data
+- the answer can be captured later in an approved artifact
+
+Missing knowledge becomes a blocker when:
+
+- the next action would create PRD, MVP, build, growth, billing, outreach, or external mutation without required evidence
+- the agent would need customer data, private evidence, secrets, or production data without approval
+- source-backed research is required but not available
+- a prior decision may conflict and cannot be resolved from existing KDR/DAR/ADR records
+- the agent cannot identify the canonical source for a rule it is about to apply
+
+## Safe Use Of Customer Language And Evidence
+
+The agent may use anonymized, approved, source-linked customer-language synthesis to improve questions, PRDs, discovery prompts, and validation plans.
+
+The agent must not:
+
+- store names, emails, phone numbers, exact quotes, raw transcripts, recordings, screenshots, or private conversation details without explicit approval and the relevant retention policy
+- turn customer-language memory into customer proof unless the source artifact is real customer evidence and the claim is allowed
+- use synthetic personas, AI summaries, or research synthesis as validation evidence
+- expose private or sensitive context in user-facing conversation unless approved
+
+When sensitive context appears relevant, store only a pointer, approval status, retention status, and blocker until the policy allows more.
+
+## Durable Learning Capture
+
+After a guided conversation, the agent should record new durable learning only when it is reusable.
+
+Use:
+
+- Linear delivery or session handoff for routine operational status.
+- KDR/DAR when a strategic decision, constraint, or trade-off should guide future agents.
+- ADR when a structural technical decision should not be rediscovered.
+- LearningRecord candidate when execution, validation, review, incident, capability use, or guided-session behavior produces reusable learning.
+- Venture memory record when an idea, persona, geography, evidence item, score, decision, or revisit trigger should be related for future idea evaluation.
+- Customer-language memory only for approved anonymized synthesis.
+
+Do not create durable memory for trivia, cosmetic preference, unsupported speculation, or one-off chat context.
+
+Promotion into canonical repository memory must happen through a ticket, PR, review, and merge. Automatic promotion to canonical rule is not allowed.
 
 ## Approval And Stop Rules
 
