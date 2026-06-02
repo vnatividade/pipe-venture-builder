@@ -10,6 +10,7 @@ Use this with:
 - `execution/agent-master-routing-policy.md`
 - `execution/context-routing-protocol.md`
 - `execution/approval-gates.md`
+- `execution/guided-session-artifact.md`
 - `architecture/capability-registry-policy.md`
 - `architecture/executor-capability-matrix.md`
 - `architecture/knowledge-runtime-architecture.md`
@@ -437,7 +438,9 @@ I can help prepare the validation plan, but I should not create build tickets ye
 
 When the conversation changes stage or creates durable context, preserve a compact handoff.
 
-Use this shape until a dedicated guided-session handoff template exists:
+Use `execution/guided-session-artifact.md` when the conversation needs durable handoff.
+
+Minimum compact shape:
 
 ```md
 ## Conversational Founder Guide Handoff
@@ -452,6 +455,8 @@ Use this shape until a dedicated guided-session handoff template exists:
 - Approval gates:
 - Blocked actions:
 - Evidence gaps:
+- Sensitivity:
+- Next owner:
 - Follow-up candidate:
 ```
 
