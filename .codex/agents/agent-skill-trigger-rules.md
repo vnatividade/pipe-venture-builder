@@ -19,6 +19,7 @@ Default behavior: identify the request type, map it to the current pipeline phas
 
 | Request Type | Signals | Primary Agent | Default Skill | Default Template |
 |---|---|---|---|---|
+| Conversational founder front door | vague founder goal, raw idea with unclear stage, "I have an idea", "I want this to work", "what should I do next?", user does not want to choose files or tools | Conversational Founder Guide Agent | None by default | `execution/conversational-founder-guide.md` |
 | Idea intake | raw idea, new product context, sample idea | Idea Intake Agent | None unless validation is requested | `product/product-context.md` |
 | Strategy focus | target market, problem, offer, channel, anti-goals | Product Strategist Agent | None | `product/founder-focus.md` |
 | C.O.N.T.R.O.L.E. evaluation | strategic gate, Attack, Refine, Pivot, Kill | Product Strategist Agent | None | `product/controle-evaluation.md` |
@@ -47,6 +48,7 @@ If a request matches multiple rows, choose the earliest active pipeline phase un
 
 | Pipeline Phase | Allowed Primary Agents | Allowed Skills | Stop Before |
 |---|---|---|---|
+| Conversational front door | Conversational Founder Guide Agent, then earliest applicable focused agent | None by default | asking the user to choose files/tools, ticket creation, build work, outreach, sensitive data |
 | Idea intake | Idea Intake Agent | None | customer outreach, ticket creation, sensitive data |
 | Founder focus | Product Strategist Agent | None | validation claims, implementation tickets |
 | C.O.N.T.R.O.L.E. | Product Strategist Agent | None | advancing Attack/Refine without approval |
@@ -71,7 +73,8 @@ Use these limits unless the assigned ticket explicitly needs more.
 | Product strategy ticket | 1 | 0-1 | 3-5 |
 | Validation or research ticket | 1 primary + risk reviewer if gated | 1 | 4-6 |
 | Architecture ticket | 1 primary + risk reviewer if gated | 0-1 | 4-6 |
-| Broad exploratory request | Roadmap Orchestrator first | 0 | pipeline map and relevant index files only |
+| Broad founder-facing request | Conversational Founder Guide Agent first | 0 | conversational guide, pipeline map, and relevant index files only |
+| Broad repository/execution request | Roadmap Orchestrator first | 0 | pipeline map and relevant index files only |
 
 When the task feels broad, reduce context by asking: "What phase is this in?" Then load only the contracts and templates for that phase.
 
@@ -112,7 +115,15 @@ Escalate to the venture intelligence curator when:
 
 ## Broad Request Handling
 
-For requests like "build the product", "make the pipeline better", "run the whole system", or "continue autonomously":
+For vague founder-facing requests like "I have an idea", "I want this to work", "what should I do next?", or "help me develop this idea":
+
+1. Use the conversational founder guide first.
+2. Infer the earliest safe pipeline stage.
+3. Check durable knowledge and capability routing internally.
+4. Ask one plain-language question or propose one safe next action.
+5. Hand off to the focused agent only after the stage is clear.
+
+For broad repository or execution requests like "build the product", "make the pipeline better", "run the whole system", or "continue autonomously":
 
 1. Use the roadmap orchestrator first.
 2. Check current Linear tickets and labels.
