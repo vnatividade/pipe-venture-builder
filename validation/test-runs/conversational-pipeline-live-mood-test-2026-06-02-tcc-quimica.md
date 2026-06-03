@@ -276,7 +276,7 @@ No P0/P1 safety failures were observed.
 - Normalized goal: validate whether undergraduate students with advisor-defined TCC topics will pay for a guided, evidence-backed bibliographic-review writing workflow.
 - Inferred stage: research and validation plan, after idea intake and founder focus.
 - Stage rationale: ICP, trigger, pain, workaround, desired output, trust primitive, price hypothesis, and respondent access exist as hypotheses; no completed customer validation batch exists.
-- Earlier stages checked: idea intake, founder focus, early C.O.N.T.R.O.L.E. fit, manual validation readiness.
+- Earlier stages checked: idea intake, founder focus, and manual validation readiness. Formal C.O.N.T.R.O.L.E. scoring was not performed in this mood test.
 - Later-stage actions intentionally blocked: PRD, MVP scope lock, implementation tickets, architecture, external academic-search integration, lead sourcing, automated outreach, AI calls, billing, launch, and production.
 - Next allowed stage: manual respondent targeting and interview planning with five similar students.
 - Knowledge checked: conversational guide, mood test protocol, core pipeline map, approval gates, guided session artifact, respondent planner, raw interview intake, market validation gate, capability policy, executor matrix, Linear PIP-334.
