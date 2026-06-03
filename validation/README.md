@@ -37,6 +37,8 @@ Use the [Conversational Pipeline Mood Test Protocol](conversational-pipeline-moo
 
 The first controlled run is captured in [`test-runs/conversational-pipeline-mood-test-2026-06-02.md`](test-runs/conversational-pipeline-mood-test-2026-06-02.md). It is a protocol validation artifact, not customer validation or product evidence.
 
+The first live founder-led run is captured in [`test-runs/conversational-pipeline-live-mood-test-2026-06-02-tcc-quimica.md`](test-runs/conversational-pipeline-live-mood-test-2026-06-02-tcc-quimica.md). It records a real founder idea around Chemistry TCC bibliographic-review support, but it is still a guided pipeline mood test. It is not customer validation, not pricing proof, not scientific validation, and not approval to create product implementation scope.
+
 Validation should also capture contradiction. After meaningful discovery batches, agents must record evidence that supports the thesis, evidence that contradicts it, ambiguous signals, confidence changes, and the real-world evidence needed to resolve the contradiction. Synthetic or AI-generated critique may help find blind spots, but it does not count as validation evidence.
 
 The [PMF Evidence Metrics](pmf-evidence-metrics.md) guide should be used before treating MVP traction as product-market fit, launch readiness, scale readiness, or billing readiness.
