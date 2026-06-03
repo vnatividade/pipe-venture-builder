@@ -30,6 +30,7 @@ Planned artifacts:
 - MVP readiness review
 - [`validation-scorecard.md`](validation-scorecard.md)
 - [test runs](test-runs/)
+- [discovery plans](discovery-plans/)
 
 Validation should prioritize behavior, urgency, willingness to engage, repeated use, and willingness to pay over opinions alone.
 
@@ -38,6 +39,8 @@ Use the [Conversational Pipeline Mood Test Protocol](conversational-pipeline-moo
 The first controlled run is captured in [`test-runs/conversational-pipeline-mood-test-2026-06-02.md`](test-runs/conversational-pipeline-mood-test-2026-06-02.md). It is a protocol validation artifact, not customer validation or product evidence.
 
 The first live founder-led run is captured in [`test-runs/conversational-pipeline-live-mood-test-2026-06-02-tcc-quimica.md`](test-runs/conversational-pipeline-live-mood-test-2026-06-02-tcc-quimica.md). It records a real founder idea around Chemistry TCC bibliographic-review support, but it is still a guided pipeline mood test. It is not customer validation, not pricing proof, not scientific validation, and not approval to create product implementation scope.
+
+The first manual discovery plan for that TCC wedge is captured in [`discovery-plans/tcc-bibliographic-review-manual-discovery-plan.md`](discovery-plans/tcc-bibliographic-review-manual-discovery-plan.md). It prepares five founder-led interviews with students before PRD or build, using PM Skills for interview structure while preserving Pipe validation gates.
 
 Validation should also capture contradiction. After meaningful discovery batches, agents must record evidence that supports the thesis, evidence that contradicts it, ambiguous signals, confidence changes, and the real-world evidence needed to resolve the contradiction. Synthetic or AI-generated critique may help find blind spots, but it does not count as validation evidence.
 
