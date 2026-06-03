@@ -4,6 +4,35 @@ These examples validate the initial registry entries from PIP-153.
 
 They are routing checks only. They do not authorize tool installation, external calls, customer contact, production access, or autonomous orchestration.
 
+## Generic Proactive Routing Contract
+
+Before asking the user which tool to use, the operating agent should internally evaluate the capability registry.
+
+Use this decision loop:
+
+1. Identify the current pipeline phase, ticket type, and requested outcome.
+2. List candidate capabilities whose registry entries match the phase, ticket type, or `useWhen`.
+3. Remove candidates blocked by lifecycle, missing approval, data boundary, paid use, external mutation, or `doNotUseWhen`.
+4. Pick the smallest useful set of capabilities.
+5. Use the selected capability or its fallback.
+6. Record material capability choices in the artifact, PR, or Linear handoff.
+
+Default mapping:
+
+| Capability | Proactive trigger | Do not use when |
+|---|---|---|
+| `capability.external.pm-skills` | Discovery, interview planning, assumption mapping, PRD input, value proposition, GTM, positioning. | Product reasoning would be treated as evidence or would override Pipe gates. |
+| `capability.external.consensus` | Source-backed academic, scientific, technical, or market research is requested and approved. | Research would be treated as customer validation, willingness-to-pay proof, or sensitive conclusion. |
+| `capability.external.notebooklm` | Approved source-set synthesis is requested. | Sources are private, sensitive, unapproved, or repository-native synthesis is enough. |
+| `capability.external.notion-mcp` | Approved documentation search, publishing, update, or registration is requested. | Notion would replace Git/Linear source of truth or publish unreviewed/sensitive content. |
+| `capability.external.linear-mcp` | Ticket state, blockers, PR links, follow-ups, or delivery handoff need to be recorded. | Linear mutation is outside approved scope. |
+| `capability.external.github-mcp` | PR/issue metadata, review comments, merge checks, GitHub references, or repo inspection are needed. | GitHub mutation is outside approved scope. |
+| `capability.external.superpowers` | Code/workflow execution needs TDD, debugging, review, or verification discipline. | The task is strategic product judgment or the skill would broaden scope. |
+| `capability.external.browser-playwright` | Local UI, screenshots, browser-visible checks, or app-flow validation are in scope. | No UI/browser behavior is part of the ticket. |
+| `capability.external.codex` | Repository-grounded execution in the current Codex workspace is assigned. | Another executor owns the branch/write set or approval is missing. |
+| `capability.external.claude-code` | A scoped peer executor task is assigned to Claude Code. | The task needs current Codex-local state or shared governance ownership is ambiguous. |
+| `capability.future.openclaw-paperclip` | Future orchestration readiness is being analyzed. | Any current dispatch, scheduling, runtime mutation, or autonomous orchestration is implied. |
+
 ## Example 1 - Code ticket with tests and review
 
 Task:
@@ -40,6 +69,40 @@ Expected normalized output:
 - Review findings by severity.
 - Merge commit.
 - Linear delivery update.
+
+## Example 1A - Local UI validation ticket
+
+Task:
+
+```txt
+Verify that the onboarding UI works locally after a scoped implementation ticket.
+```
+
+Primary routing:
+
+- `capability.external.browser-playwright`
+- `capability.external.superpowers`
+- `capability.external.github-mcp`
+- `capability.external.linear-mcp`
+
+Why:
+
+- Browser/Playwright is appropriate because the requested evidence is browser-visible behavior.
+- Superpowers supports verification discipline.
+- GitHub and Linear record PR evidence and delivery handoff when approved.
+
+Do not route to:
+
+- PM Skills, because product strategy is already fixed.
+- Consensus or NotebookLM, because no external research or source-set synthesis is requested.
+- Notion, unless the ticket explicitly asks to publish UI validation documentation.
+
+Expected normalized output:
+
+- Local URL or test surface.
+- Browser validation notes or screenshot references.
+- Failure/repro notes if applicable.
+- PR and Linear handoff.
 
 ## Example 2 - Upstream idea validation before code
 
@@ -113,6 +176,42 @@ Expected normalized output:
 - Comparison criteria.
 - Risks and approval gates.
 - Future adaptation plan.
+
+## Example 3A - GitHub repository reference analysis
+
+Task:
+
+```txt
+Inspect this GitHub repository and identify patterns we can reuse in Pipe.
+```
+
+Primary routing:
+
+- `capability.external.github-mcp`
+- `capability.external.pm-skills` only if product/discovery pattern extraction is needed
+- `capability.external.codex` or `capability.external.claude-code` as executor
+- `capability.external.linear-mcp` for follow-up ticket handoff when approved
+
+Why:
+
+- GitHub capability is appropriate for source-linked repository inspection.
+- PM Skills may help only when the question is product/discovery pattern reuse.
+- Executor choice follows the executor capability matrix.
+
+Do not route to:
+
+- Browser/Playwright unless the repository exposes a running UI that must be validated.
+- Consensus unless source-backed research claims are requested.
+- Notion unless approved documentation registration is part of the task.
+- OpenClaw/Paperclip because reference analysis is not runtime orchestration.
+
+Expected normalized output:
+
+- Repository URL and inspected paths.
+- Reusable patterns with source links.
+- Non-reusable or risky patterns.
+- Fit with Pipe stage, capability, and approval boundaries.
+- Follow-up tickets if implementation should be tracked.
 
 ## Example 4 - Conversational founder front-door request
 
