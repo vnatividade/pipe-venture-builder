@@ -1,0 +1,171 @@
+{
+  "schemaVersion": "0.1.0",
+  "capabilityId": "capability.external.notion-mcp",
+  "name": "Notion MCP",
+  "summary": "External Notion connector capability for searching, creating, updating, and registering approved Pipe documentation in Notion when a ticket explicitly calls for documentation sync or workspace publishing.",
+  "kind": "mcp",
+  "origin": "external",
+  "lifecycle": "pilot",
+  "owner": {
+    "primaryOwner": "Knowledge Steward Agent",
+    "supportingOwner": "Linear Steward Agent",
+    "reviewer": "human operator"
+  },
+  "source": {
+    "sourceType": "mcp_server",
+    "sourceName": "Notion connector",
+    "sourceUrl": null,
+    "repositoryPath": null,
+    "licenseOrTerms": null,
+    "versionOrDate": "2026-06-03",
+    "notes": "Registered from the available Notion connector/app capability in the Codex environment. This entry records routing and governance only; it does not publish or sync any document by itself."
+  },
+  "routing": {
+    "useWhen": [
+      "A documentation, knowledge, governance, product, validation, or research ticket explicitly asks to publish, register, or update approved documentation in Notion.",
+      "The user asks where a document lives in Notion or requests Notion workspace search for relevant existing documentation.",
+      "A handoff needs a human-readable Notion mirror after the repository artifact has been reviewed or merged."
+    ],
+    "doNotUseWhen": [
+      "The document is still draft, unreviewed, sensitive, private, or not approved for external workspace sync.",
+      "Repository or Linear state is the required source of truth and no Notion publishing was requested.",
+      "The content includes secrets, credentials, private customer data, production data, raw interview recordings, raw transcripts, or sensitive claims without explicit approval.",
+      "The task can be completed by linking a repository artifact or Linear ticket without mutating Notion."
+    ],
+    "pipelineStages": [
+      "research-validation",
+      "prd",
+      "mvp-scope",
+      "architecture",
+      "linear-ticketing",
+      "ticket-execution",
+      "feedback-learning"
+    ],
+    "ticketTypes": [
+      "architecture",
+      "documentation",
+      "governance",
+      "product",
+      "research",
+      "validation",
+      "workflow"
+    ],
+    "primaryConsumers": [
+      "codex",
+      "claude-code",
+      "human",
+      "future-orchestrator"
+    ],
+    "fallback": "Keep the canonical artifact in the repository and link it from Linear. Record a Notion-sync follow-up if the connector is unavailable or approval is missing."
+  },
+  "inputs": [
+    {
+      "name": "approvedDocument",
+      "required": true,
+      "description": "Reviewed repository document, Linear document, or approved markdown content to publish, register, search, or update.",
+      "sourceOrDestination": "Repository, Linear, or approved Notion workspace"
+    },
+    {
+      "name": "notionDestination",
+      "required": false,
+      "description": "Target Notion teamspace, page, database, or document location when publishing or updating content.",
+      "sourceOrDestination": "Notion"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "notionDocumentReference",
+      "required": true,
+      "description": "Notion page, document, database, or search result reference with sync status and limitations.",
+      "sourceOrDestination": "Linear handoff, PR note, or repository documentation index"
+    }
+  ],
+  "schemas": {
+    "inputSchemas": [],
+    "outputSchemas": [],
+    "relatedSchemas": [
+      {
+        "name": "LearningRecord",
+        "pathOrUrl": "schemas/LearningRecord.schema.json",
+        "required": false
+      }
+    ],
+    "notes": "Future documentation-sync tickets may define a normalized NotionSyncRecord schema if multiple agents need to consume sync results."
+  },
+  "toolAccess": {
+    "accessType": "mcp",
+    "requiresCredential": true,
+    "requiresNetwork": true,
+    "canMutateExternalState": true,
+    "allowedOperations": [
+      "Search approved Notion workspace documentation",
+      "Create approved Notion documents",
+      "Update approved Notion documents",
+      "Register links to Notion documentation in Linear or repository handoffs"
+    ],
+    "forbiddenOperations": [
+      "Publish unreviewed or sensitive repository content without approval",
+      "Move canonical source of truth from Git or Linear into Notion",
+      "Upload secrets, credentials, raw customer data, production data, raw recordings, or private transcripts",
+      "Create public claims, legal claims, compliance claims, or customer evidence claims from Notion content alone"
+    ]
+  },
+  "cost": {
+    "costType": "subscription",
+    "expectedCostLevel": "unknown",
+    "costDriver": "Depends on the connected Notion workspace plan, connector limits, and workspace permissions.",
+    "approvalRequiredBeforePaidUse": true
+  },
+  "risks": [
+    {
+      "category": "privacy",
+      "level": "medium",
+      "description": "Publishing to Notion can move private repository, founder, or customer context into an external workspace.",
+      "mitigation": "Use Notion only for approved documents and record source, destination, and approval status in the handoff."
+    },
+    {
+      "category": "unsupported-claims",
+      "level": "medium",
+      "description": "A polished Notion page can make draft strategy or validation hypotheses look canonical.",
+      "mitigation": "Label Notion pages as mirrors or working docs unless the repository artifact and Linear handoff mark them as accepted."
+    },
+    {
+      "category": "vendor",
+      "level": "low",
+      "description": "Notion connector availability, permissions, and workspace structure may change.",
+      "mitigation": "Keep the repository artifact as source of truth and record Notion sync failures as follow-ups."
+    }
+  ],
+  "governance": {
+    "approvalRequired": true,
+    "approvalTriggers": [
+      "Creating or updating Notion documents",
+      "Publishing non-public repository docs",
+      "Uploading interview material or private evidence",
+      "Publishing customer-facing, legal, compliance, privacy, security, pricing, or sensitive claims",
+      "Changing which Notion workspace or teamspace is used for Pipe documentation"
+    ],
+    "dataBoundary": "Only approved documentation may be published or updated. Raw recordings, raw transcripts, identifiable interview data, secrets, credentials, and production/customer data remain blocked unless a dedicated ticket records approval and retention rules.",
+    "sensitiveActionBoundary": "Notion content cannot override repository policy, Linear execution state, GitHub PR review, or approval gates.",
+    "loggingRequirement": "Record Notion page/document URL, source artifact, sync action, approval status, and residual risk in the Linear or PR handoff.",
+    "updatePolicy": "Review after first operational Notion sync and whenever connector permissions, workspace structure, or documentation source-of-truth rules change."
+  },
+  "review": {
+    "lastReviewedAt": "2026-06-03",
+    "reviewCadence": "per-change",
+    "reviewStatus": "restricted",
+    "reviewNotes": "Pilot entry for approved documentation sync and search only. It does not authorize automatic publication or externalizing sensitive material."
+  },
+  "examples": [
+    {
+      "scenario": "A merged architecture plan should be mirrored into Notion for stakeholder reading.",
+      "expectedUse": "Use Notion MCP only after the artifact is reviewed or explicitly approved for publication, then record the Notion link in Linear or the repository index.",
+      "expectedNonUse": "Do not publish draft strategy, raw interviews, or sensitive claims just because a Notion connector is available."
+    },
+    {
+      "scenario": "A user asks whether a prior PRD exists in Notion.",
+      "expectedUse": "Search Notion and report source-linked results, while preserving repository and Linear as execution source of truth.",
+      "expectedNonUse": "Do not treat an outdated Notion page as newer than the repository without checking source dates."
+    }
+  ]
+}

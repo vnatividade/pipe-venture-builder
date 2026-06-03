@@ -11,9 +11,30 @@ Default behavior: identify the request type, map it to the current pipeline phas
 - Start from the assigned Linear ticket or repository artifact.
 - Load one primary agent by default.
 - Add at most one supporting skill by default.
+- Select matching capabilities internally when the current phase or ticket type implies them; do not ask the founder to choose PM Skills, MCPs, plugins, skills, files, or agents.
 - Add a risk reviewer only when the task touches approval gates, sensitive claims, data, billing, production, outreach, security, privacy, or high-risk changes.
 - Do not load all agents, all skills, or all templates for broad requests.
 - Do not advance to growth, billing, external communication, production, or future/evolution workflows unless the current ticket explicitly allows it and approval exists.
+
+## Proactive Capability Selection
+
+Capability routing should happen behind the conversation.
+
+Use the capability registry and routing examples to decide whether to bring in a capability. The user-facing response should stay focused on the next plain-language question, next action, or artifact. Do not make the user manage internal routing.
+
+Default proactive routes:
+
+| Situation | Consider Internally | User Should Experience |
+|---|---|---|
+| Founder is shaping an idea, target user, value proposition, or MVP wedge | `capability.external.pm-skills` plus repository product/validation artifacts | One focused product/discovery question or synthesis |
+| A ticket needs interview questions, respondent planning, assumption mapping, experiment design, or transcript synthesis | `capability.external.pm-skills` plus Pipe validation templates | Interview plan, evidence template, GO/NO-GO criteria |
+| A ticket needs source-backed academic, scientific, market, or technical research | `capability.external.consensus` when approved, otherwise source-backed research workflow | Cited synthesis with limits and contradictions |
+| A ticket provides an approved source set for synthesis | `capability.external.notebooklm` only when external synthesis is approved | Grounded synthesis with source boundary |
+| A merged or approved document should be registered, searched, or mirrored in Notion | `capability.external.notion-mcp` only when Notion mutation/search is in scope | Notion link or search result with repository source |
+| A code/workflow task needs disciplined implementation, debugging, TDD, or review handling | `capability.external.superpowers` | Focused execution plan, tests, review handling |
+| A ticket needs status, PR links, merge handoff, or follow-up tracking | `capability.external.linear-mcp` | Updated Linear state or handoff |
+
+Capability use must still respect lifecycle, approval, data, cost, network, and mutation boundaries in the registry. If a capability is unavailable or out of scope, use the recorded fallback and log the gap in the artifact or Linear handoff.
 
 ## Request Type Detection
 
@@ -23,14 +44,14 @@ Default behavior: identify the request type, map it to the current pipeline phas
 | Idea intake | raw idea, new product context, sample idea | Idea Intake Agent | None unless validation is requested | `product/product-context.md` |
 | Strategy focus | target market, problem, offer, channel, anti-goals | Product Strategist Agent | None | `product/founder-focus.md` |
 | C.O.N.T.R.O.L.E. evaluation | strategic gate, Attack, Refine, Pivot, Kill | Product Strategist Agent | None | `product/controle-evaluation.md` |
-| Validation planning | scorecard, ICP, discovery, evidence threshold | Validation Agent | Validation planning | `validation/validation-scorecard.md` |
+| Validation planning | scorecard, ICP, discovery, evidence threshold, interview plan, assumption mapping, experiment design | Validation Agent | Validation planning + PM Skills when capability rules match | `validation/validation-scorecard.md` |
 | Research orchestration | research question, source plan, evidence lanes, contradictions | Research Orchestrator Agent | Research synthesis | `.codex/agents/research-validation-specialization.md` |
 | Scientific validation | scientific claim, technical claim, evidence quality, expert source | Scientific Validation Agent | Research synthesis | `.codex/agents/research-validation-specialization.md` |
 | Market intelligence | market signals, substitutes, competition, channel reachability | Market Intelligence Agent | Research synthesis | `.codex/agents/research-validation-specialization.md` |
 | Venture intelligence curation | venture memory, opportunity radar, ranking hygiene, KDR/DAR linkage, evidence freshness, revisit trigger | Venture Intelligence Curator | Research synthesis / Knowledge update | `.codex/agents/venture-intelligence-curator-specialization.md` |
-| Customer discovery evidence | interview notes, customer language, observed behavior, ICP evidence | Customer Discovery Agent | Validation planning | `validation/customer-interview-template.md` |
+| Customer discovery evidence | interview notes, transcripts, customer language, observed behavior, ICP evidence, discovery synthesis | Customer Discovery Agent | Validation planning + PM Skills summarize-interview when capability rules match | `validation/customer-interview-template.md` |
 | Synthetic persona validation | synthetic persona, simulation, synthetic objections, synthetic-vs-real comparison | Synthetic Persona Validation Agent | Validation planning | `.codex/agents/synthetic-persona-validation-specialization.md` |
-| PRD or requirements | PRD, requirements, stories, non-goals | Product Strategist Agent | PRD drafting | PRD placeholder or source artifact |
+| PRD or requirements | PRD, requirements, stories, non-goals | Product Strategist Agent | PRD drafting + PM Skills when capability rules match | PRD placeholder or source artifact |
 | MVP scope | core loop, riskiest assumption, smallest ethical test | MVP Scope Reviewer Agent | Validation planning | `product/mvp-scope.md` |
 | Architecture handoff | technical shape, constraints, integrations, data, implementation readiness | Architecture Agent / software_architect | None | `.codex/agents/execution-risk-specialization.md` |
 | Risk review | approval, sensitive claim, privacy, security, billing, production, P0, P1 | Risk Reviewer Agent | None | `.codex/agents/execution-risk-specialization.md` |
@@ -38,7 +59,7 @@ Default behavior: identify the request type, map it to the current pipeline phas
 | Roadmap sequencing | next ticket, dependencies, priority, future filter | Roadmap Orchestrator Agent | Linear governance | `execution/core-pipeline-map.md` |
 | Ticket execution | branch, PR, validation, review, merge | Ticket Orchestrator Agent | Execution handoff | `execution/ticket-pr-handoff-system.md` |
 | Linear state | status update, PR link, blocker, final handoff | Linear Steward Agent | Linear governance | `execution/linear-governance-model.md` |
-| Knowledge update | KDR, learning, decision, customer language | Knowledge Curator Agent | Knowledge update | `knowledge/README.md` |
+| Knowledge update | KDR, learning, decision, customer language, approved documentation registration, Notion mirror | Knowledge Curator Agent | Knowledge update + Notion MCP when approved | `knowledge/README.md` |
 | Growth or content | distribution, channels, content, launch | Growth Strategist Agent or Content Strategy Agent | None unless approved | `growth/README.md` |
 | Billing strategy | pricing hypothesis, willingness to pay, billing gate | Billing Strategy Agent | None unless approved | `monetization/README.md` |
 
@@ -52,7 +73,7 @@ If a request matches multiple rows, choose the earliest active pipeline phase un
 | Idea intake | Idea Intake Agent | None | customer outreach, ticket creation, sensitive data |
 | Founder focus | Product Strategist Agent | None | validation claims, implementation tickets |
 | C.O.N.T.R.O.L.E. | Product Strategist Agent | None | advancing Attack/Refine without approval |
-| Research and validation plan | Validation Agent, Research Orchestrator Agent, Scientific Validation Agent, Market Intelligence Agent, Venture Intelligence Curator, Customer Discovery Agent | Validation planning, Research synthesis, Knowledge update | outreach, storing identifiable data, unsupported claims |
+| Research and validation plan | Validation Agent, Research Orchestrator Agent, Scientific Validation Agent, Market Intelligence Agent, Venture Intelligence Curator, Customer Discovery Agent | Validation planning, PM Skills, Research synthesis, Knowledge update | outreach, unapproved identifiable or private data handling, unsupported claims, unapproved external publication |
 | Working Backwards / PRD | Product Strategist Agent | PRD drafting | implementation tickets, broadening MVP |
 | MVP scope review | MVP Scope Reviewer Agent, Validation Agent, Risk Reviewer Agent | Validation planning | architecture or implementation tickets without GO |
 | Risk review | Risk Reviewer Agent | None | accepting unresolved P0/P1 risk |
@@ -60,7 +81,7 @@ If a request matches multiple rows, choose the earliest active pipeline phase un
 | Linear project and tickets | Roadmap Orchestrator Agent, Linear Steward Agent, Ticket Orchestrator Agent | Linear governance | creating projects or tickets without approval |
 | Ticket execution | Ticket Orchestrator Agent, Linear Steward Agent | Execution handoff | PR open/merge without approval or review |
 | First product trial | Roadmap Orchestrator Agent, Knowledge Curator Agent | Knowledge update | real external use without approval |
-| Feedback and learning | Validation Agent, Knowledge Curator Agent | Knowledge update, Research synthesis | strategy changes or claims without human review |
+| Feedback and learning | Validation Agent, Knowledge Curator Agent | Knowledge update, Research synthesis, Notion MCP when approved | strategy changes or claims without human review |
 
 ## Context Load Limits
 
@@ -119,7 +140,7 @@ For vague founder-facing requests like "I have an idea", "I want this to work", 
 
 1. Use the conversational founder guide first.
 2. Infer the earliest safe pipeline stage.
-3. Check durable knowledge and capability routing internally.
+3. Check durable knowledge and capability routing internally, including PM Skills when discovery, interviews, assumptions, experiments, PRD inputs, or positioning are implied.
 4. Ask one plain-language question or propose one safe next action.
 5. Hand off to the focused agent only after the stage is clear.
 
@@ -149,9 +170,12 @@ Stop instead of loading more context when:
 | User Request | Route |
 |---|---|
 | "Define customer interview evidence thresholds." | Validation Agent + Validation planning skill + validation scorecard. |
+| "Prepare my five discovery interviews." | Validation Agent + PM Skills interview-script + respondent targeting planner. |
+| "Here are interview transcripts, synthesize them." | Customer Discovery Agent + PM Skills summarize-interview + raw evidence intake workflow. |
 | "Synthesize market and scientific research for a validation decision." | Research Orchestrator Agent + Research synthesis skill + research and validation specialization. |
 | "Check whether this implementation ticket is ready." | Ticket Orchestrator Agent + Execution handoff skill + execution and risk specialization. |
 | "Create a PRD from this validated idea." | Product Strategist Agent + PRD drafting skill + product and validation artifacts. |
+| "Register this approved doc in Notion." | Knowledge Curator Agent + Notion MCP + Linear handoff. |
 | "Update Linear after merge." | Linear Steward Agent + Linear governance skill + PR and ticket. |
 | "What should we execute next?" | Roadmap Orchestrator Agent + pipeline map + Linear backlog. |
 | "Add pricing collection." | Billing Strategy Agent for analysis only, then stop for approval before billing. |

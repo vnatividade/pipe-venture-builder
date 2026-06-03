@@ -59,6 +59,7 @@ Primary routing:
 Why:
 
 - PM Skills is appropriate for discovery, validation framing, PRD, GTM, and upstream product judgment support.
+- PM Skills should be selected proactively by the operating agent when the request implies interview planning, risky-assumption mapping, experiment design, PRD inputs, or product strategy structure. The founder should not need to ask for PM Skills by name.
 - Consensus may be appropriate only when the ticket explicitly asks for source-backed research synthesis.
 - NotebookLM may be appropriate only when an approved source set exists and external synthesis is approved.
 - Linear MCP is appropriate for recording status and handoff, not for inventing evidence.
@@ -73,6 +74,7 @@ Expected normalized output:
 
 - Assumptions and unknowns.
 - Evidence needed.
+- Interview script, synthesis template, or experiment plan when the active phase needs it.
 - Source-backed synthesis with citations if external research is approved.
 - Explicit non-evidence boundaries.
 - Recommended next Linear tickets or blockers.
@@ -122,7 +124,7 @@ I have an idea and want to make it work.
 
 Primary routing:
 
-- `capability.external.pm-skills` only when explicitly approved or when a ticket authorizes a product-skill experiment.
+- `capability.external.pm-skills` when the current ticket or approved pipeline step needs product discovery structure, interview planning, assumption mapping, or PRD input.
 - Repository-native product, validation, C.O.N.T.R.O.L.E., Working Backwards, and discovery artifacts as the default fallback.
 - `capability.external.linear-mcp` only when reading or updating approved execution state is part of the current scope.
 
@@ -130,7 +132,7 @@ Why:
 
 - The user is expressing an abstract founder goal, not asking for an implementation task.
 - The earliest safe stage is idea intake or founder focus unless durable evidence already proves a later gate is ready.
-- PM Skills may help structure product reasoning, but its registry lifecycle is `proposed`, so it must not be treated as automatically approved.
+- PM Skills may help structure product reasoning and should be considered internally when its `useWhen` rules match. The user-facing experience should still be a plain next question or next action.
 - Linear MCP may support state tracking after approval, but it should not create tickets or projects merely because the user described an idea.
 
 Do not route to:
@@ -156,3 +158,76 @@ Example safe user-facing response:
 ```txt
 I understand the goal: you want to turn the idea into something that can work in the market. Before we talk about building, we need to identify who feels the pain most sharply and what evidence is still missing. Tell me the idea in plain language and who you imagine needs it most.
 ```
+
+## Example 5 - Manual discovery interview plan
+
+Task:
+
+```txt
+Create the interview plan for five target users before PRD or build.
+```
+
+Primary routing:
+
+- `capability.external.pm-skills`
+- Repository-native `validation/respondent-targeting-and-interview-planner.md`
+- Repository-native `validation/raw-interview-evidence-intake-and-synthesis.md`
+- `capability.external.linear-mcp` for ticket handoff when approved
+
+Why:
+
+- PM Skills provides interview-script, assumption mapping, experiment-design, and transcript-synthesis guidance.
+- Pipe validation artifacts preserve approval gates, evidence boundaries, contradiction capture, and GO/NO-GO criteria.
+- Linear MCP records execution state, branch/PR links, and follow-ups after approval.
+
+Do not route to:
+
+- `capability.external.notion-mcp` unless the ticket explicitly asks to publish or register the final approved discovery document in Notion.
+- `capability.external.consensus`, unless the interview plan also requires source-backed research.
+- `capability.external.notebooklm`, unless there is an approved source set to synthesize.
+- `capability.external.github-mcp`, unless the work includes repository changes and PR lifecycle.
+
+Expected normalized output:
+
+- Respondent profile.
+- Interview objective.
+- Non-leading interview script.
+- Note-taking or transcript-intake template.
+- Evidence categories.
+- Contradiction capture.
+- GO/NO-GO criteria.
+- Blocked actions and approval boundaries.
+
+## Example 6 - Approved documentation registration in Notion
+
+Task:
+
+```txt
+Register the approved architecture or validation document in Notion so the founder can read and share it from the workspace.
+```
+
+Primary routing:
+
+- `capability.external.notion-mcp`
+- `capability.external.linear-mcp`
+- Repository-native source artifact
+
+Why:
+
+- Notion MCP is appropriate for approved documentation publishing, registration, search, or update.
+- Linear MCP records the Notion link and source artifact in the ticket handoff.
+- The repository remains the canonical source for policy, validation artifacts, architecture, and execution docs.
+
+Do not route to:
+
+- Notion if the artifact is unreviewed, sensitive, draft-only, private, or contains raw interview/customer data without approval.
+- Notion as a replacement for Git/Linear source of truth.
+- Notion for automatic publication merely because a PR merged.
+
+Expected normalized output:
+
+- Source repository artifact.
+- Notion page or document URL.
+- Sync action performed.
+- Approval status.
+- Data boundary and residual risk.
