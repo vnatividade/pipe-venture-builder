@@ -2,32 +2,36 @@
   "schemaVersion": "0.1.0",
   "capabilityId": "capability.external.pm-skills",
   "name": "PM Skills",
-  "summary": "External product management skill capability for discovery, PRD, GTM, positioning, validation framing, and product decision support.",
+  "summary": "External product management skill marketplace from phuryn/pm-skills for discovery, PRD, GTM, positioning, validation framing, interview scripts, interview synthesis, and product decision support.",
   "kind": "skill",
   "origin": "external",
-  "lifecycle": "proposed",
+  "lifecycle": "pilot",
   "owner": {
     "primaryOwner": "Product Strategy Agent",
     "supportingOwner": "Validation Agent",
     "reviewer": "human operator"
   },
   "source": {
-    "sourceType": "skill",
-    "sourceName": "PM Skills",
-    "sourceUrl": null,
+    "sourceType": "repository",
+    "sourceName": "phuryn/pm-skills",
+    "sourceUrl": "https://github.com/phuryn/pm-skills",
     "repositoryPath": null,
-    "licenseOrTerms": null,
-    "versionOrDate": "2026-05-26",
-    "notes": "Registered as a product/discovery capability candidate. PIP-153 does not evaluate or install the source."
+    "licenseOrTerms": "MIT",
+    "versionOrDate": "main reviewed 2026-06-03",
+    "notes": "Registered from https://github.com/phuryn/pm-skills. Relevant source paths include pm-product-discovery/skills/interview-script, pm-product-discovery/skills/summarize-interview, pm-product-discovery/skills/identify-assumptions-new, pm-product-discovery/skills/prioritize-assumptions, pm-product-discovery/skills/brainstorm-experiments-new, pm-product-strategy/skills/value-proposition, and pm-execution/skills/create-prd. Claude slash commands are not registered as Pipe commands by this entry."
   },
   "routing": {
     "useWhen": [
       "A product, validation, PRD, GTM, discovery, or positioning ticket needs structured product reasoning.",
-      "A ticket asks for upstream idea organization before execution."
+      "A ticket asks for upstream idea organization before execution.",
+      "A validation-planning ticket needs interview script generation, assumption mapping, experiment design, JTBD probing questions, or transcript synthesis.",
+      "A founder-facing pipeline step needs product discovery structure but the user should not be asked to choose skills, files, MCPs, or tools."
     ],
     "doNotUseWhen": [
       "The task is implementation-only and product scope is already fixed.",
-      "The output would be treated as customer evidence without source artifacts."
+      "The output would be treated as customer evidence without source artifacts.",
+      "The task requires customer outreach, external communication, paid capability use, or private-source upload without explicit approval.",
+      "The task should be answered by a canonical Pipe policy, approval gate, Linear ticket, or repository artifact instead of an external PM framework."
     ],
     "pipelineStages": [
       "idea-intake",
@@ -62,7 +66,7 @@
     {
       "name": "productSynthesis",
       "required": true,
-      "description": "Structured product recommendation, assumptions, evidence needs, and unresolved decisions.",
+      "description": "Structured product recommendation, assumptions, evidence needs, interview plan, synthesis, PRD input, or unresolved decisions.",
       "sourceOrDestination": "Product, validation, or PRD artifact"
     }
   ],
@@ -79,24 +83,29 @@
     "notes": "Future product-output schemas may normalize discovery and PRD outputs."
   },
   "toolAccess": {
-    "accessType": "manual",
+    "accessType": "local_file",
     "requiresCredential": false,
     "requiresNetwork": false,
     "canMutateExternalState": false,
     "allowedOperations": [
       "Apply product reasoning patterns",
-      "Structure discovery, PRD, GTM, and validation outputs"
+      "Structure discovery, PRD, GTM, and validation outputs",
+      "Prepare customer interview scripts using PM Skills interview-script guidance",
+      "Summarize interview transcripts using PM Skills summarize-interview guidance",
+      "Map risky assumptions and validation experiments using PM Skills discovery guidance"
     ],
     "forbiddenOperations": [
       "Invent customer evidence",
       "Approve product strategy without human review",
-      "Contact customers"
+      "Contact customers",
+      "Upload private interview material to external services",
+      "Install or vendor the entire PM Skills repository into Pipe without a dedicated ticket"
     ]
   },
   "cost": {
     "costType": "unknown",
     "expectedCostLevel": "unknown",
-    "costDriver": "Availability depends on the actual PM skill source and runtime.",
+    "costDriver": "Source is MIT-licensed, but runtime availability depends on installed skills, Claude plugin state, or copied skill folders.",
     "approvalRequiredBeforePaidUse": true
   },
   "risks": [
@@ -108,29 +117,42 @@
     }
   ],
   "governance": {
-    "approvalRequired": true,
+    "approvalRequired": false,
     "approvalTriggers": [
       "Customer outreach",
       "Sensitive claims",
       "Changing MVP scope",
-      "External publication"
+      "External publication",
+      "Installing or updating external skill packages",
+      "Uploading private or customer interview material to any external service",
+      "Using paid PM Skills marketplace features if any are introduced"
     ],
-    "dataBoundary": "Use repository artifacts and approved public sources only unless a ticket explicitly approves other data.",
+    "dataBoundary": "Use repository artifacts, founder-provided context, and approved interview summaries/transcripts only. Do not store or upload private evidence outside approved Pipe artifacts.",
     "sensitiveActionBoundary": "Do not convert product reasoning into legal, financial, clinical, compliance, or market-proof claims.",
     "loggingRequirement": "Record assumptions, evidence gaps, and human decisions in the resulting artifact or Linear handoff.",
-    "updatePolicy": "Review before operational use and update after actual PM skill behavior is evaluated."
+    "updatePolicy": "Review when phuryn/pm-skills changes materially, when installed skill paths change, or after the first PIP-336 discovery use produces reusable learning."
   },
   "review": {
-    "lastReviewedAt": null,
-    "reviewCadence": "before-use",
-    "reviewStatus": "not-reviewed",
-    "reviewNotes": "Proposed entry; should be evaluated before becoming an approved operational capability."
+    "lastReviewedAt": "2026-06-03",
+    "reviewCadence": "per-change",
+    "reviewStatus": "restricted",
+    "reviewNotes": "Pilot entry grounded in phuryn/pm-skills repository metadata and selected skill files. Use is approved for scoped Pipe discovery and validation planning, but PM Skills output remains product reasoning, not validation evidence."
   },
   "examples": [
     {
       "scenario": "A ticket asks to refine an idea before PRD.",
       "expectedUse": "Use PM Skills to structure assumptions, personas, validation questions, and MVP boundaries.",
       "expectedNonUse": "Do not claim PMF, demand, revenue, or customer commitment without evidence."
+    },
+    {
+      "scenario": "A ticket asks for a five-interview discovery plan before code.",
+      "expectedUse": "Use PM Skills interview-script, assumption mapping, and experiment guidance internally, then output a Pipe-native interview plan with GO/NO-GO criteria.",
+      "expectedNonUse": "Do not ask the founder to choose PM Skills manually, do not contact respondents, and do not treat the resulting script as evidence."
+    },
+    {
+      "scenario": "A founder pastes an interview transcript for synthesis.",
+      "expectedUse": "Use PM Skills summarize-interview guidance with Pipe raw-evidence intake rules to extract JTBD, current solution, pains, pricing signals, contradictions, and next actions.",
+      "expectedNonUse": "Do not upload transcripts to external services or promote raw notes into canonical customer evidence without the relevant approval and artifact boundary."
     }
   ]
 }
