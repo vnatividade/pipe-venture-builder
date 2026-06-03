@@ -1,467 +1,481 @@
-# TCC Bibliographic Review Manual Discovery Plan
+# Plano Manual De Descoberta Para Revisao Bibliografica De TCC
 
-## Metadata
+## Metadados
 
-- Date: 2026-06-02
-- Origin ticket: PIP-336
-- Origin evidence: `validation/test-runs/conversational-pipeline-live-mood-test-2026-06-02-tcc-quimica.md`
-- Capability route: `capability.external.pm-skills` plus Pipe validation artifacts
-- PM Skills used: `interview-script`, `summarize-interview`, `identify-assumptions-new`, `prioritize-assumptions`, `brainstorm-experiments-new`
-- Status: discovery plan, not customer validation result
-- Gate decision: NOT APPLICABLE for this artifact
-- Reason: internal interview planning only; no automated outreach, lead sourcing, external messaging, call automation, product build, billing, or source publication is executed here
+- Data: 2026-06-02
+- Ticket de origem: PIP-336
+- Evidencia de origem: `validation/test-runs/conversational-pipeline-live-mood-test-2026-06-02-tcc-quimica.md`
+- Rota de recursos: `capability.external.pm-skills` mais artefatos de validacao da Pipe
+- PM Skills usadas: `interview-script`, `summarize-interview`, `identify-assumptions-new`, `prioritize-assumptions`, `brainstorm-experiments-new`
+- Status: plano de descoberta, nao resultado de validacao com clientes
+- Decisao de etapa: NAO APLICAVEL para este artefato
+- Motivo: planejamento interno de entrevistas; este arquivo nao executa contato externo automatizado, busca de leads, mensagem externa, ligacao automatizada, construcao de produto, cobranca ou publicacao de fontes
 
-## Purpose
+## Como Usar Este Plano
 
-This plan prepares five manual discovery interviews for the TCC bibliographic-review wedge:
+Este arquivo e um roteiro operacional para voce executar a proxima etapa da Pipe sem precisar procurar outro documento.
 
-```txt
-Help undergraduate students turn advisor-defined TCC topics into an evidence-backed bibliographic-review draft with auditable citations.
-```
+1. Encontre 5 estudantes parecidas com a persona descrita neste plano.
+2. Convide manualmente essas pessoas para conversas de 30 a 40 minutos.
+3. Use o roteiro de entrevista deste arquivo sem vender a solucao.
+4. Depois de cada conversa, preencha uma copia do modelo `Nota De Entrevista De Descoberta TCC`.
+5. Depois das 5 conversas, preencha o modelo `Sintese Do Lote De Descoberta TCC`.
+6. Entregue a sintese para a Pipe decidir a proxima etapa: `GO`, `GO CONDICIONAL`, `REFINAR`, `NO-GO` ou `BLOQUEADO`.
+7. Nao avance para PRD, MVP, busca academica automatizada ou automacao de leads antes dessa decisao.
 
-The goal is not to pitch the solution. The goal is to learn whether the problem is urgent, repeated, reachable, trusted, and worth paying for before PRD, architecture, or implementation.
+O resultado esperado desta etapa nao e uma tela, uma funcionalidade ou um PRD. O resultado esperado e evidencia suficiente para decidir se vale continuar explorando esse recorte.
 
-## Current Hypothesis
+## Proposito
 
-### ICP Hypothesis
-
-Undergraduate Chemistry students, or adjacent STEM students, writing a theoretical or bibliographic TCC with:
-
-- a theme or topic list already defined by the advisor
-- deadline pressure within weeks or a few months
-- difficulty starting or progressing the bibliographic review
-- current reliance on improvised search, ChatGPT, SciELO, advisor references, peers, mentors, or paid help
-
-### Problem Hypothesis
-
-The painful job is not only finding references. The student needs to move from topic list to a credible written review, with enough evidence traceability to trust the text and avoid weak, hallucinated, irrelevant, or poorly supported citations.
-
-### First Paid Output Hypothesis
-
-The first paid output is:
+Este plano prepara cinco entrevistas manuais de descoberta para o recorte de revisao bibliografica de TCC:
 
 ```txt
-Text plus auditable citations for each section.
+Ajudar estudantes de graduacao a transformar temas de TCC definidos pelo orientador em um rascunho de revisao bibliografica com evidencias e citacoes auditaveis.
 ```
 
-Founder-estimated price hypothesis from PIP-334: R$ 100-300.
+O objetivo nao e vender a solucao. O objetivo e aprender se o problema e urgente, repetido, acessivel, confiavel e potencialmente pagavel antes de PRD, arquitetura ou implementacao.
 
-This is not validated pricing evidence.
+## Hipotese Atual
 
-## Decisions This Discovery Round Should Inform
+### Hipotese De ICP
 
-- Whether this wedge deserves a PRD.
-- Whether "text plus auditable citations" is more valuable than only search, organization, ABNT, methodology, or planning.
-- Whether the first ICP should be Chemistry students specifically, broader STEM students, or a different segment.
-- Whether the product promise can be positioned safely as assistance instead of ghostwriting.
-- Whether citation traceability is a meaningful trust driver.
-- Whether students show willingness to pay, not only interest.
-- Whether academic-source quality is a blocker before product scope.
+Estudantes de graduacao em Quimica, ou cursos STEM proximos, escrevendo um TCC teorico ou bibliografico com:
 
-## Assumptions To Test
+- tema ou lista de topicos ja definidos pelo orientador
+- pressao de prazo em semanas ou poucos meses
+- dificuldade para iniciar ou avancar na revisao bibliografica
+- uso atual de busca improvisada, ChatGPT, SciELO, referencias do orientador, colegas, mentores ou ajuda paga
 
-| Assumption | Why it matters | Evidence needed | Risk if false |
+### Hipotese De Problema
+
+A dor principal nao e apenas encontrar referencias. A estudante precisa sair de uma lista de topicos para uma revisao escrita crivel, com rastreabilidade suficiente para confiar no texto e evitar citacoes fracas, inventadas, irrelevantes ou mal sustentadas.
+
+### Hipotese Da Primeira Entrega Pagavel
+
+A primeira entrega pagavel e:
+
+```txt
+Texto com citacoes auditaveis para cada secao.
+```
+
+Hipotese de preco estimada pelo fundador a partir do PIP-334: R$ 100-300.
+
+Isso nao e evidencia validada de preco.
+
+## Decisoes Que Esta Rodada Deve Informar
+
+- Se este recorte merece um PRD.
+- Se "texto com citacoes auditaveis" e mais valioso do que apenas busca, organizacao, ABNT, metodologia ou planejamento.
+- Se o primeiro ICP deve ser estudantes de Quimica, estudantes STEM de forma mais ampla ou outro segmento.
+- Se a promessa do produto pode ser posicionada com seguranca como apoio, e nao como escrita integral por terceiros.
+- Se rastreabilidade de citacoes e um fator real de confianca.
+- Se estudantes demonstram disposicao a pagar, nao apenas interesse.
+- Se qualidade das fontes academicas e um bloqueio antes de escopo de produto.
+
+## Suposicoes A Testar
+
+| Suposicao | Por que importa | Evidencia necessaria | Risco se for falsa |
 |---|---|---|---|
-| Students with advisor-defined topics still get stuck before or during the bibliographic review. | Confirms the wedge starts after theme definition. | Recent story of being stuck, delay, failed workaround, or anxiety. | Product may solve a non-urgent workflow. |
-| Search and writing are the highest-value pain points. | Defines MVP focus. | Ranking against ABNT, methodology, organization, reading, advisor feedback. | MVP may overinvest in writing while users need planning or formatting. |
-| Citation evidence traceability materially increases trust. | Differentiates from generic AI writing. | Student explains why clickable source, excerpt, and quality signal would change trust. | Product becomes "another ChatGPT" with weak defensibility. |
-| Students near deadlines have willingness to pay. | Tests B2C viability. | Actual spend, considered spend, paid workaround, or credible price reaction. | Founder price range remains wishful. |
-| Students will accept assisted drafting if framed ethically. | Reduces academic integrity risk. | Boundaries they expect: review, advisor approval, citations, non-ghostwriting. | Product may attract unsafe use or trigger institutional rejection. |
-| Five reachable respondents can produce useful signal quickly. | Keeps validation founder-led and manual. | Founder completes five interviews with enough depth. | Need a different channel or respondent source. |
+| Estudantes com tema definido pelo orientador ainda travam antes ou durante a revisao bibliografica. | Confirma que o recorte comeca depois da definicao do tema. | Historia recente de trava, atraso, alternativa falha ou ansiedade. | O produto pode resolver um fluxo pouco urgente. |
+| Busca e escrita sao as dores de maior valor. | Define o foco do MVP. | Priorizacao contra ABNT, metodologia, organizacao, leitura e feedback do orientador. | O MVP pode investir em escrita quando usuarias precisam mais de planejamento ou formatacao. |
+| Rastreabilidade de evidencia por citacao aumenta materialmente a confianca. | Diferencia a solucao de escrita generica com IA. | A estudante explica por que fonte clicavel, trecho usado e sinal de qualidade mudariam sua confianca. | O produto vira "mais um ChatGPT" com pouca defensibilidade. |
+| Estudantes perto do prazo tem disposicao a pagar. | Testa viabilidade B2C. | Gasto real, gasto considerado, alternativa paga ou reacao crivel a preco. | A faixa de preco do fundador continua sendo desejo, nao evidencia. |
+| Estudantes aceitam rascunho assistido se a proposta for etica. | Reduz risco de integridade academica. | Limites esperados: revisao propria, aprovacao do orientador, citacoes, sem escrita integral por terceiros. | O produto pode atrair uso inseguro ou rejeicao institucional. |
+| Cinco respondentes acessiveis geram sinal util rapidamente. | Mantem a validacao manual e liderada pelo fundador. | Fundador completa cinco entrevistas com profundidade suficiente. | Pode ser necessario outro canal ou outra fonte de respondentes. |
 
-## Respondent Targeting
+## Perfis De Respondentes
 
-### P1 Respondents
+### Respondentes P1
 
-Interview these first.
+Entreviste estes perfis primeiro.
 
-| Profile | Why this person | Evidence expected | Manual source ideas | Exclusion criteria | Priority |
+| Perfil | Por que essa pessoa | Evidencia esperada | Ideias de fonte manual | Criterios de exclusao | Prioridade |
 |---|---|---|---|---|---|
-| Undergraduate Chemistry student currently writing theoretical or bibliographic TCC | Closest to the original wedge and real theme | Current workflow, blocker, urgency, source trust, writing pain, willingness to pay | Founder network, class groups, course peers, advisor-adjacent introductions | Experimental TCC with no literature-review bottleneck; no deadline pressure; already finished long ago with weak recall | P1 |
-| Undergraduate Chemistry student near deadline and not yet started or stuck on review | Highest pain intensity | Trigger moment, anxiety, paid workaround, what would unlock progress | Warm introductions, student groups, peers of original interviewee | Student only wants theme selection or lab execution help | P1 |
-| Student who paid, considered paying, or knows peers who paid for TCC execution/mentoring | Strongest willingness-to-pay proxy | Spend category, price anchor, risk perception, what they bought instead | Referrals from first respondents, classmates | Only heard vague stories with no specific behavior | P1 |
+| Estudante de graduacao em Quimica escrevendo TCC teorico ou bibliografico | Mais proxima do recorte original e do tema real | Fluxo atual, trava, urgencia, confianca em fonte, dor de escrita, disposicao a pagar | Rede do fundador, grupos de turma, colegas de curso, indicacoes proximas ao orientador | TCC experimental sem gargalo de revisao bibliografica; sem pressao de prazo; terminou ha muito tempo e lembra pouco | P1 |
+| Estudante de Quimica perto do prazo e ainda sem comecar ou travada na revisao | Maior intensidade de dor | Momento de gatilho, ansiedade, alternativa paga, o que destravaria o progresso | Indicacoes quentes, grupos de estudantes, colegas da primeira entrevistada | Estudante que so quer ajuda para escolher tema ou executar laboratorio | P1 |
+| Estudante que pagou, considerou pagar ou conhece colegas que pagaram ajuda para TCC | Melhor proxy de disposicao a pagar | Categoria de gasto, ancora de preco, percepcao de risco, o que comprou no lugar | Indicacoes das primeiras respondentes, colegas de turma | Apenas ouviu historias vagas sem comportamento especifico | P1 |
 
-### P2 Respondents
+### Respondentes P2
 
-Use these only if P1 access is insufficient.
+Use estes perfis apenas se o acesso a P1 for insuficiente.
 
-| Profile | Why this person | Evidence expected | Manual source ideas | Exclusion criteria | Priority |
+| Perfil | Por que essa pessoa | Evidencia esperada | Ideias de fonte manual | Criterios de exclusao | Prioridade |
 |---|---|---|---|---|---|
-| STEM undergraduate student in Pharmacy, Materials, Biology, Engineering, or related field with bibliographic TCC | Tests whether wedge expands beyond Chemistry | Similarity of search/writing/citation pain | Founder network, adjacent course groups | TCC format is too different or not bibliographic | P2 |
-| Recent Chemistry graduate who finished TCC in the last 6-12 months | Retrospective workflow detail and pitfalls | What they wish existed, actual workaround, advisor acceptance | Alumni or friend network | Finished too long ago to remember specifics | P2 |
+| Estudante STEM de Farmacia, Materiais, Biologia, Engenharia ou area relacionada com TCC bibliografico | Testa se o recorte expande alem de Quimica | Similaridade da dor de busca, escrita e citacao | Rede do fundador, grupos de cursos adjacentes | Formato de TCC muito diferente ou nao bibliografico | P2 |
+| Pessoa recem-formada em Quimica que terminou TCC nos ultimos 6-12 meses | Detalhe retrospectivo de fluxo e armadilhas | O que gostaria que existisse, alternativa real, aceitacao do orientador | Ex-alunos ou rede de amigos | Terminou ha tempo demais para lembrar com detalhe | P2 |
 
-### Do Not Interview In This Round
+### Nao Entrevistar Nesta Rodada
 
-- Professors or advisors as primary respondents.
-- Professional academic writers or agencies.
-- Students looking only for full ghostwriting.
-- Students outside undergraduate TCC context.
-- People with no current or recent TCC workflow.
+- Professores ou orientadores como respondentes principais.
+- Escritores academicos profissionais ou agencias.
+- Estudantes buscando apenas escrita integral por terceiros.
+- Pessoas fora do contexto de TCC de graduacao.
+- Pessoas sem fluxo atual ou recente de TCC.
 
-Advisors may be useful later for risk and acceptance review, but this round should learn from the first buyer/user hypothesis: students.
+Orientadores podem ser uteis depois para revisao de risco e aceitacao, mas esta rodada deve aprender com a primeira hipotese de compradora/usuaria: estudantes.
 
-## Manual Outreach Guidance
+## Orientacao De Convite Manual
 
-This plan does not authorize automated outreach.
+Este plano nao autoriza contato externo automatizado.
 
-Founder may manually ask for conversations through warm paths after deciding to contact people. Keep the message simple and transparent:
-
-```txt
-Estou conversando com estudantes que estão fazendo TCC para entender onde a revisão bibliográfica trava. Não quero vender nada nessa conversa; é só para aprender com sua experiência. Você toparia conversar por 25-35 minutos?
-```
-
-Avoid:
-
-- pitching the solution before the interview
-- saying "eu tenho uma ferramenta que resolve isso"
-- asking "você usaria?"
-- promising confidentiality, pricing, output, approval, or academic correctness beyond what is true
-- automated messages, scraping, lead lists, AI calls, or bulk outreach
-
-## Interview Structure
-
-Recommended length: 30-40 minutes.
-
-### Opening
-
-Use this script:
+O fundador pode pedir conversas manualmente por caminhos quentes, depois de decidir com quem falar. Mantenha a mensagem simples e transparente:
 
 ```txt
-Obrigado por conversar comigo. Eu estou entendendo como estudantes passam pela revisão bibliográfica do TCC. Não é uma venda e não existe resposta certa. Quero entender sua experiência real: o que aconteceu, o que você tentou, onde travou e o que teria ajudado. Se alguma pergunta não fizer sentido, pode falar.
+Estou conversando com estudantes que estao fazendo TCC para entender onde a revisao bibliografica trava. Nao quero vender nada nessa conversa; e so para aprender com sua experiencia. Voce toparia conversar por 25-35 minutos?
 ```
 
-If recording:
+Evite:
+
+- vender a solucao antes da entrevista
+- dizer "eu tenho uma ferramenta que resolve isso"
+- perguntar "voce usaria?"
+- prometer confidencialidade, preco, entrega, aprovacao ou correcao academica alem do que e verdadeiro
+- mensagens automatizadas, raspagem de dados, listas de leads, ligacoes com IA ou contato externo em massa
+
+## Estrutura Da Entrevista
+
+Duracao recomendada: 30-40 minutos.
+
+### Abertura
+
+Use este roteiro:
 
 ```txt
-Você autoriza que eu grave só para eu não perder detalhes da conversa? A gravação não será publicada. Se preferir, eu faço apenas anotações.
+Obrigado por conversar comigo. Eu estou entendendo como estudantes passam pela revisao bibliografica do TCC. Nao e uma venda e nao existe resposta certa. Quero entender sua experiencia real: o que aconteceu, o que voce tentou, onde travou e o que teria ajudado. Se alguma pergunta nao fizer sentido, pode falar.
 ```
 
-For Pipe repository storage, keep only synthesis unless a specific ticket approves raw transcript retention.
+Se for gravar:
 
-### Warm-Up
+```txt
+Voce autoriza que eu grave so para eu nao perder detalhes da conversa? A gravacao nao sera publicada. Se preferir, eu faco apenas anotacoes.
+```
 
-1. Qual curso você faz e em que etapa do TCC você está?
-2. Seu TCC é mais experimental, teórico, bibliográfico ou misto?
-3. O tema já veio definido pelo orientador ou você precisou definir?
-4. Quais tópicos ou partes da revisão o orientador espera que você cubra?
-5. Quanto tempo falta para entrega ou para a próxima cobrança importante?
+Para armazenamento no repositorio da Pipe, mantenha apenas sintese, a menos que um ticket especifico aprove retencao de transcricao bruta.
 
-### Current Workflow And Past Behavior
+### Aquecimento
 
-Ask about the last real attempt, not opinions.
+1. Qual curso voce faz e em que etapa do TCC voce esta?
+2. Seu TCC e mais experimental, teorico, bibliografico ou misto?
+3. O tema ja veio definido pelo orientador ou voce precisou definir?
+4. Quais topicos ou partes da revisao o orientador espera que voce cubra?
+5. Quanto tempo falta para entrega ou para a proxima cobranca importante?
 
-1. Me conta a última vez que você tentou avançar na revisão bibliográfica. O que você fez primeiro?
+### Fluxo Atual E Comportamento Passado
+
+Pergunte sobre a ultima tentativa real, nao sobre opinioes.
+
+1. Me conta a ultima vez que voce tentou avancar na revisao bibliografica. O que voce fez primeiro?
 2. Onde exatamente travou ou ficou mais lento?
-3. Quais ferramentas, bases, sites, pessoas ou materiais você usou?
-4. Você usou ChatGPT, SciELO, Google Scholar, artigos enviados pelo orientador, TCCs anteriores ou outra fonte?
-5. Quanto tempo você gastou tentando avançar?
-6. O que saiu dessa tentativa: lista de artigos, fichamento, texto escrito, tópicos, nada, outra coisa?
-7. O que você fez quando percebeu que não estava avançando?
+3. Quais ferramentas, bases, sites, pessoas ou materiais voce usou?
+4. Voce usou ChatGPT, SciELO, Google Scholar, artigos enviados pelo orientador, TCCs anteriores ou outra fonte?
+5. Quanto tempo voce gastou tentando avancar?
+6. O que saiu dessa tentativa: lista de artigos, fichamento, texto escrito, topicos, nada, outra coisa?
+7. O que voce fez quando percebeu que nao estava avancando?
 
-### Pain Ranking
+### Priorizacao Das Dores
 
-Ask the respondent to rank, then probe the top two.
+Peca para a respondente priorizar e depois aprofunde nas duas principais.
 
 ```txt
-Se você tivesse que escolher os dois maiores problemas da revisão bibliográfica, quais seriam?
+Se voce tivesse que escolher os dois maiores problemas da revisao bibliografica, quais seriam?
 ```
 
-Options to mention only if needed:
+Opcoes para mencionar apenas se necessario:
 
-- saber por onde começar
-- achar referências confiáveis
+- saber por onde comecar
+- achar referencias confiaveis
 - ler e entender os artigos
-- organizar ideias e tópicos
+- organizar ideias e topicos
 - escrever o texto
-- conectar citações com afirmações
-- ABNT/formatação
+- conectar citacoes com afirmacoes
+- ABNT/formatacao
 - metodologia
-- medo de citação errada ou fonte fraca
+- medo de citacao errada ou fonte fraca
 - lidar com orientador
 - falta de tempo
 
-Follow-ups:
+Perguntas de aprofundamento:
 
-1. Por que esses dois são os mais difíceis?
-2. O que acontece se eles não forem resolvidos?
-3. Qual deles você pagaria para resolver primeiro?
-4. Qual deles você acha chato, mas não pagaria para resolver?
+1. Por que esses dois sao os mais dificeis?
+2. O que acontece se eles nao forem resolvidos?
+3. Qual deles voce pagaria para resolver primeiro?
+4. Qual deles voce acha chato, mas nao pagaria para resolver?
 
-### Trust And Citation Evidence
+### Confianca E Evidencia Das Citacoes
 
-Do not pitch too early. Frame as a hypothetical after current workflow is clear.
+Nao apresente a solucao cedo demais. Use esta hipotese depois de entender o fluxo atual.
 
 ```txt
-Imagina que você recebesse um rascunho de revisão bibliográfica em que cada afirmação importante tivesse uma citação clicável, o trecho de evidência usado e um alerta sobre a qualidade da fonte. O que você iria checar antes de confiar?
+Imagina que voce recebesse um rascunho de revisao bibliografica em que cada afirmacao importante tivesse uma citacao clicavel, o trecho de evidencia usado e um alerta sobre a qualidade da fonte. O que voce iria checar antes de confiar?
 ```
 
-Follow-ups:
+Perguntas de aprofundamento:
 
-1. O que faria você desconfiar desse texto?
-2. Que tipo de fonte você considera aceitável para TCC?
-3. O que você espera que o orientador aceite ou rejeite?
-4. Você preferiria receber só as referências organizadas, um rascunho escrito, ou rascunho com citações auditáveis?
-5. O que seria perigoso ou antiético nesse tipo de ferramenta?
+1. O que faria voce desconfiar desse texto?
+2. Que tipo de fonte voce considera aceitavel para TCC?
+3. O que voce espera que o orientador aceite ou rejeite?
+4. Voce preferiria receber so as referencias organizadas, um rascunho escrito, ou rascunho com citacoes auditaveis?
+5. O que seria perigoso ou antietico nesse tipo de ferramenta?
 6. O que teria que ficar sob sua responsabilidade como estudante?
 
-### Willingness To Pay And Existing Spend
+### Disposicao A Pagar E Gasto Existente
 
-Ask about past behavior before price hypotheticals.
+Pergunte sobre comportamento passado antes de hipotese de preco.
 
-1. Você já pagou, pensou em pagar, ou conhece alguém que pagou ajuda para TCC?
-2. O que exatamente foi contratado: orientação, revisão, formatação, busca, escrita, execução completa?
-3. Você lembra a faixa de preço ou como a pessoa decidiu que valia pagar?
-4. O que faria você considerar pagar por ajuda na revisão bibliográfica?
-5. Se algo economizasse uma ou duas semanas e entregasse um rascunho auditável, qual faixa pareceria aceitável?
-6. Em que ponto do prazo você pagaria: agora, perto da entrega, depois de travar, ou nunca?
+1. Voce ja pagou, pensou em pagar, ou conhece alguem que pagou ajuda para TCC?
+2. O que exatamente foi contratado: orientacao, revisao, formatacao, busca, escrita, execucao completa?
+3. Voce lembra a faixa de preco ou como a pessoa decidiu que valia pagar?
+4. O que faria voce considerar pagar por ajuda na revisao bibliografica?
+5. Se algo economizasse uma ou duas semanas e entregasse um rascunho auditavel, qual faixa pareceria aceitavel?
+6. Em que ponto do prazo voce pagaria: agora, perto da entrega, depois de travar, ou nunca?
 
-Do not treat stated willingness as proof. Prefer actual spend, considered spend, or concrete trade-off.
+Nao trate disposicao declarada como prova. Prefira gasto real, gasto considerado ou trade-off concreto.
 
-### Academic Integrity And Safety
+### Integridade Academica E Seguranca
 
-1. Onde fica a linha entre ajuda aceitável e alguém fazer o TCC por você?
-2. O que você precisaria revisar pessoalmente antes de entregar?
-3. Você contaria para o orientador que usou uma ferramenta de apoio? Por quê?
+1. Onde fica a linha entre ajuda aceitavel e alguem fazer o TCC por voce?
+2. O que voce precisaria revisar pessoalmente antes de entregar?
+3. Voce contaria para o orientador que usou uma ferramenta de apoio? Por que?
 4. Que aviso ou controle deixaria a ferramenta mais segura?
 5. O que a ferramenta jamais deveria prometer?
 
-### Closing
+### Encerramento
 
-1. O que eu não perguntei e deveria ter perguntado?
+1. O que eu nao perguntei e deveria ter perguntado?
 2. Quem mais vive esse problema e poderia conversar comigo?
-3. Você toparia ver um exemplo manual depois, se ele existisse?
-4. Posso te procurar para tirar uma dúvida rápida depois?
+3. Voce toparia ver um exemplo manual depois, se ele existisse?
+4. Posso te procurar para tirar uma duvida rapida depois?
 
-## Note-Taking Template
+## Modelo De Nota De Entrevista
 
-Use one copy per respondent. Do not store names, phone numbers, email, social handles, or raw private details in repository artifacts unless a future ticket explicitly approves retention.
-
-```md
-# TCC Discovery Interview Note
-
-## Metadata
-
-- Respondent label: P01 / P02 / P03 / P04 / P05
-- Date:
-- Interviewer:
-- Course:
-- TCC type: theoretical / bibliographic / experimental / mixed
-- TCC stage:
-- Deadline pressure: low / medium / high
-- Recording exists outside repo: yes/no
-- Transcript exists outside repo: yes/no
-- Repository-safe summary only: yes/no
-
-## Context
-
-- Theme already defined by advisor: yes/no/partial
-- Required topics:
-- Current stage in bibliographic review:
-- Trigger moment:
-
-## Current Workflow
-
-- Last attempt to work on review:
-- Tools/sources used:
-- Output produced:
-- What got stuck:
-- Time spent:
-
-## Pain Ranking
-
-- Top pain 1:
-- Top pain 2:
-- Other pains:
-- Pain intensity: low / medium / high
-- Evidence type: behavior / quote / spend / workaround / assumption
-
-## Workaround And Spend
-
-- Current workaround:
-- Paid help used or considered:
-- Known peer behavior:
-- Price anchor:
-- Commitment signal:
-
-## Trust And Citation Evidence
-
-- Would citation traceability help? yes/no/mixed
-- What they would check:
-- Source-quality expectations:
-- Trust blockers:
-- Advisor acceptance concern:
-
-## Academic Integrity
-
-- Acceptable assistance:
-- Unacceptable / ghostwriting boundary:
-- Student responsibility:
-- Required warnings or controls:
-
-## First Output Preference
-
-- References only:
-- Structure + references:
-- Draft text:
-- Draft text + auditable citations:
-- Other:
-
-## Quotes Or Exact Language
-
-Store only repository-safe anonymized quotes.
-
-- Quote 1:
-- Quote 2:
-
-## Contradictions
-
-- Evidence supporting thesis:
-- Evidence weakening thesis:
-- Ambiguous signal:
-- New risk:
-
-## Interviewer Synthesis
-
-- Strongest signal:
-- Weakest signal:
-- Confidence change: increased / unchanged / decreased
-- Recommended decision: GO / CONDITIONAL GO / REFINE / NO-GO / BLOCKED
-- Follow-up needed:
-```
-
-## Batch Synthesis Template
-
-Use this after the five interviews. This is the format the founder can paste back into Pipe after completing the conversations.
+Use uma copia por respondente. Nao armazene nomes, telefones, e-mails, perfis sociais ou detalhes privados brutos em artefatos do repositorio, a menos que um ticket futuro aprove explicitamente essa retencao.
 
 ```md
-# TCC Discovery Batch Synthesis
+# Nota De Entrevista De Descoberta TCC
 
-## Metadata
+## Metadados
 
-- Origin ticket: PIP-336
-- Evidence batch: 5 manual interviews
-- Raw data handled in repository: no by default
-- Repository artifact contains: anonymized synthesis
+- Rotulo da respondente: P01 / P02 / P03 / P04 / P05
+- Data:
+- Entrevistador:
+- Curso:
+- Tipo de TCC: teorico / bibliografico / experimental / misto
+- Etapa do TCC:
+- Pressao de prazo: baixa / media / alta
+- Existe gravacao fora do repositorio: sim/nao
+- Existe transcricao fora do repositorio: sim/nao
+- Apenas sintese segura para repositorio: sim/nao
 
-## Source Coverage
+## Contexto
 
-| Source label | Course | TCC type | Deadline pressure | Evidence quality |
-|---|---|---|---|---|
-| P01 |  |  | Low / Medium / High | Low / Medium / High |
-| P02 |  |  | Low / Medium / High | Low / Medium / High |
-| P03 |  |  | Low / Medium / High | Low / Medium / High |
-| P04 |  |  | Low / Medium / High | Low / Medium / High |
-| P05 |  |  | Low / Medium / High | Low / Medium / High |
+- Tema ja definido pelo orientador: sim/nao/parcial
+- Topicos exigidos:
+- Etapa atual na revisao bibliografica:
+- Momento de gatilho:
 
-## Pattern Summary
+## Fluxo Atual
 
-- Repeated pain:
-- Trigger moment:
-- Current workaround:
-- Paid workaround:
-- Trust requirement:
-- Academic integrity concern:
-- First output preference:
-- Price signal:
+- Ultima tentativa de trabalhar na revisao:
+- Ferramentas/fontes usadas:
+- Entrega produzida:
+- Onde travou:
+- Tempo gasto:
 
-## Evidence Table
+## Priorizacao Das Dores
 
-| Evidence | Type | Sources | Confidence | Notes |
-|---|---|---|---|---|
-|  | behavior / quote / spend / workaround / objection / commitment | P01, P02... | Low / Medium / High |  |
+- Dor principal 1:
+- Dor principal 2:
+- Outras dores:
+- Intensidade da dor: baixa / media / alta
+- Tipo de evidencia: comportamento / fala / gasto / alternativa / suposicao
 
-## Contradiction Review
+## Workaround E Gasto
 
-- Evidence supporting current thesis:
-- Evidence contradicting current thesis:
-- Ambiguous or mixed signals:
-- Evidence weakening ICP specificity:
-- Evidence weakening pain intensity:
-- Evidence weakening willingness to pay:
-- New risk or objection:
+- Workaround atual:
+- Ajuda paga usada ou considerada:
+- Comportamento conhecido de colegas:
+- Ancora de preco:
+- Sinal de compromisso:
 
-## Decision
+## Confianca E Evidencia Das Citacoes
 
-- Decision impact: GO / CONDITIONAL GO / REFINE / NO-GO / BLOCKED
-- Reason:
-- Next allowed stage:
-- Blocked stages:
-- Follow-up tickets needed:
+- Rastreabilidade de citacao ajudaria? sim/nao/misto
+- O que ela checaria:
+- Expectativas de qualidade das fontes:
+- Bloqueios de confianca:
+- Preocupacao de aceitacao pelo orientador:
+
+## Integridade Academica
+
+- Ajuda aceitavel:
+- Limite inaceitavel / escrita integral por terceiros:
+- Responsabilidade da estudante:
+- Avisos ou controles necessarios:
+
+## Preferencia Da Primeira Entrega
+
+- Apenas referencias:
+- Estrutura + referencias:
+- Texto rascunhado:
+- Texto rascunhado + citacoes auditaveis:
+- Outro:
+
+## Falas Ou Linguagem Exata
+
+Armazene apenas falas anonimizadas e seguras para o repositorio.
+
+- Fala 1:
+- Fala 2:
+
+## Contradicoes
+
+- Evidencia que apoia a tese:
+- Evidencia que enfraquece a tese:
+- Sinal ambiguo:
+- Novo risco:
+
+## Sintese Do Entrevistador
+
+- Sinal mais forte:
+- Sinal mais fraco:
+- Mudanca de confianca: aumentou / igual / diminuiu
+- Decisao recomendada: GO / GO CONDICIONAL / REFINAR / NO-GO / BLOQUEADO
+- Follow-up necessario:
 ```
 
-## GO Criteria
+## Modelo De Sintese Do Lote
 
-Use these as a directional gate before PRD. Do not force a positive conclusion.
+Use este modelo depois das cinco entrevistas. Este e o formato que o fundador pode trazer de volta para a Pipe depois de concluir as conversas.
 
-- At least 4 of 5 respondents fit the target profile or a clearly adjacent high-fit profile.
-- At least 3 of 5 describe a recent concrete struggle starting or progressing the bibliographic review.
-- At least 3 of 5 rank search plus writing, citation evidence, or source trust among the top two pains.
-- At least 3 of 5 say citation traceability would materially increase trust.
-- At least 2 of 5 have paid, considered paying, or know a concrete peer example of paying for TCC help.
-- At least 2 of 5 react credibly to a price range near R$ 100-300 for urgent deadline support.
-- No dominant academic-integrity objection makes the first promise unsafe as an assisted workflow.
+```md
+# Sintese Do Lote De Descoberta TCC
 
-## Conditional GO Criteria
+## Metadados
 
-Use this when there is enough signal to continue learning, but not enough to create product scope.
+- Ticket de origem: PIP-336
+- Lote de evidencia: 5 entrevistas manuais
+- Dados brutos tratados no repositorio: nao por padrao
+- Artefato do repositorio contem: sintese anonimizada
 
-- Pain is strong, but willingness to pay is unclear.
-- Students want search and organization, but not generated text.
-- Citation traceability is trusted only with strict review controls.
-- Chemistry is too narrow, but adjacent STEM students show stronger signal.
-- Students want the result, but advisor acceptance is a blocker.
+## Cobertura Das Fontes
 
-Allowed next action after CONDITIONAL GO:
+| Rotulo da fonte | Curso | Tipo de TCC | Pressao de prazo | Qualidade da evidencia |
+|---|---|---|---|---|
+| P01 |  |  | Baixa / Media / Alta | Baixa / Media / Alta |
+| P02 |  |  | Baixa / Media / Alta | Baixa / Media / Alta |
+| P03 |  |  | Baixa / Media / Alta | Baixa / Media / Alta |
+| P04 |  |  | Baixa / Media / Alta | Baixa / Media / Alta |
+| P05 |  |  | Baixa / Media / Alta | Baixa / Media / Alta |
 
-- refine ICP
-- run a second interview batch
-- run a manual concierge sample with one approved non-sensitive topic
-- create a research spike for academic-source coverage only after validation evidence supports it
+## Padroes Encontrados
 
-## NO-GO Or Pivot Criteria
+- Dor repetida:
+- Momento de gatilho:
+- Workaround atual:
+- Workaround pago:
+- Requisito de confianca:
+- Preocupacao de integridade academica:
+- Preferencia da primeira entrega:
+- Sinal de preco:
 
-- Fewer than 2 of 5 report a recent concrete pain.
-- Most respondents say generic ChatGPT/SciELO is enough.
-- Main pain is only ABNT formatting, not search/writing/evidence.
-- Students want full ghostwriting as the primary value.
-- Students would not pay and have no meaningful workaround cost.
-- Advisor/institution acceptance risk dominates the value.
-- The first ICP is unreachable manually.
+## Tabela De Evidencias
 
-## Blocked Actions
+| Evidencia | Tipo | Fontes | Confianca | Observacoes |
+|---|---|---|---|---|
+|  | comportamento / fala / gasto / alternativa / objecao / compromisso | P01, P02... | Baixa / Media / Alta |  |
 
-These remain blocked after this plan:
+## Revisao De Contradicoes
 
-- PRD as accepted product scope
-- MVP build
-- academic search integration
-- automated lead sourcing
-- automated outreach
-- AI phone calls
-- billing or paid collection
-- public claims of validation
-- storing raw recordings or raw identifiable transcripts in the repository
+- Evidencias que apoiam a tese atual:
+- Evidencias que contradizem a tese atual:
+- Sinais ambiguos ou mistos:
+- Evidencia que enfraquece especificidade do ICP:
+- Evidencia que enfraquece intensidade da dor:
+- Evidencia que enfraquece disposicao a pagar:
+- Novo risco ou objecao:
 
-## Allowed Next Action
+## Decisao
 
-Run five manual discovery conversations and return to Pipe with either:
+- Impacto da decisao: GO / GO CONDICIONAL / REFINAR / NO-GO / BLOQUEADO
+- Motivo:
+- Proxima etapa permitida:
+- Etapas bloqueadas:
+- Tickets de continuidade necessarios:
+```
 
-- the completed note-taking templates, sanitized enough for repository synthesis, or
-- a batch synthesis using the template above, or
-- a blocker explaining why five interviews could not be completed.
+## Criterios De GO
 
-## Capability Handoff
+Use estes criterios como ponto de decisao direcional antes de PRD. Nao force uma conclusao positiva.
 
-Future agents processing this round should use:
+- Pelo menos 4 de 5 respondentes se encaixam no perfil-alvo ou em perfil adjacente claramente aderente.
+- Pelo menos 3 de 5 descrevem uma dificuldade concreta e recente para iniciar ou avancar na revisao bibliografica.
+- Pelo menos 3 de 5 colocam busca + escrita, evidencia de citacao ou confianca em fontes entre as duas maiores dores.
+- Pelo menos 3 de 5 dizem que rastreabilidade de citacao aumentaria materialmente a confianca.
+- Pelo menos 2 de 5 pagaram, consideraram pagar ou conhecem exemplo concreto de colega que pagou ajuda para TCC.
+- Pelo menos 2 de 5 reagem de forma crivel a uma faixa proxima de R$ 100-300 para apoio urgente perto do prazo.
+- Nenhuma objecao dominante de integridade academica torna a primeira promessa insegura como fluxo assistido.
 
-- `capability.external.pm-skills` for interview synthesis patterns
-- `validation/raw-interview-evidence-intake-and-synthesis.md` for evidence boundaries
-- `validation/market-validation-before-code-gate.md` before PRD or build
-- `capability.external.linear-mcp` for status and follow-up tracking
+## Criterios De GO Condicional
 
-Do not use:
+Use estes criterios quando ha sinal suficiente para continuar aprendendo, mas nao suficiente para criar escopo de produto.
 
-- `capability.external.consensus` until the validation round justifies academic-source research
-- `capability.external.notebooklm` unless an approved source set exists
-- `capability.external.notion-mcp` unless the ticket explicitly asks to register the final approved discovery artifact in Notion
-- `capability.future.openclaw-paperclip` for any current execution
+- A dor e forte, mas a disposicao a pagar e incerta.
+- Estudantes querem busca e organizacao, mas nao texto gerado.
+- Rastreabilidade de citacoes so gera confianca com controles rigidos de revisao.
+- Quimica parece estreito demais, mas estudantes STEM adjacentes mostram sinal mais forte.
+- Estudantes querem o resultado, mas aceitacao do orientador e bloqueio.
+
+Acao permitida depois de GO CONDICIONAL:
+
+- refinar ICP
+- rodar um segundo lote de entrevistas
+- executar uma amostra concierge manual com um tema aprovado e nao sensivel
+- criar um spike de pesquisa sobre cobertura de fontes academicas somente depois que a evidencia de validacao sustentar isso
+
+## Criterios De NO-GO Ou Pivot
+
+- Menos de 2 de 5 relatam uma dor concreta e recente.
+- A maioria diz que ChatGPT/SciELO generico e suficiente.
+- A dor principal e apenas formatacao ABNT, nao busca/escrita/evidencia.
+- Estudantes querem escrita integral por terceiros como valor principal.
+- Estudantes nao pagariam e nao tem custo relevante de alternativa atual.
+- Risco de aceitacao por orientador/instituicao domina o valor.
+- O primeiro ICP nao e alcancavel manualmente.
+
+## Acoes Bloqueadas
+
+Estas acoes continuam bloqueadas depois deste plano:
+
+- PRD como escopo de produto aceito
+- construcao de MVP
+- integracao de busca academica
+- busca automatizada de leads
+- contato externo automatizado
+- ligacoes com IA
+- cobranca ou coleta de pagamento
+- alegacoes publicas de validacao
+- armazenamento de gravacoes brutas ou transcricoes identificaveis no repositorio
+
+## Proxima Acao Permitida
+
+Rode cinco conversas manuais de descoberta e volte para a Pipe com uma destas entradas:
+
+- modelos de nota preenchidos, sanitizados o suficiente para sintese no repositorio, ou
+- uma sintese de lote usando o modelo acima, ou
+- um bloqueio explicando por que cinco entrevistas nao puderam ser concluidas.
+
+## Repasse De Recursos
+
+Agentes futuros que processarem esta rodada devem usar:
+
+- `capability.external.pm-skills` para padroes de sintese de entrevistas
+- `validation/raw-interview-evidence-intake-and-synthesis.md` para limites de evidencia
+- `validation/market-validation-before-code-gate.md` antes de PRD ou construcao
+- `capability.external.linear-mcp` para status e rastreamento de tickets de continuidade
+
+Nao use:
+
+- `capability.external.consensus` ate que a rodada de validacao justifique pesquisa academica
+- `capability.external.notebooklm` a menos que exista um conjunto de fontes aprovado
+- `capability.external.notion-mcp` a menos que o ticket peca explicitamente para registrar o artefato final aprovado no Notion
+- `capability.future.openclaw-paperclip` para qualquer execucao atual
