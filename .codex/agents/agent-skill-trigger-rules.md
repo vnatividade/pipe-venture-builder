@@ -18,9 +18,18 @@ Default behavior: identify the request type, map it to the current pipeline phas
 
 ## Proactive Capability Selection
 
-Capability routing should happen behind the conversation.
+Capability routing should happen behind the conversation for every registered capability, not only PM Skills.
 
 Use the capability registry and routing examples to decide whether to bring in a capability. The user-facing response should stay focused on the next plain-language question, next action, or artifact. Do not make the user manage internal routing.
+
+Decision loop:
+
+1. Identify the active pipeline phase and ticket type.
+2. Scan the relevant capability registry entries for matching `useWhen`, `pipelineStages`, and `ticketTypes`.
+3. Remove any capability where lifecycle, approval, data, cost, mutation, or `doNotUseWhen` blocks the current use.
+4. Pick the smallest useful set: one primary executor or workflow plus at most one supporting capability by default.
+5. Use the capability internally or follow its fallback.
+6. Record the selected, rejected, or blocked capabilities when the choice affects future agents.
 
 Default proactive routes:
 
@@ -33,6 +42,10 @@ Default proactive routes:
 | A merged or approved document should be registered, searched, or mirrored in Notion | `capability.external.notion-mcp` only when Notion mutation/search is in scope | Notion link or search result with repository source |
 | A code/workflow task needs disciplined implementation, debugging, TDD, or review handling | `capability.external.superpowers` | Focused execution plan, tests, review handling |
 | A ticket needs status, PR links, merge handoff, or follow-up tracking | `capability.external.linear-mcp` | Updated Linear state or handoff |
+| A ticket needs PR metadata, review comments, merge-state checks, GitHub issue/PR mutation, or repository reference inspection | `capability.external.github-mcp` or `gh` when approved | PR status, review response, merge state, or repo analysis |
+| A task needs local UI validation, screenshots, browser-visible checks, or app-flow verification | `capability.external.browser-playwright` when UI scope is approved | Validated UI behavior and screenshots/check notes |
+| A ticket needs repository-grounded execution | `capability.external.codex` or `capability.external.claude-code` using the executor matrix | One executor, branch, PR, validation, and handoff |
+| A request discusses future orchestration with OpenClaw/Paperclip | `capability.future.openclaw-paperclip` as analysis input only | Future readiness analysis or blocked/deferred decision |
 
 Capability use must still respect lifecycle, approval, data, cost, network, and mutation boundaries in the registry. If a capability is unavailable or out of scope, use the recorded fallback and log the gap in the artifact or Linear handoff.
 
@@ -140,7 +153,7 @@ For vague founder-facing requests like "I have an idea", "I want this to work", 
 
 1. Use the conversational founder guide first.
 2. Infer the earliest safe pipeline stage.
-3. Check durable knowledge and capability routing internally, including PM Skills when discovery, interviews, assumptions, experiments, PRD inputs, or positioning are implied.
+3. Check durable knowledge and capability routing internally, including any registered capability whose `useWhen` rules match the stage.
 4. Ask one plain-language question or propose one safe next action.
 5. Hand off to the focused agent only after the stage is clear.
 
@@ -173,7 +186,10 @@ Stop instead of loading more context when:
 | "Prepare my five discovery interviews." | Validation Agent + PM Skills interview-script + respondent targeting planner. |
 | "Here are interview transcripts, synthesize them." | Customer Discovery Agent + PM Skills summarize-interview + raw evidence intake workflow. |
 | "Synthesize market and scientific research for a validation decision." | Research Orchestrator Agent + Research synthesis skill + research and validation specialization. |
+| "Compare these papers or sources for the evidence gate." | Research Orchestrator Agent + Consensus when approved + source-backed research workflow. |
 | "Check whether this implementation ticket is ready." | Ticket Orchestrator Agent + Execution handoff skill + execution and risk specialization. |
+| "Validate this local UI flow." | Ticket Orchestrator Agent + Browser/Playwright when UI validation is in scope. |
+| "Inspect this GitHub repository for reusable patterns." | Research/Architecture Agent + GitHub capability when repo inspection is approved, with source-linked findings. |
 | "Create a PRD from this validated idea." | Product Strategist Agent + PRD drafting skill + product and validation artifacts. |
 | "Register this approved doc in Notion." | Knowledge Curator Agent + Notion MCP + Linear handoff. |
 | "Update Linear after merge." | Linear Steward Agent + Linear governance skill + PR and ticket. |

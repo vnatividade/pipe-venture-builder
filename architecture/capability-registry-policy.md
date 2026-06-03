@@ -89,6 +89,8 @@ Every capability entry must capture:
 
 Agents should use registry entries as routing guidance, not as authorization.
 
+Agents must proactively consider registered capabilities when a request, assigned ticket, or pipeline phase implies a capability. This should happen internally. The user should receive the next clear question, action, or artifact, not a menu of tools.
+
 Before using a capability:
 
 1. Confirm the assigned Linear ticket allows the capability category.
@@ -99,6 +101,28 @@ Before using a capability:
 6. If unavailable or unauthorized, follow the recorded fallback.
 
 Do not use a capability only because it is available in the current runtime.
+
+When multiple capabilities match, choose the smallest useful set:
+
+1. Select the primary executor or workflow capability.
+2. Add one supporting capability only when it changes the quality or safety of the output.
+3. Add external research, publication, browser, repository, or workspace-mutation capabilities only when the ticket scope and approval boundary allow them.
+4. Record selected, rejected, and blocked capabilities in the resulting artifact, PR, or Linear handoff when the choice affects future agents.
+
+Default proactive routing examples:
+
+| Need | Candidate capabilities | Boundary |
+|---|---|---|
+| Product discovery, interview planning, PRD inputs, value proposition, GTM, or assumption mapping | `capability.external.pm-skills` | Product reasoning only; not customer evidence. |
+| Source-backed scientific, academic, technical, or market research | `capability.external.consensus` | Cite sources and limits; not customer validation proof. |
+| Approved source-set synthesis | `capability.external.notebooklm` | Use only approved non-sensitive source sets. |
+| Approved documentation search, publishing, update, or registration in Notion | `capability.external.notion-mcp` | Notion is not the source of truth; publication is gated. |
+| Ticket state, delivery handoff, blockers, PR links, or follow-ups | `capability.external.linear-mcp` | Mutate Linear only within approved scope. |
+| GitHub PR lifecycle, issue/PR metadata, comments, merge-state checks, or repository references | `capability.external.github-mcp` | Mutate GitHub only within approved scope. |
+| Code/workflow execution discipline, TDD, debugging, review, or verification | `capability.external.superpowers` | Guidance only; cannot broaden scope. |
+| UI validation, browser-visible workflows, screenshots, or local app checks | `capability.external.browser-playwright` | Use only for approved UI/test scope. |
+| Repository-grounded execution | `capability.external.codex` or `capability.external.claude-code` | Respect executor matrix, branch ownership, and approval gates. |
+| Future runtime orchestration analysis | `capability.future.openclaw-paperclip` | Future evaluation only; no current dispatch or automation. |
 
 ## Approval Rules
 
