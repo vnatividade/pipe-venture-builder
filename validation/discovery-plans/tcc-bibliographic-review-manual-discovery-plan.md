@@ -229,7 +229,7 @@ Pergunte sobre comportamento passado antes de hipotese de preco.
 5. Se algo economizasse uma ou duas semanas e entregasse um rascunho auditavel, qual faixa pareceria aceitavel?
 6. Em que ponto do prazo voce pagaria: agora, perto da entrega, depois de travar, ou nunca?
 
-Nao trate disposicao declarada como prova. Prefira gasto real, gasto considerado ou trade-off concreto.
+Nao trate disposicao declarada como prova. Prefira gasto real, gasto considerado ou troca concreta.
 
 ### Integridade Academica E Seguranca
 
@@ -289,9 +289,9 @@ Use uma copia por respondente. Nao armazene nomes, telefones, e-mails, perfis so
 - Intensidade da dor: baixa / media / alta
 - Tipo de evidencia: comportamento / fala / gasto / alternativa / suposicao
 
-## Workaround E Gasto
+## Alternativa Atual E Gasto
 
-- Workaround atual:
+- Alternativa atual:
 - Ajuda paga usada ou considerada:
 - Comportamento conhecido de colegas:
 - Ancora de preco:
@@ -340,7 +340,7 @@ Armazene apenas falas anonimizadas e seguras para o repositorio.
 - Sinal mais fraco:
 - Mudanca de confianca: aumentou / igual / diminuiu
 - Decisao recomendada: GO / GO CONDICIONAL / REFINAR / NO-GO / BLOQUEADO
-- Follow-up necessario:
+- Continuidade necessaria:
 ```
 
 ## Modelo De Sintese Do Lote
@@ -371,8 +371,8 @@ Use este modelo depois das cinco entrevistas. Este e o formato que o fundador po
 
 - Dor repetida:
 - Momento de gatilho:
-- Workaround atual:
-- Workaround pago:
+- Alternativa atual:
+- Alternativa paga:
 - Requisito de confianca:
 - Preocupacao de integridade academica:
 - Preferencia da primeira entrega:
@@ -429,7 +429,7 @@ Acao permitida depois de GO CONDICIONAL:
 
 - refinar ICP
 - rodar um segundo lote de entrevistas
-- executar uma amostra concierge manual com um tema aprovado e nao sensivel
+- executar uma amostra manual assistida com um tema aprovado e nao sensivel
 - criar um spike de pesquisa sobre cobertura de fontes academicas somente depois que a evidencia de validacao sustentar isso
 
 ## Criterios De NO-GO Ou Pivot
