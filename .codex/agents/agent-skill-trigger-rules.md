@@ -73,7 +73,7 @@ If a request matches multiple rows, choose the earliest active pipeline phase un
 | Idea intake | Idea Intake Agent | None | customer outreach, ticket creation, sensitive data |
 | Founder focus | Product Strategist Agent | None | validation claims, implementation tickets |
 | C.O.N.T.R.O.L.E. | Product Strategist Agent | None | advancing Attack/Refine without approval |
-| Research and validation plan | Validation Agent, Research Orchestrator Agent, Scientific Validation Agent, Market Intelligence Agent, Venture Intelligence Curator, Customer Discovery Agent | Validation planning, PM Skills, Research synthesis, Knowledge update | outreach, unsupported claims, unapproved external publication |
+| Research and validation plan | Validation Agent, Research Orchestrator Agent, Scientific Validation Agent, Market Intelligence Agent, Venture Intelligence Curator, Customer Discovery Agent | Validation planning, PM Skills, Research synthesis, Knowledge update | outreach, unapproved identifiable or private data handling, unsupported claims, unapproved external publication |
 | Working Backwards / PRD | Product Strategist Agent | PRD drafting | implementation tickets, broadening MVP |
 | MVP scope review | MVP Scope Reviewer Agent, Validation Agent, Risk Reviewer Agent | Validation planning | architecture or implementation tickets without GO |
 | Risk review | Risk Reviewer Agent | None | accepting unresolved P0/P1 risk |
