@@ -8,6 +8,7 @@ Use this validator with:
 
 - `execution/linear-ticket-template-v2.md`
 - `execution/ticket-type-field-matrix.md`
+- `execution/tactical-execution-plan.md`
 - the assigned Linear ticket
 
 ## Readiness Result
@@ -44,6 +45,7 @@ Use this validator with:
 | Definition of Done | DoD states objective completion, validation, review, handoff, and merge expectations. | READY / READY WITH APPROVAL / NOT READY / BLOCKED |
 | Validation Plan | Expected validation commands, manual checks, and unavailable checks are clear. | READY / READY WITH APPROVAL / NOT READY / BLOCKED |
 | Market Validation Before Code | Product PRD, architecture, implementation, growth, monetization, and customer-facing build tickets link a GO or approved CONDITIONAL GO from `validation/market-validation-before-code-gate.md`; non-product governance, documentation, research, or internal operating tickets explicitly record `Gate decision: NOT APPLICABLE`. | READY / READY WITH APPROVAL / NOT READY / BLOCKED |
+| Tactical Execution Plan | Code, infrastructure, automation, observability, customer-facing product, and multi-story development tickets link a Tactical Execution Plan, include a lightweight plan, or explicitly record `Tactical Execution Plan: not applicable` with a valid reason. | READY / READY WITH APPROVAL / NOT READY / BLOCKED |
 | Parallelization | Parallelizable value and notes explain whether work is yes, no, or partial. | READY / READY WITH APPROVAL / NOT READY / BLOCKED |
 | Write Set | Expected write set and restricted files are declared and narrow enough. | READY / READY WITH APPROVAL / NOT READY / BLOCKED |
 | Risk Level | Risk level is stated and no unresolved P0/P1 risk blocks execution. | READY / READY WITH APPROVAL / NOT READY / BLOCKED |
@@ -55,7 +57,7 @@ Use this validator with:
 
 Use `execution/ticket-type-field-matrix.md` to check conditional requirements.
 
-- For `code`, `infrastructure`, `automation`, and `observability`, require technical dependencies, observability requirements, rollback or mitigation, and runtime-oriented validation.
+- For `code`, `infrastructure`, `automation`, and `observability`, require technical dependencies, Tactical Execution Plan, observability requirements, rollback or mitigation, and runtime-oriented validation.
 - For `product`, require KPI Impact, monitoring, success metrics, validation, and post-release follow-up when applicable.
 - For `architecture`, `governance`, `documentation`, `prompt`, `skill`, and `workflow`, require affected artifact or protocol, agent consumers when applicable, ambiguity or duplication problem, validation, monitoring, and success metrics tied to adherence or traceability.
 - For `orchestration-prep`, require a statement that runtime orchestration is not being implemented and that the Codex + Claude Code baseline dependency is satisfied or explicitly deferred.
@@ -69,6 +71,7 @@ Mark `READY` only when:
 - included scope is narrow enough for one branch and PR
 - excluded scope prevents adjacent work from leaking in
 - dependencies and approval state are clear
+- Tactical Execution Plan state is present when development work is involved
 - Definition of Ready and Definition of Done are usable
 - acceptance criteria are testable or reviewable
 - risk level is understood
@@ -99,6 +102,7 @@ Mark `NOT READY` when:
 - baseline Linear v2 fields are missing
 - conditional fields required by the ticket type are missing
 - Definition of Ready or Definition of Done is missing or vague
+- Tactical Execution Plan is missing for applicable development work
 - approval need is unclear
 - acceptance criteria are not reviewable
 - risk level is missing or understated

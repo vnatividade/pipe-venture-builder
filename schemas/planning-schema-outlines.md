@@ -200,6 +200,7 @@ Translate approved product/architecture scope into a sequenced execution plan wi
 ### Primary Source Artifacts
 
 - `execution/core-pipeline-map.md`
+- `execution/tactical-execution-plan.md`
 - `execution/linear-governance-model.md`
 - `execution/ticket-pr-handoff-system.md`
 - `execution/ticket-type-field-matrix.md`
@@ -216,12 +217,17 @@ Translate approved product/architecture scope into a sequenced execution plan wi
 | `linkedMvpScope` | `product/mvp-scope.md` Handoff | MVP source or blocker. |
 | `pipelinePhase` | `execution/core-pipeline-map.md` Phase Map | Current phase and allowed next step. |
 | `gateStatus` | `execution/core-pipeline-map.md` Gates That Block Implementation | Must identify blockers before build tickets. |
+| `tacticalExecutionPlan` | `execution/tactical-execution-plan.md` | Required, lightweight, or not applicable with reason before development work. |
 | `linearProject` | `execution/core-pipeline-map.md` Linear project confirmation | Confirmed project or blocker. |
 | `ticketSequence` | `execution/linear-governance-model.md` and ticket templates | Ordered tickets with dependencies. |
+| `ticketStoryBreakdown` | `execution/tactical-execution-plan.md` Ticket And Story Breakdown | Ordered slices with owner, write set, dependencies, acceptance checks, and evidence required. |
+| `adrDecisionPath` | `execution/tactical-execution-plan.md` ADR And Decision Path | ADR/RFC required, not required, or blocker. |
 | `parallelizationPlan` | `execution/parallel-execution-governance.md` | Explicit yes/no/partial by ticket or domain. |
 | `ownerAgent` | `execution/ticket-type-field-matrix.md` Suggested Owner/Agent | Codex, Claude Code, human, or future orchestrator. |
 | `branchAndPrRules` | `execution/ticket-pr-handoff-system.md` | One branch and one PR per ticket. |
-| `validationPlan` | `execution/agent-readiness-validator.md` and ticket template | Checks to run before merge. |
+| `validationPlan` | `execution/tactical-execution-plan.md`, `execution/agent-readiness-validator.md`, and ticket template | Checks to run before merge. |
+| `deliveryEvidencePlan` | `execution/tactical-execution-plan.md` and `schemas/DeliveryEvidence.schema.json` | DeliveryEvidence required, optional, or not applicable with reason. |
+| `documentationPlan` | `execution/tactical-execution-plan.md` Documentation And Knowledge Updates | Docs, ADR/KDR/DAR/LearningRecord, and handoff updates. |
 | `reviewAndMergePolicy` | `execution/ticket-pr-handoff-system.md` | Review required; P0/P1 fixed before merge. |
 | `handoffRequirements` | `execution/ticket-pr-handoff-system.md` | Linear delivery update fields. |
 | `followUpCriteria` | `execution/linear-governance-model.md` | When to create follow-up tickets. |
@@ -249,7 +255,7 @@ Translate approved product/architecture scope into a sequenced execution plan wi
 | IdeaBrief | `product/product-context.md`, `product/solution-path-decision.md`, `product/founder-focus.md`, `product/controle-evaluation.md` | Mapped | No standalone `IdeaBrief.schema.json` yet. |
 | ValidationPlan | `validation/venture-validation-framework.md`, `validation/validation-scorecard.md`, `validation/market-validation-before-code-gate.md`, `validation/icp-profile.md` | Mapped | Interview/test-card details remain Markdown-only. |
 | PRD | `product/prd.md`, `product/mvp-scope.md`, validation and architecture risk artifacts | Mapped | PRD remains the canonical operating template. |
-| ExecutionPlan | `execution/core-pipeline-map.md`, `execution/linear-governance-model.md`, `execution/ticket-pr-handoff-system.md`, `execution/parallel-execution-governance.md` | Mapped | Linear remains execution state source of truth. |
+| ExecutionPlan | `execution/core-pipeline-map.md`, `execution/tactical-execution-plan.md`, `execution/linear-governance-model.md`, `execution/ticket-pr-handoff-system.md`, `execution/parallel-execution-governance.md` | Mapped | Linear remains execution state source of truth. |
 
 ## What Stays Markdown-Only For Now
 
