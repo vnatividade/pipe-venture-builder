@@ -6,6 +6,8 @@ This spec defines the Context Pack contract for Pipe Venture Builder agents.
 
 A Context Pack is the smallest useful, source-linked bundle of context needed for Codex, Claude Code, or a future orchestrator to execute a Linear ticket without relying on conversational memory or broad repository scans.
 
+Use `execution/token-efficiency-policy.md` to decide when a pack should include full artifacts, targeted search results, summaries, omissions, and token/cost/session notes.
+
 This spec does not implement retrieval, embeddings, pgvector, automation, or MCP tools.
 
 ## Core Decision
@@ -119,6 +121,14 @@ sourceManifest:
 omittedContext:
   - source: ""
     reason: ""
+contextEfficiency:
+  strategy: ""
+  safetyFloorSources: []
+  fullArtifactsRead: []
+  targetedSearches: []
+  summariesCreated: []
+  tokenRisk: "low|medium|high|not measured"
+  budgetException: ""
 risks:
   - risk: ""
     mitigation: ""
@@ -136,6 +146,7 @@ Every Context Pack must include:
 - `validationPlan`
 - `sourceManifest`
 - `omittedContext`
+- `contextEfficiency`
 
 These sections prevent the pack from becoming a vague summary with no execution guardrails.
 
@@ -185,6 +196,7 @@ Default limits:
 Exceptions require a stated reason in `builderNotes`.
 
 The pack should link to source files rather than copying long sections.
+When a pack exceeds the default limit, apply `execution/token-efficiency-policy.md` before adding more context. If the added context is safety-critical, keep it and state the exception.
 
 ## Priority Order For Inclusion
 
@@ -286,8 +298,9 @@ Until automation exists:
 5. Read the nearest architecture/governance/source docs required by ticket type.
 6. Add only source-linked rules, decisions, failures, capabilities, and constraints that affect execution.
 7. Record omitted context and why it was left out.
-8. Define validation checks.
-9. Confirm the pack stays within size limits.
+8. Record context-efficiency choices: full artifacts read, targeted searches used, summaries created, and token risk.
+9. Define validation checks.
+10. Confirm the pack stays within size limits or state a safety-critical exception.
 
 ## Manual Context Pack Example
 
@@ -395,6 +408,21 @@ sourceManifest:
 omittedContext:
   - source: "Full capabilities schema"
     reason: "Useful for future automation, but too detailed for this architecture-only spec."
+contextEfficiency:
+  strategy: "Manual source-linked pack with targeted reads for related governance files."
+  safetyFloorSources:
+    - "AGENTS.md"
+    - "Assigned Linear ticket"
+    - "execution/context-routing-protocol.md"
+  fullArtifactsRead:
+    - "architecture/knowledge-runtime-architecture.md"
+    - "execution/context-routing-protocol.md"
+  targetedSearches:
+    - "Capability and knowledge references relevant to context packs."
+  summariesCreated:
+    - "Derived source-linked context pack example."
+  tokenRisk: "low"
+  budgetException: ""
 risks:
   - risk: "Spec becomes too large for agents to use."
     mitigation: "Add strict size limits, inclusion rules, and omission tracking."

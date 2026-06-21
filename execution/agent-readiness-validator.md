@@ -8,6 +8,7 @@ Use this validator with:
 
 - `execution/linear-ticket-template-v2.md`
 - `execution/ticket-type-field-matrix.md`
+- `execution/token-efficiency-policy.md`
 - the assigned Linear ticket
 
 ## Readiness Result
@@ -49,6 +50,7 @@ Use this validator with:
 | Risk Level | Risk level is stated and no unresolved P0/P1 risk blocks execution. | READY / READY WITH APPROVAL / NOT READY / BLOCKED |
 | Conditional Fields | Type-specific required and conditional fields from the matrix are present or explicitly not applicable. | READY / READY WITH APPROVAL / NOT READY / BLOCKED |
 | Monitoring And Metrics | Monitoring requirements and success metrics match the ticket type. | READY / READY WITH APPROVAL / NOT READY / BLOCKED |
+| Context And Token Efficiency | Context strategy names the safety-floor sources, likely full artifacts, targeted-search approach, and handoff expectations when meaningful repository context is involved. | READY / READY WITH APPROVAL / NOT READY / BLOCKED |
 | Agent Execution Notes | Executor tool, suggested owner/agent, and agent execution notes are clear enough for Codex or Claude Code. | READY / READY WITH APPROVAL / NOT READY / BLOCKED |
 
 ## Type-Specific Field Check
@@ -77,6 +79,7 @@ Mark `READY` only when:
 - relevant files or artifacts can be found
 - validation expectations can be recorded in the PR and Linear handoff
 - monitoring and success metrics match the ticket type
+- context strategy preserves the safety floor and can be recorded in the PR or Linear handoff
 - type-specific fields are present or explicitly not applicable
 
 ## READY WITH APPROVAL Conditions
@@ -107,6 +110,7 @@ Mark `NOT READY` when:
 - likely files or source artifacts cannot be identified
 - validation expectations are unknown
 - monitoring requirements or success metrics are missing
+- context strategy is missing for work that may span multiple artifacts, agents, or execution phases
 - executor tool, owner, or agent execution notes are unclear
 
 ## BLOCKED Conditions

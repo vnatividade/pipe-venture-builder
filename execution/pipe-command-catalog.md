@@ -287,6 +287,7 @@ Execute one approved Linear ticket in one branch and one PR.
 - `execution/ticket-pr-handoff-system.md`
 - `execution/multi-agent-operating-protocol.md`
 - `execution/context-routing-protocol.md`
+- `execution/token-efficiency-policy.md`
 - `execution/worktree-isolation-protocol.md`
 - `architecture/executor-capability-matrix.md`
 
@@ -301,7 +302,7 @@ Execute one approved Linear ticket in one branch and one PR.
 - Ticket-specific branch.
 - Scoped repository changes.
 - Validation commands and results.
-- PR body with Linear reference, scope, exclusions, validation, risks, and handoff notes.
+- PR body with Linear reference, scope, exclusions, validation, risks, context/token-efficiency notes, and handoff notes.
 
 **Required schema or outline:**
 - `DeliveryEvidence` when required by delivery risk or type.
