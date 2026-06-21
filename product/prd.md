@@ -20,6 +20,8 @@ Before creating this PRD, apply `validation/market-validation-before-code-gate.m
 - Validation decision:
 - Market Validation Before Code gate decision:
 - Market Validation Before Code approval record or blocker:
+- Branding And Prototype Readiness gate decision:
+- Branding/prototype approval record, caveats, or blocker:
 - Data moat strategy, if applicable:
 - API dependency risk assessment, if applicable:
 - ICP profile:
@@ -97,6 +99,22 @@ Use `architecture/api-dependency-risk-assessment.md` when the venture depends on
 | Revisit trigger |  |  |  |
 
 Medium or high API dependency risk without explicit mitigation is a blocker before architecture or implementation tickets. If the MVP does not materially depend on external APIs, state that explicitly.
+
+## Branding And Prototype Readiness
+
+Use `validation/branding-prototype-readiness-gate.md` when the PRD may create customer-facing screens, onboarding, landing pages, prototypes, product trials, claims, or interface implementation.
+
+| Field | Decision | Source artifact | Risk or uncertainty |
+|---|---|---|---|
+| Gate decision | REQUIRED / OPTIONAL / NOT APPLICABLE / BLOCKED |  |  |
+| Working product name or label |  |  |  |
+| Customer-facing promise |  |  |  |
+| Screen prototype or wireframe |  |  |  |
+| Basic design tokens or design source |  |  |  |
+| UX assumptions to test |  |  |  |
+| Trust, privacy, data, billing, or claim caveats |  |  |  |
+
+This gate cannot override Market Validation Before Code. If market validation is missing, `REFINE`, or `NO-GO`, do not use branding or prototype readiness as a reason to proceed to build.
 
 ## ICP And User Boundary
 
@@ -208,6 +226,7 @@ The PRD is ready for architecture review when:
 - C.O.N.T.R.O.L.E. verdict is linked and not Pivot or Kill
 - validation scorecard is linked and supports GO or approved CONDITIONAL GO
 - Market Validation Before Code gate decision is GO or approved CONDITIONAL GO
+- Branding And Prototype Readiness gate is classified as REQUIRED, OPTIONAL, or NOT APPLICABLE when customer-facing surfaces are involved
 - PMF triad is specific and sourced
 - data moat hypothesis is completed or explicitly marked not applicable
 - API dependency risk is completed or explicitly marked not applicable
