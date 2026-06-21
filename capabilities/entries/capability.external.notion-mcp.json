@@ -151,10 +151,10 @@
     "updatePolicy": "Review after first operational Notion sync and whenever connector permissions, workspace structure, or documentation source-of-truth rules change."
   },
   "review": {
-    "lastReviewedAt": "2026-06-03",
+    "lastReviewedAt": "2026-06-21",
     "reviewCadence": "per-change",
     "reviewStatus": "restricted",
-    "reviewNotes": "Pilot entry for approved documentation sync and search only. It does not authorize automatic publication or externalizing sensitive material."
+    "reviewNotes": "Reviewed by PIP-373. Pilot entry for approved documentation sync and search only. Notion is a collaboration/search/publishing surface, not Pipe's canonical knowledge base, and it does not authorize automatic publication or externalizing sensitive material."
   },
   "examples": [
     {
