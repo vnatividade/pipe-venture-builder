@@ -123,21 +123,23 @@ For parallel Codex and Claude Code execution, use `execution/parallel-execution-
 1. Read the ticket and relevant repository artifacts.
 2. Confirm dependencies and approval state.
 3. Confirm `execution/tactical-execution-plan.md` is linked, embedded, or explicitly not applicable when development work is involved.
-4. Move the Linear ticket to In Progress.
-5. Create a branch that references the ticket.
-6. Implement only the included scope.
-7. Avoid unrelated refactors, formatting churn, and template changes outside the ticket.
-8. Run available validation commands.
-9. Commit with the ticket identifier in the message.
-10. Push the branch and open a PR linked to the Linear ticket.
-11. Request review.
-12. Classify review findings as P0, P1, P2, or P3.
-13. Fix P0 and P1 in the same PR.
-14. Fix P2 only when simple, safe, and inside scope.
-15. Do not block merge on P3.
-16. Revalidate after changes.
-17. Merge only when review, validation, scope, and handoff are complete.
-18. Update Linear with the final handoff.
+4. Confirm `execution/development-execution-loop.md` is followed or explicitly not applicable when development work is involved.
+5. Move the Linear ticket to In Progress.
+6. Create a branch that references the ticket.
+7. Implement only the included scope and current approved slice.
+8. Avoid unrelated refactors, formatting churn, and template changes outside the ticket.
+9. Run available validation commands.
+10. Repair relevant failures before expanding scope or requesting review.
+11. Commit with the ticket identifier in the message.
+12. Push the branch and open a PR linked to the Linear ticket.
+13. Request review.
+14. Classify review findings as P0, P1, P2, or P3.
+15. Fix P0 and P1 in the same PR.
+16. Fix P2 only when simple, safe, and inside scope.
+17. Do not block merge on P3.
+18. Revalidate after changes.
+19. Merge only when review, validation, scope, and handoff are complete.
+20. Update Linear with the final handoff.
 
 ## Pull Request Template
 
@@ -146,6 +148,7 @@ The repository PR template lives at `.github/pull_request_template.md`. PRs shou
 - Linear ticket link
 - context
 - Tactical Execution Plan link or not-applicable reason when development work is involved
+- development loop status, slice, ADR/RFC decision, and follow-up trigger when development work is involved
 - included scope
 - excluded scope
 - validation performed
@@ -251,6 +254,7 @@ A ticket is done only when:
 - excluded scope was not added
 - validations are run or explicitly unavailable
 - Tactical Execution Plan was followed or explicitly not applicable
+- Development Execution Loop was followed or explicitly not applicable
 - review is complete
 - context choices and known omissions are recorded when meaningful repository context was involved
 - P0 and P1 findings are resolved

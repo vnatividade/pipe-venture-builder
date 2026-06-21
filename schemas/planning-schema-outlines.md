@@ -222,6 +222,7 @@ Translate approved product/architecture scope into a sequenced execution plan wi
 | `ticketSequence` | `execution/linear-governance-model.md` and ticket templates | Ordered tickets with dependencies. |
 | `ticketStoryBreakdown` | `execution/tactical-execution-plan.md` Ticket And Story Breakdown | Ordered slices with owner, write set, dependencies, acceptance checks, and evidence required. |
 | `adrDecisionPath` | `execution/tactical-execution-plan.md` ADR And Decision Path | ADR/RFC required, not required, or blocker. |
+| `developmentLoop` | `execution/development-execution-loop.md` | Loop status, current slice, validation and repair expectations, documentation updates, and follow-up trigger. |
 | `parallelizationPlan` | `execution/parallel-execution-governance.md` | Explicit yes/no/partial by ticket or domain. |
 | `ownerAgent` | `execution/ticket-type-field-matrix.md` Suggested Owner/Agent | Codex, Claude Code, human, or future orchestrator. |
 | `branchAndPrRules` | `execution/ticket-pr-handoff-system.md` | One branch and one PR per ticket. |

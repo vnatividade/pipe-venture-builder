@@ -118,6 +118,8 @@ The plan does not authorize gated actions by itself. Human approval is still req
 
 ## Development Loop
 
+Use `execution/development-execution-loop.md` as the operating rule for implementing this plan.
+
 For each story or ticket:
 
 1. Plan the smallest slice.
@@ -192,6 +194,7 @@ Use this inside a Linear ticket, PR body, or architecture note when a full stand
 - Reason:
 - Approved source:
 - Scope slices:
+- Development loop status:
 - ADR/RFC needed:
 - Validation plan:
 - DeliveryEvidence required:
@@ -207,6 +210,7 @@ Before implementation starts, check:
 - `execution/agent-readiness-validator.md` for readiness
 - `execution/linear-ticket-template-v2.md` for ticket fields
 - `execution/ticket-type-field-matrix.md` for type-specific fields
+- `execution/development-execution-loop.md` for plan, implement, validate, repair, document, review, and handoff states
 - `architecture/technical-decision-guide.md` for ADR/RFC need
 - `execution/test-oriented-delivery-rule.md` for evidence type
 - `execution/pipe-check-command-spec.md` for delivery quality checks
