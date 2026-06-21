@@ -7,6 +7,7 @@ It does not implement a command runner, CI automation, GitHub Action, MCP tool, 
 Use it with:
 
 - `execution/test-oriented-delivery-rule.md`
+- `execution/tactical-execution-plan.md`
 - `execution/e2e-applicability-matrix.md`
 - `execution/ticket-pr-handoff-system.md`
 - `execution/ticket-type-field-matrix.md`
@@ -70,6 +71,11 @@ Required inputs:
   "includedScope": [],
   "excludedScope": [],
   "acceptanceCriteria": [],
+  "tacticalExecutionPlan": {
+    "status": "required|lightweight|not_applicable",
+    "pathOrUrl": null,
+    "notApplicableReason": null
+  },
   "validationPerformed": [],
   "reviewStatus": {
     "reviewRequested": true,
@@ -91,6 +97,7 @@ Optional inputs:
 ```json
 {
   "deliveryEvidencePathOrUrl": "schemas/DeliveryEvidence.schema.json",
+  "tacticalExecutionPlanNotes": [],
   "learningRecordPathOrUrl": "schemas/LearningRecord.schema.json",
   "e2eEvidencePathOrUrl": null,
   "artifactPathsOrUrls": [],
@@ -305,6 +312,7 @@ Quick mapping:
 - runtime, automation, infrastructure, observability, or user-facing product behavior changes
 - the delivery is medium/high risk and future agents need structured evidence
 - the ticket explicitly asks for DeliveryEvidence
+- the Tactical Execution Plan requires structured delivery evidence
 - review identifies traceability gaps that prose cannot safely cover
 
 `DeliveryEvidence` is usually optional when:
@@ -347,16 +355,17 @@ Use this sequence until a runner exists:
 3. Read PR description and changed files.
 4. Check acceptance criteria against delivered scope.
 5. Check excluded scope was preserved.
-6. Apply the type-aware evidence matrix.
-7. Confirm BDD/acceptance examples when behavior or workflow changed.
-8. Confirm tests, lint, build, schema checks, or substitute evidence.
-9. Confirm E2E/browser evidence if user-facing or agent-facing interaction changed.
-10. Confirm artifacts and links exist.
-11. Confirm risks and residual gaps are recorded.
-12. Confirm review state and unresolved findings.
-13. Confirm DeliveryEvidence is present or not required.
-14. Confirm LearningRecord is present or not applicable.
-15. Return pass/fail/blocker JSON.
+6. Confirm the Tactical Execution Plan is present, lightweight, or validly not applicable.
+7. Apply the type-aware evidence matrix.
+8. Confirm BDD/acceptance examples when behavior or workflow changed.
+9. Confirm tests, lint, build, schema checks, or substitute evidence.
+10. Confirm E2E/browser evidence if user-facing or agent-facing interaction changed.
+11. Confirm artifacts and links exist.
+12. Confirm risks and residual gaps are recorded.
+13. Confirm review state and unresolved findings.
+14. Confirm DeliveryEvidence is present or not required.
+15. Confirm LearningRecord is present or not applicable.
+16. Return pass/fail/blocker JSON.
 
 ## Dry Run 1: Recent Documentation PR
 
