@@ -119,6 +119,7 @@ Default proactive routing examples:
 | Approved documentation search, publishing, update, or registration in Notion | `capability.external.notion-mcp` | Notion is not the source of truth; publication is gated. |
 | Ticket state, delivery handoff, blockers, PR links, or follow-ups | `capability.external.linear-mcp` | Mutate Linear only within approved scope. |
 | GitHub PR lifecycle, issue/PR metadata, comments, merge-state checks, or repository references | `capability.external.github-mcp` | Mutate GitHub only within approved scope. |
+| Observability planning, instrumentation evidence, runtime monitoring, dashboards, monitors, or operational telemetry | `capability.external.datadog` | Observability only; do not send sensitive data or treat telemetry as market validation or canonical knowledge. |
 | Code/workflow execution discipline, TDD, debugging, review, or verification | `capability.external.superpowers` | Guidance only; cannot broaden scope. |
 | UI validation, browser-visible workflows, screenshots, or local app checks | `capability.external.browser-playwright` | Use only for approved UI/test scope. |
 | Repository-grounded execution | `capability.external.codex` or `capability.external.claude-code` | Respect executor matrix, branch ownership, and approval gates. |
