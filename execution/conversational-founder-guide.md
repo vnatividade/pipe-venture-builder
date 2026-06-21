@@ -11,6 +11,7 @@ Use this with:
 - `execution/context-routing-protocol.md`
 - `execution/approval-gates.md`
 - `execution/guided-session-artifact.md`
+- `product/solution-path-decision.md`
 - `validation/conversational-pipeline-mood-test-protocol.md`
 - `architecture/capability-registry-policy.md`
 - `architecture/executor-capability-matrix.md`
@@ -78,6 +79,7 @@ For every vague, abstract, or founder-facing request, the agent must run this lo
 2. **Detect pipeline stage.**
    - Map the intent to the earliest applicable stage in `execution/core-pipeline-map.md`.
    - Prefer an earlier stage when evidence is missing.
+   - For raw ideas, detect or ask which solution path applies: market-facing solution, own-pain solution, or specific-person solution.
    - Do not jump to PRD, architecture, implementation, growth, or monetization because the user sounds excited.
 
 3. **Check durable context.**
@@ -110,8 +112,10 @@ Use the user's language to infer intent. Do not require the user to name a phase
 
 | User says | Likely intent | Start stage | Front-door response |
 |---|---|---|---|
-| "I have an idea." | Raw idea shaping. | Idea intake | Ask for the idea in plain language and extract target, problem, promise, assumptions, and unknowns. |
+| "I have an idea." | Raw idea shaping. | Idea intake | Ask for the idea in plain language, then confirm whether this is market-facing, own-pain, or for one specific person. |
 | "I want this idea to succeed." | Strategic guidance. | Idea intake or founder focus | Narrow who, what pain, promised result, and first channel before validation. |
+| "I want to solve my own problem." | Own-pain solution path. | Idea intake | Confirm the own-pain path, then map the founder/operator workflow and dogfooding evidence before treating it as market validation. |
+| "I need to build this for one person." | Specific-person solution path. | Idea intake | Confirm the specific-person path, then focus discovery on that person's workflow without generalizing to a market. |
 | "Is this worth building?" | Validation decision. | C.O.N.T.R.O.L.E. or research/validation | Separate assumptions from evidence and define what must be learned before build. |
 | "Who should I talk to?" | Discovery targeting. | Research and validation plan | Guide toward respondent/persona selection, not automated outreach. |
 | "What should I build first?" | MVP scope pressure. | Validation or MVP scope | Check validation evidence before defining build scope. |
@@ -120,6 +124,30 @@ Use the user's language to infer intent. Do not require the user to name a phase
 | "Can agents handle this?" | Capability/executor routing. | Agent Master routing | Route through capability registry, executor matrix, and approval gates. |
 
 If the user intent spans multiple stages, guide the user through the earliest blocking stage.
+
+## Solution Path Selection
+
+When an idea could proceed through more than one route, ask the founder to choose the path before downstream discovery or build guidance.
+
+Founder-facing question:
+
+```txt
+How do you want to proceed with this idea right now?
+
+1. Turn it into a market-facing solution.
+2. Solve my own operational pain first.
+3. Build a specific solution for one person first.
+```
+
+If the user already implied one path, restate the inferred path and ask for confirmation before recording it.
+
+| Solution path | Use when | First discovery focus | Blocked premature action |
+|---|---|---|---|
+| Market-facing solution | The founder wants to validate demand beyond themselves or one person. | Respondent profiles, manual source paths, interview questions, ICP, and PMF-triad evidence. | PRD, MVP, growth, monetization, or build before Market Validation Before Code. |
+| Own-pain solution | The founder wants to solve their own operating pain first. | Current workflow, workaround, trigger, internal success criteria, and dogfooding evidence. | Claiming market validation or creating market-facing build tickets from internal evidence alone. |
+| Specific-person solution | The founder wants to solve a problem for one specific person first. | That person's workflow, constraints, desired result, privacy boundary, and bespoke success criteria. | Generalizing one person's request into market proof without repeated external evidence. |
+
+Record the selected path in `product/solution-path-decision.md` or the equivalent solution-path section of `product/product-context.md`. The path choice does not authorize outreach, customer data handling, PRD, implementation, growth, monetization, or external communication by itself.
 
 ## Stage Detection Rules
 
@@ -131,6 +159,7 @@ Use this minimal output internally:
 ## Conversational route
 
 - User intent:
+- Solution path:
 - Inferred pipeline stage:
 - Why this stage:
 - Durable context checked:

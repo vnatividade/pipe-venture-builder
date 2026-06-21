@@ -56,16 +56,19 @@ Convert a raw idea into a narrow, traceable idea intake artifact.
 
 **Current artifacts:**
 - `product/product-context.md`
+- `product/solution-path-decision.md`
 - `product/founder-focus.md`
 - `schemas/planning-schema-outlines.md`
 - `execution/core-pipeline-map.md`
 
 **Inputs:**
 - Raw idea, founder note, market observation, or opportunity signal.
+- Selected solution path if already known.
 - Known target user, problem, promise, assumptions, and unknowns if available.
 
 **Expected output:**
 - One focused idea hypothesis.
+- Selected solution path: market-facing solution, own-pain solution, or specific-person solution.
 - Initial target market and segment.
 - One-sentence promise.
 - Assumptions and unknowns.
@@ -82,6 +85,7 @@ Convert a raw idea into a narrow, traceable idea intake artifact.
 
 **GO conditions:**
 - Idea can be stated as one problem, one target, one initial promise, and clear unknowns.
+- Solution path is confirmed or the next user-facing question asks for confirmation.
 - No unsupported evidence claims are introduced.
 
 **NO-GO conditions:**
