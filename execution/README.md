@@ -18,6 +18,7 @@ Artifacts:
 - [E2E applicability matrix](e2e-applicability-matrix.md)
 - [multi-agent operating protocol](multi-agent-operating-protocol.md)
 - [context routing protocol](context-routing-protocol.md)
+- [token efficiency policy](token-efficiency-policy.md)
 - [parallel execution governance](parallel-execution-governance.md)
 - [worktree isolation protocol](worktree-isolation-protocol.md)
 - [core pipeline map](core-pipeline-map.md)

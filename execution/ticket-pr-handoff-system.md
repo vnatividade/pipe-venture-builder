@@ -153,6 +153,7 @@ The repository PR template lives at `.github/pull_request_template.md`. PRs shou
 - risks and residual concerns
 - follow-ups
 - handoff notes
+- context strategy and known omissions when meaningful repository context was involved
 
 PR descriptions must stay current if review findings, validations, scope, or follow-ups change.
 
@@ -251,6 +252,7 @@ A ticket is done only when:
 - validations are run or explicitly unavailable
 - Tactical Execution Plan was followed or explicitly not applicable
 - review is complete
+- context choices and known omissions are recorded when meaningful repository context was involved
 - P0 and P1 findings are resolved
 - P2 findings are either resolved or documented as non-blocking
 - required follow-up tickets exist, or no follow-ups are needed
@@ -336,6 +338,17 @@ Merge commit:
 
 For multi-agent execution, use `execution/agentic-operations-metrics.md` to keep metrics lightweight, manually collectible, and tied to decisions about throughput, quality, conflicts, readiness, rework, and handoff quality.
 
+## Context and token efficiency
+- Context strategy:
+- Safety-floor sources:
+- Full artifacts read:
+- Targeted searches or snippets used:
+- Summaries or compression created:
+- Known omitted context:
+- Omission risk:
+- Token/cost/session signal:
+- Follow-up needed:
+
 ## Follow-ups
 - Link:
 - Reason:
@@ -371,3 +384,4 @@ Do not merge when:
 - required follow-up tickets are missing
 - the PR description is stale
 - the Linear handoff would omit tests, risks, acceptance criteria, or review result
+- token pressure or context omissions would remove safety-critical governance, approval, validation, or review evidence

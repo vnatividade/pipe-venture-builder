@@ -28,6 +28,12 @@ Use existing handoff fields from `execution/ticket-pr-handoff-system.md`:
 - P0 / P1 / P2 / P3 counts
 - monitoring
 - metrics
+- context strategy
+- full artifacts read
+- targeted searches or snippets used
+- summaries or compression created
+- known omitted context
+- token/cost/session signal
 - follow-ups
 - residual risks
 - next recommended action
@@ -56,6 +62,7 @@ Use readiness fields from `execution/agent-readiness-validator.md` when availabl
 | Write-set drift | Difference between expected write set and actual files changed. | PR description and Linear handoff. | Per PR. | Frequent undeclared files or broad actual write sets. | Whether ticket scope and readiness are precise enough. |
 | Rework after merge | Follow-up fixes caused by incomplete context, missed validation, or review gaps. | Follow-up tickets and PR links. | Weekly or per batch. | Rework repeatedly follows the same ticket type or agent. | Whether validation plans or handoffs need improvement. |
 | Handoff quality | Whether final handoff lets another agent resume without chat memory. | Linear final handoff. | Per ticket, sampled weekly. | Future agent asks for context already expected in handoff. | Whether handoff template is being used well. |
+| Context efficiency | Whether the agent used the smallest safe context and recorded important omissions. | PR description and Linear handoff context fields. | Per PR when meaningful repository context was involved. | Broad context loads, missing omission notes, or token pressure dropping safety-critical sources. | Whether context routing, summaries, or future retrieval tooling need improvement. |
 | Validation coverage | Whether planned checks were executed or explicitly unavailable. | PR validation section and final handoff. | Per PR. | Unavailable checks appear without rationale, or critical flows lack validation. | Whether tooling or test coverage needs a follow-up. |
 | Follow-up quality | Whether follow-ups are specific, sourced, and acceptance-driven. | Linear follow-up tickets and PR handoff. | Weekly or per batch. | Follow-ups become vague or too numerous. | Whether review findings are being converted into useful backlog. |
 | Residual risk clarity | Whether residual risk is explicit and non-blocking. | Final Linear handoff. | Per ticket. | Residual risks are vague, repeated, or later become rework. | Whether risk review or readiness needs improvement. |
@@ -98,6 +105,7 @@ Use these to decide whether tickets can safely run in parallel or should be seri
 - readiness failures
 - READY WITH APPROVAL count
 - handoff quality
+- context efficiency
 - follow-up quality
 
 Use these to improve Linear ticket creation, field matrix usage, and final handoffs.
@@ -117,6 +125,8 @@ For every merged PR, capture metrics in the final Linear handoff:
 - Merge conflicts:
 - Rework/follow-up created:
 - Handoff quality:
+- Context efficiency:
+- Token/cost/session signal:
 - Residual risk clarity:
 - Agent mix:
 ```
@@ -145,6 +155,8 @@ Treat these as operational alerts:
 - repeated BLOCKED tickets caused by unclear dependencies or approvals
 - repeated write-set drift into shared high-risk files
 - merge conflicts between parallel agents
+- repeated broad context loads or missing omission notes in handoffs
+- token pressure that causes safety-floor context to be omitted
 - review time consistently longer than implementation time
 - follow-ups repeatedly created for the same missing validation
 - handoffs that do not let another agent resume without chat memory

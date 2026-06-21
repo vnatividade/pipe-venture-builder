@@ -2,7 +2,7 @@
 
 This protocol defines how Codex, Claude Code, and future executors should choose the smallest useful repository context for a Linear ticket.
 
-Use it with `AGENTS.md`, `execution/multi-agent-operating-protocol.md`, `.codex/agents/agent-skill-trigger-rules.md`, `.agents/skills/core-skill-contracts.md`, and the assigned Linear ticket.
+Use it with `AGENTS.md`, `execution/multi-agent-operating-protocol.md`, `execution/token-efficiency-policy.md`, `.codex/agents/agent-skill-trigger-rules.md`, `.agents/skills/core-skill-contracts.md`, and the assigned Linear ticket.
 
 It is a routing table, not a repository inventory. Do not load every folder, agent, skill, template, or historical artifact by default.
 
@@ -17,6 +17,7 @@ Good context routing should reduce:
 - duplicate agent-specific prompts
 - out-of-scope edits caused by irrelevant context
 - conflicting interpretations between Codex and Claude Code
+- unnecessary token, cost, or session growth
 
 ## Default Routing Rules
 
@@ -28,7 +29,8 @@ For every ticket:
 4. Read the relevant row in this protocol.
 5. Read only the listed read-first files and the files in the expected write set.
 6. Add agent contracts or skills only when the ticket type needs them.
-7. Stop when a required source artifact is missing or approval state is unclear.
+7. Apply `execution/token-efficiency-policy.md` when the ticket may load large context, span phases, or require a handoff.
+8. Stop when a required source artifact is missing or approval state is unclear.
 
 When a ticket has multiple types, use the highest-risk or most execution-specific type first.
 
@@ -106,6 +108,8 @@ Use these limits unless the ticket explicitly requires more:
 
 If more context seems necessary, name why in the PR or Linear handoff.
 
+Use `execution/token-efficiency-policy.md` to decide when to read a full artifact, when to use targeted search, when to summarize, and when token pressure should become a blocker instead of an unsafe omission.
+
 ## Missing Context Handling
 
 When a source artifact is missing:
@@ -126,6 +130,7 @@ Final handoff should state:
 - agent contracts or skills loaded, if any
 - required context that was missing, if any
 - whether additional context was intentionally not loaded
+- context strategy, full artifacts read, targeted searches, summaries, and known omissions when meaningful context was involved
 - follow-ups created or not needed
 
 This lets future Codex, Claude Code, or orchestrator work understand why a specific context path was used.

@@ -49,6 +49,14 @@ If a normal validation command does not exist, state that explicitly.
 
 If none, state: No follow-ups identified.
 
+## Context And Token Efficiency
+
+- Context strategy:
+- Full artifacts read:
+- Targeted searches or snippets used:
+- Known omitted context:
+- Token/cost/session signal:
+
 ## Handoff Notes
 
 - Branch:
