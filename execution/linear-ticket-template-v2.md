@@ -77,6 +77,7 @@ Add these fields when they apply:
 - Operational Dependencies: required when approvals, merge order, external tools, Linear state, or human decisions affect execution.
 - Observability Requirements: required for code, infrastructure, automation, observability, and user-facing product changes.
 - Tactical Execution Plan: required for code, infrastructure, automation, observability, customer-facing product, multi-story implementation, or technical work that needs ADR/RFC decisions; explicitly mark not applicable for small documentation or governance tickets.
+- Development Execution Loop: required for code, infrastructure, automation, observability, customer-facing product, multi-story implementation, or technical governance work; explicitly mark not applicable for small documentation or bookkeeping tickets.
 - KPI Impact: required for product, growth, validation, and user-value tickets.
 - Human Decision Required: required when a decision blocks start, PR opening, merge, or Done.
 - Post-release Follow-up: required for product, infrastructure, automation, observability, or high-risk changes.
@@ -236,6 +237,15 @@ For new backlog without a code, use:
 - Command/check:
 - Manual review:
 - Unavailable validation:
+
+## Development Execution Loop
+- Loop status: full / lightweight / not applicable
+- Story or slice breakdown:
+- First slice:
+- ADR/RFC decision path:
+- Validation and repair expectation:
+- Documentation updates:
+- Follow-up trigger:
 
 ## Monitoring Requirements
 - What should be monitored after implementation:

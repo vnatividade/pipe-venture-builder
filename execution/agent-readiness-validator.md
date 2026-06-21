@@ -10,6 +10,7 @@ Use this validator with:
 - `execution/ticket-type-field-matrix.md`
 - `execution/token-efficiency-policy.md`
 - `execution/tactical-execution-plan.md`
+- `execution/development-execution-loop.md`
 - `validation/branding-prototype-readiness-gate.md`
 - the assigned Linear ticket
 
@@ -49,6 +50,7 @@ Use this validator with:
 | Market Validation Before Code | Product PRD, architecture, implementation, growth, monetization, and customer-facing build tickets link a GO or approved CONDITIONAL GO from `validation/market-validation-before-code-gate.md`; non-product governance, documentation, research, or internal operating tickets explicitly record `Gate decision: NOT APPLICABLE`. | READY / READY WITH APPROVAL / NOT READY / BLOCKED |
 | Branding And Prototype Readiness | Customer-facing screens, prototypes, landing pages, onboarding, product trials, claims, or interface implementation classify `validation/branding-prototype-readiness-gate.md` as REQUIRED, OPTIONAL, or NOT APPLICABLE; the gate cannot override Market Validation Before Code. | READY / READY WITH APPROVAL / NOT READY / BLOCKED |
 | Tactical Execution Plan | Code, infrastructure, automation, observability, customer-facing product, and multi-story development tickets link a Tactical Execution Plan, include a lightweight plan, or explicitly record `Tactical Execution Plan: not applicable` with a valid reason. | READY / READY WITH APPROVAL / NOT READY / BLOCKED |
+| Development Execution Loop | Development tickets identify loop status, first slice, ADR/RFC decision path, validation plan, documentation updates, and follow-up trigger before implementation expands beyond the first slice. | READY / READY WITH APPROVAL / NOT READY / BLOCKED |
 | Parallelization | Parallelizable value and notes explain whether work is yes, no, or partial. | READY / READY WITH APPROVAL / NOT READY / BLOCKED |
 | Write Set | Expected write set and restricted files are declared and narrow enough. | READY / READY WITH APPROVAL / NOT READY / BLOCKED |
 | Risk Level | Risk level is stated and no unresolved P0/P1 risk blocks execution. | READY / READY WITH APPROVAL / NOT READY / BLOCKED |
@@ -77,6 +79,7 @@ Mark `READY` only when:
 - excluded scope prevents adjacent work from leaking in
 - dependencies and approval state are clear
 - Tactical Execution Plan state is present when development work is involved
+- Development Execution Loop status is present when development work is involved
 - Definition of Ready and Definition of Done are usable
 - acceptance criteria are testable or reviewable
 - risk level is understood
@@ -109,6 +112,7 @@ Mark `NOT READY` when:
 - conditional fields required by the ticket type are missing
 - Definition of Ready or Definition of Done is missing or vague
 - Tactical Execution Plan is missing for applicable development work
+- Development Execution Loop status, slice, ADR/RFC decision path, or follow-up trigger is missing for applicable development work
 - approval need is unclear
 - acceptance criteria are not reviewable
 - risk level is missing or understated

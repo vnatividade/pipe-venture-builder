@@ -295,6 +295,7 @@ Execute one approved Linear ticket in one branch and one PR.
 - `AGENTS.md`
 - `execution/ticket-pr-handoff-system.md`
 - `execution/tactical-execution-plan.md`
+- `execution/development-execution-loop.md`
 - `execution/multi-agent-operating-protocol.md`
 - `execution/context-routing-protocol.md`
 - `execution/token-efficiency-policy.md`
@@ -312,6 +313,7 @@ Execute one approved Linear ticket in one branch and one PR.
 **Expected output:**
 - Ticket-specific branch.
 - Scoped repository changes.
+- Development loop evidence for plan, implement, validate, repair, document, review, and handoff when applicable.
 - Validation commands and results.
 - PR body with Linear reference, scope, exclusions, validation, risks, context/token-efficiency notes, and handoff notes.
 
@@ -327,6 +329,7 @@ Execute one approved Linear ticket in one branch and one PR.
 **GO conditions:**
 - Ticket is ready.
 - Tactical Execution Plan is present or not applicable.
+- Development Execution Loop status is present or not applicable.
 - Scope and expected write set are clear.
 - Approval exists for gated PR operations in the current cycle or ticket.
 

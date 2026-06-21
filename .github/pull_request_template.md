@@ -18,6 +18,15 @@ Why this PR exists and what repository artifact or Linear ticket authorized it.
 - Item 2
 - Item 3
 
+## Development Execution Loop
+
+- Status: full / lightweight / not applicable
+- Current slice:
+- ADR/RFC decision:
+- Validation and repair expectation:
+- Documentation updates:
+- Follow-up trigger:
+
 ## Validation Performed
 
 - Command/check:
