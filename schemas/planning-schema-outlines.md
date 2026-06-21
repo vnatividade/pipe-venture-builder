@@ -8,6 +8,7 @@ Use this with:
 
 - `architecture/canonical-schema-policy.md`
 - `product/product-context.md`
+- `product/solution-path-decision.md`
 - `product/founder-focus.md`
 - `product/controle-evaluation.md`
 - `validation/venture-validation-framework.md`
@@ -61,6 +62,7 @@ Capture one focused idea hypothesis before deeper validation or PRD work.
 |---|---|---|
 | `ideaName` | `product/product-context.md` Metadata | Product or idea name. |
 | `currentStage` | `product/product-context.md` Stage | Must match one of the repository stages. |
+| `solutionPath` | `product/solution-path-decision.md` Selected Solution Path | `market_facing_solution`, `own_pain_solution`, or `specific_person_solution`; required before downstream discovery, PRD, MVP, or build assumptions depend on the evidence standard. |
 | `oneSentencePromise` | `product/product-context.md` Idea Summary | Promise, not proof. |
 | `targetMarket` | `product/founder-focus.md` One Market | One initial market only. |
 | `specificSegment` | `product/founder-focus.md` One Market | Must not be broad or multi-audience. |
@@ -244,7 +246,7 @@ Translate approved product/architecture scope into a sequenced execution plan wi
 
 | Outline | Existing Artifacts Mapped | Mapping Status | Notes |
 |---|---|---|---|
-| IdeaBrief | `product/product-context.md`, `product/founder-focus.md`, `product/controle-evaluation.md` | Mapped | No standalone `IdeaBrief.schema.json` yet. |
+| IdeaBrief | `product/product-context.md`, `product/solution-path-decision.md`, `product/founder-focus.md`, `product/controle-evaluation.md` | Mapped | No standalone `IdeaBrief.schema.json` yet. |
 | ValidationPlan | `validation/venture-validation-framework.md`, `validation/validation-scorecard.md`, `validation/market-validation-before-code-gate.md`, `validation/icp-profile.md` | Mapped | Interview/test-card details remain Markdown-only. |
 | PRD | `product/prd.md`, `product/mvp-scope.md`, validation and architecture risk artifacts | Mapped | PRD remains the canonical operating template. |
 | ExecutionPlan | `execution/core-pipeline-map.md`, `execution/linear-governance-model.md`, `execution/ticket-pr-handoff-system.md`, `execution/parallel-execution-governance.md` | Mapped | Linear remains execution state source of truth. |

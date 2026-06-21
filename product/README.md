@@ -16,6 +16,7 @@ Planned artifacts:
 
 - `idea-intake.md`
 - [`product-context.md`](product-context.md)
+- [`solution-path-decision.md`](solution-path-decision.md)
 - [`founder-focus.md`](founder-focus.md)
 - [`controle-evaluation.md`](controle-evaluation.md)
 - `working-backwards.md`
@@ -26,6 +27,8 @@ Planned artifacts:
 Do not turn this folder into a wishlist. Product docs should force decisions.
 
 Product context must separate assumptions from evidence, identify the current stage, and keep private founder context, secrets, and sensitive customer data out of the repository unless explicitly approved.
+
+Solution path decisions must record whether the founder is proceeding as a market-facing solution, an own-pain solution, or a specific-person solution before downstream discovery, PRD, MVP, or build work assumes the wrong evidence standard.
 
 C.O.N.T.R.O.L.E. is a required gate before PRD, implementation tickets, growth, monetization, or build work.
 
