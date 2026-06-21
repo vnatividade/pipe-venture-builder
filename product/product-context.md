@@ -74,6 +74,19 @@ Choose one current stage.
 - Trust requirements:
 - What is intentionally not included:
 
+## Branding And Prototype Context
+
+Use `validation/branding-prototype-readiness-gate.md` only when the current stage may create or expose a customer-facing surface.
+
+- Working product name or neutral label:
+- Brand signal needed now: yes/no/not applicable
+- Customer-facing promise draft:
+- Screen prototype needed before build: required/optional/not applicable
+- Prototype artifact or screen description:
+- Basic design tokens or design source:
+- UX assumptions to validate:
+- Trust, privacy, data, billing, or claim caveats:
+
 ## Channel
 
 - Primary channel hypothesis:

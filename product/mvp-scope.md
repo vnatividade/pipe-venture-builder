@@ -13,6 +13,8 @@ Before this artifact creates architecture or implementation tickets, apply `vali
 - Validation scorecard result:
 - Market Validation Before Code gate decision:
 - Market Validation Before Code approval record or blocker:
+- Branding And Prototype Readiness gate decision:
+- Branding/prototype caveats or blocker:
 - ICP profile:
 - Customer-language memory:
 - Date:
@@ -49,6 +51,7 @@ If the loop cannot be described without secondary audiences or multiple jobs, re
 - Test format:
 - Manual or technical implementation needed:
 - Customer exposure:
+- Customer-facing prototype or screen artifact needed:
 - Data or privacy risk:
 - Approval needed:
 - Why this is ethical:
@@ -119,6 +122,7 @@ Architecture or implementation tickets may be created only when:
 - core loop is defined
 - explicit cuts are recorded
 - privacy and risk concerns are understood
+- Branding And Prototype Readiness is classified when the MVP requires customer-facing screens, prototype sharing, landing pages, onboarding, or claims
 - Linear project is confirmed
 
 ## Handoff

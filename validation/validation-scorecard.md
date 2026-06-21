@@ -8,6 +8,8 @@ Use `validation/venture-validation-framework.md` before scoring when the idea ne
 
 Before creating downstream PRD, architecture, implementation, growth, monetization, or customer-facing build tickets, apply `validation/market-validation-before-code-gate.md`.
 
+When the downstream step creates customer-facing screens, prototype sharing, landing pages, onboarding, product trials, claims, or interface implementation, classify `validation/branding-prototype-readiness-gate.md` as REQUIRED, OPTIONAL, or NOT APPLICABLE after market validation is addressed.
+
 ## Required Inputs
 
 - Founder focus artifact:
@@ -145,6 +147,7 @@ Synthetic or AI critique can identify blind spots, objections, and missing quest
 - Decision: GO / CONDITIONAL GO / REFINE / NO-GO
 - Rationale:
 - Market Validation Before Code gate decision:
+- Branding And Prototype Readiness gate decision, if customer-facing:
 - Required human approval before build-ticket creation:
 - Approval record or blocker:
 - Next validation action:

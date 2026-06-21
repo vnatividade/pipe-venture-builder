@@ -10,6 +10,7 @@ Planned artifacts:
 - [`customer-interview-template.md`](customer-interview-template.md)
 - [customer data retention policy](customer-data-retention-policy.md)
 - [`geography-ranking-rubric.md`](geography-ranking-rubric.md)
+- [`branding-prototype-readiness-gate.md`](branding-prototype-readiness-gate.md)
 - [`icp-profile.md`](icp-profile.md)
 - [`market-validation-before-code-gate.md`](market-validation-before-code-gate.md)
 - [`persona-ranking-rubric.md`](persona-ranking-rubric.md)
@@ -51,6 +52,8 @@ The [Pre-User Security And Privacy Readiness Gate](pre-user-security-privacy-rea
 The validation scorecard must link back to founder focus and C.O.N.T.R.O.L.E. before PRD, build, growth, or monetization work.
 
 The [Market Validation Before Code Gate](market-validation-before-code-gate.md) must be applied before product PRD, architecture, implementation, growth, monetization, or customer-facing build tickets. For governance-only, documentation-only, research-only, or internal operating tickets, record `Gate decision: NOT APPLICABLE` instead of blocking execution.
+
+Use the [Branding And Prototype Readiness Gate](branding-prototype-readiness-gate.md) before customer-facing code, prototype sharing, landing pages, onboarding flows, product trials, or interface implementation when brand, prototype, or UX ambiguity could distort learning. This gate is contextual: classify it as `REQUIRED`, `OPTIONAL`, or `NOT APPLICABLE`, and never use it to bypass Market Validation Before Code.
 
 The [Venture Validation Framework](venture-validation-framework.md) adds MAYA, the 8 Innovation Flavors, and the PMF triad as upstream validation lenses. These are heuristics for better questions, not rigid scores or replacements for C.O.N.T.R.O.L.E.
 

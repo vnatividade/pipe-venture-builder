@@ -51,6 +51,7 @@ Review these before a test or exposure:
 - `execution/risk-reviewer-matrix-lite.md`
 - `product/mvp-scope.md`
 - `validation/market-validation-before-code-gate.md`, when the exposure is tied to downstream product/build/growth/monetization work
+- `validation/branding-prototype-readiness-gate.md`, when the exposure is a prototype, landing page, onboarding flow, customer-facing UI, or product trial surface
 - `validation/pmf-evidence-metrics.md`, when the exposure is meant to prove traction, launch readiness, scale readiness, or willingness to pay
 
 ## Readiness Checklist
@@ -68,6 +69,7 @@ Review these before a test or exposure:
 | Logging and observability | Will logs, metrics, analytics, forms, or recordings capture user data? | Ready / Blocked / N/A | Minimize capture, define storage, and document retention. |
 | Deletion path | Can captured data or exposed artifacts be removed if the test stops? | Ready / Blocked / N/A | Define deletion owner and trigger before proceeding. |
 | Support path | Does the participant know how to ask questions, report issues, or stop participation? | Ready / Blocked / N/A | Add a lightweight support/stop path before exposure. |
+| Brand/prototype clarity | Could unclear naming, copy, screen flow, or visual fidelity make the test misleading? | Ready / Blocked / N/A | Apply Branding And Prototype Readiness and record caveats. |
 | Scope control | Is the test narrow enough to avoid implying a launched product? | Ready / Blocked / N/A | Re-scope as a validation test or stop. |
 
 ## Gate Decision
@@ -115,6 +117,7 @@ Stop immediately when:
 - Approval gate reference:
 - Risk review:
 - PMF evidence metrics, if applicable:
+- Branding/prototype readiness, if applicable:
 
 ## Checklist summary
 - User exposure:
@@ -128,6 +131,7 @@ Stop immediately when:
 - Logging and observability:
 - Deletion path:
 - Support path:
+- Brand/prototype clarity:
 - Scope control:
 
 ## Decision
@@ -164,5 +168,6 @@ Do not include private customer details, secrets, credentials, production data, 
 - Use `validation/customer-data-retention-policy.md` for customer discovery data handling.
 - Use `execution/risk-reviewer-matrix-lite.md` when a material risk needs severity, mitigation, owner, and blocker status.
 - Use `product/mvp-scope.md` to keep user exposure tied to the smallest ethical test.
+- Use `validation/branding-prototype-readiness-gate.md` when brand, screen, prototype, copy, or UX ambiguity could distort customer-facing learning.
 - Use `growth/channel-experiment-template.md` before outreach, publishing, ads, or channel experiments.
 - Use `monetization/pricing-hypothesis-template.md` before willingness-to-pay tests, paid pilots, pricing collection, or billing discussions.
