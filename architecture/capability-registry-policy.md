@@ -116,7 +116,7 @@ Default proactive routing examples:
 | Product discovery, interview planning, PRD inputs, value proposition, GTM, or assumption mapping | `capability.external.pm-skills` | Product reasoning only; not customer evidence. |
 | Source-backed scientific, academic, technical, or market research | `capability.external.consensus` | Cite sources and limits; not customer validation proof. |
 | Approved source-set synthesis | `capability.external.notebooklm` | Use only approved non-sensitive source sets. |
-| Approved documentation search, publishing, update, or registration in Notion | `capability.external.notion-mcp` | Notion is not the source of truth; publication is gated. |
+| Approved documentation search, publishing, update, or registration in Notion | `capability.external.notion-mcp` | Notion is not the source of truth; use `knowledge/notion-knowledge-base-policy.md`; publication is gated. |
 | Ticket state, delivery handoff, blockers, PR links, or follow-ups | `capability.external.linear-mcp` | Mutate Linear only within approved scope. |
 | GitHub PR lifecycle, issue/PR metadata, comments, merge-state checks, or repository references | `capability.external.github-mcp` | Mutate GitHub only within approved scope. |
 | Observability planning, instrumentation evidence, runtime monitoring, dashboards, monitors, or operational telemetry | `capability.external.datadog` | Observability only; do not send sensitive data or treat telemetry as market validation or canonical knowledge. |
@@ -169,6 +169,7 @@ Use this policy with:
 - `execution/approval-gates.md`
 - `execution/multi-agent-operating-protocol.md`
 - `schemas/LearningRecord.schema.json`
+- `knowledge/notion-knowledge-base-policy.md`
 
 The executor matrix chooses who should execute. The capability registry records what resources those executors may use and under what constraints.
 
