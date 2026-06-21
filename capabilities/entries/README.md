@@ -14,6 +14,7 @@ PIP-153 creates initial declarative entries for external and hybrid capabilities
 | `capability.external.claude-code.json` | Claude Code executor capability. | Pilot/restricted by entry |
 | `capability.external.codex.json` | Codex executor capability. | Pilot/restricted by entry |
 | `capability.external.consensus.json` | Source-backed research synthesis candidate. | Proposed |
+| `capability.external.datadog.json` | Observability service capability for approved logs, metrics, traces, dashboards, monitors, and runtime instrumentation evidence. | Pilot/restricted |
 | `capability.external.github-mcp.json` | GitHub issue/PR/repository operations. | Pilot/restricted by entry |
 | `capability.external.linear-mcp.json` | Linear ticket/project/status handoff. | Pilot/restricted by entry |
 | `capability.external.notebooklm.json` | Approved source-set synthesis candidate. | Proposed |

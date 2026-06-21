@@ -27,6 +27,7 @@ Default mapping:
 | `capability.external.notion-mcp` | Approved documentation search, publishing, update, or registration is requested. | Notion would replace Git/Linear source of truth or publish unreviewed/sensitive content. |
 | `capability.external.linear-mcp` | Ticket state, blockers, PR links, follow-ups, or delivery handoff need to be recorded. | Linear mutation is outside approved scope. |
 | `capability.external.github-mcp` | PR/issue metadata, review comments, merge checks, GitHub references, or repo inspection are needed. | GitHub mutation is outside approved scope. |
+| `capability.external.datadog` | Observability planning, runtime instrumentation, delivery evidence, dashboards, monitors, alerts, logs, metrics, or traces are in scope. | No approved telemetry boundary exists, paid use is unapproved, or telemetry would be treated as customer validation or knowledge base. |
 | `capability.external.superpowers` | Code/workflow execution needs TDD, debugging, review, or verification discipline. | The task is strategic product judgment or the skill would broaden scope. |
 | `capability.external.browser-playwright` | Local UI, screenshots, browser-visible checks, or app-flow validation are in scope. | No UI/browser behavior is part of the ticket. |
 | `capability.external.codex` | Repository-grounded execution in the current Codex workspace is assigned. | Another executor owns the branch/write set or approval is missing. |
@@ -103,6 +104,42 @@ Expected normalized output:
 - Browser validation notes or screenshot references.
 - Failure/repro notes if applicable.
 - PR and Linear handoff.
+
+## Example 1B - Observability instrumentation ticket
+
+Task:
+
+```txt
+Add observability requirements for a new runtime workflow and define what evidence proves it is healthy.
+```
+
+Primary routing:
+
+- `capability.external.datadog`
+- `capability.external.codex` or `capability.external.claude-code`
+- `capability.external.github-mcp`
+- `capability.external.linear-mcp`
+
+Why:
+
+- Datadog is appropriate when the ticket explicitly needs logs, metrics, traces, dashboards, monitors, alerts, or runtime instrumentation evidence.
+- Executor routing still follows the assigned ticket and branch ownership.
+- GitHub and Linear record implementation and delivery handoff when approved.
+
+Do not route to:
+
+- Datadog for customer interviews, raw discovery evidence, market validation, or knowledge-base storage.
+- Datadog when credentials, paid use, telemetry transmission, or sensitive data capture is implied but not approved.
+- PM Skills or Consensus unless the observability question is tied to approved product or source-backed research work.
+
+Expected normalized output:
+
+- Observability need and owner.
+- Approved signal shape: logs, metrics, traces, dashboard, monitor, or alert.
+- Data boundary and redaction rules.
+- Cost or volume boundary.
+- Datadog references when actual use is approved, or repository-native fallback when not.
+- DeliveryEvidence or Linear handoff with residual privacy/cost risks.
 
 ## Example 2 - Upstream idea validation before code
 

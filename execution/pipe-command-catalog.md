@@ -11,6 +11,7 @@ Use this catalog with:
 - `execution/core-pipeline-map.md`
 - `execution/agent-master-routing-policy.md`
 - `execution/context-routing-protocol.md`
+- `execution/tactical-execution-plan.md`
 - `execution/pipe-check-command-spec.md`
 - `execution/approval-gates.md`
 - `schemas/planning-schema-outlines.md`
@@ -40,7 +41,7 @@ Every command in this catalog is spec-only until a later ticket explicitly autho
 | `/pipe:discover` | Founder focus and early framing | Founder focus, assumptions, unknowns, discovery questions | `/pipe:validate` |
 | `/pipe:validate` | C.O.N.T.R.O.L.E., research, validation plan | Validation plan, scorecard, GO/NO-GO gate | `/pipe:prd` |
 | `/pipe:prd` | Working Backwards and PRD | PRD and product requirements | `/pipe:plan` |
-| `/pipe:plan` | MVP scope, risk review, architecture, ticket planning | MVP scope, risk review, architecture notes, Linear-ready execution plan | `/pipe:build` |
+| `/pipe:plan` | MVP scope, risk review, architecture, ticket planning | MVP scope, risk review, architecture notes, Tactical Execution Plan, Linear-ready execution plan | `/pipe:build` |
 | `/pipe:build` | Ticket execution | Branch, scoped changes, validation evidence | `/pipe:check` |
 | `/pipe:check` | Delivery quality gate | Pass/fail/blocker quality result | `/pipe:review` |
 | `/pipe:review` | PR review and findings handling | Review findings classified P0-P3 and fixes | `/pipe:ship` |
@@ -56,16 +57,19 @@ Convert a raw idea into a narrow, traceable idea intake artifact.
 
 **Current artifacts:**
 - `product/product-context.md`
+- `product/solution-path-decision.md`
 - `product/founder-focus.md`
 - `schemas/planning-schema-outlines.md`
 - `execution/core-pipeline-map.md`
 
 **Inputs:**
 - Raw idea, founder note, market observation, or opportunity signal.
+- Selected solution path if already known.
 - Known target user, problem, promise, assumptions, and unknowns if available.
 
 **Expected output:**
 - One focused idea hypothesis.
+- Selected solution path: market-facing solution, own-pain solution, or specific-person solution.
 - Initial target market and segment.
 - One-sentence promise.
 - Assumptions and unknowns.
@@ -82,6 +86,7 @@ Convert a raw idea into a narrow, traceable idea intake artifact.
 
 **GO conditions:**
 - Idea can be stated as one problem, one target, one initial promise, and clear unknowns.
+- Solution path is confirmed or the next user-facing question asks for confirmation.
 - No unsupported evidence claims are introduced.
 
 **NO-GO conditions:**
@@ -235,6 +240,7 @@ Convert PRD and MVP scope into risk-reviewed architecture and Linear-ready execu
 **Current artifacts:**
 - `product/mvp-scope.md`
 - `execution/core-pipeline-map.md`
+- `execution/tactical-execution-plan.md`
 - `execution/linear-ticket-template-v2.md`
 - `execution/agent-readiness-validator.md`
 - `execution/risk-reviewer-matrix-lite.md`
@@ -251,6 +257,7 @@ Convert PRD and MVP scope into risk-reviewed architecture and Linear-ready execu
 - MVP scope review.
 - Risk review and mitigations.
 - Minimum viable architecture direction.
+- Tactical Execution Plan with ticket/story breakdown, ADR path, validation plan, observability needs, docs, and DeliveryEvidence expectations.
 - Linear-ready ticket breakdown.
 - Dependencies and blocked items.
 
@@ -266,12 +273,14 @@ Convert PRD and MVP scope into risk-reviewed architecture and Linear-ready execu
 
 **GO conditions:**
 - P0/P1 risks are mitigated, accepted, or converted into blockers.
+- Tactical Execution Plan is complete or explicitly marked not applicable for the work.
 - Linear project and ticket creation approval is clear.
 - Tickets are small and sequenced.
 
 **NO-GO conditions:**
 - Implementation tickets are created before validation and MVP scope gates.
 - Ticket set is broad, vague, or hides dependencies.
+- Tactical Execution Plan is required but missing before development work.
 - Project/ticket creation approval is missing.
 
 **Next stage:**
@@ -285,6 +294,7 @@ Execute one approved Linear ticket in one branch and one PR.
 **Current artifacts:**
 - `AGENTS.md`
 - `execution/ticket-pr-handoff-system.md`
+- `execution/tactical-execution-plan.md`
 - `execution/multi-agent-operating-protocol.md`
 - `execution/context-routing-protocol.md`
 - `execution/token-efficiency-policy.md`
@@ -293,6 +303,7 @@ Execute one approved Linear ticket in one branch and one PR.
 
 **Inputs:**
 - One approved Linear ticket.
+- Tactical Execution Plan link, lightweight plan, or not-applicable reason.
 - Expected write set.
 - Acceptance criteria.
 - Validation plan.
@@ -315,6 +326,7 @@ Execute one approved Linear ticket in one branch and one PR.
 
 **GO conditions:**
 - Ticket is ready.
+- Tactical Execution Plan is present or not applicable.
 - Scope and expected write set are clear.
 - Approval exists for gated PR operations in the current cycle or ticket.
 
