@@ -7,9 +7,11 @@ This map defines the required sequence from raw idea intake to first product tri
 Do not create implementation tickets until:
 
 - the idea has passed intake and founder focus
+- the solution path has been confirmed when the idea could proceed as market-facing, own-pain, or specific-person work
 - C.O.N.T.R.O.L.E. has produced an explicit verdict
 - research and validation work has defined what must be learned
 - Working Backwards, PRD, MVP scope, anti-goals, and risk review exist
+- a Tactical Execution Plan exists or is explicitly marked not applicable for the work
 - the Linear project has been confirmed or approved for creation
 
 If a required artifact does not exist yet, execute the setup or validation ticket that creates it.
@@ -18,7 +20,7 @@ If a required artifact does not exist yet, execute the setup or validation ticke
 
 | Phase | Input | Output | Owner | Approval requirement | Linear impact | Next step |
 |---|---|---|---|---|---|---|
-| 1. Idea intake | Raw idea, founder notes, observed problem | Initial idea record with target, problem, promise, assumptions, and unknowns | Founder or idea intake agent | Approval required only before external action or ticket creation | No implementation tickets; create only an approved setup or intake ticket if needed | Founder focus |
+| 1. Idea intake | Raw idea, founder notes, observed problem | Initial idea record with selected solution path, target, problem, promise, assumptions, and unknowns | Founder or idea intake agent | Approval required only before external action or ticket creation | No implementation tickets; create only an approved setup or intake ticket if needed | Founder focus |
 | 2. Founder focus | Idea intake record | `product/founder-focus.md` with one market, one problem, one offer, one channel, one-year focus, anti-goals, and expansion constraints | Founder or product strategist | Human review when target, problem, offer, or channel is ambiguous | Linear may track setup/strategy tickets only | C.O.N.T.R.O.L.E. evaluation |
 | 3. C.O.N.T.R.O.L.E. evaluation | Founder focus artifact and assumptions | `product/controle-evaluation.md` with Attack, Refine, Pivot, or Kill verdict, rationale, MVP implication, validation implication, and next action | Product strategist or validation agent | Human approval required before advancing on Attack or Refine | Linear may track validation tickets after verdict; no build tickets yet | Research and validation plan |
 | 4. Research and validation plan | C.O.N.T.R.O.L.E. verdict and unknowns | Research questions, discovery plan, `validation/validation-scorecard.md`, experiment plan, source needs, confidence gaps | Researcher or validation lead | Approval required before customer outreach or external communications | Create validation/research tickets only after project confirmation or approval | Working Backwards |
@@ -28,8 +30,8 @@ If a required artifact does not exist yet, execute the setup or validation ticke
 | 8. Risk review | MVP scope, architecture notes, sensitive claims, data/billing/outreach needs | Risk register, required mitigations, approval blockers, follow-up tickets | Risk reviewer | Approval required for any gated action listed in `execution/approval-gates.md` | Create follow-ups for risks; unblock build tickets only when P0/P1 risks are handled or accepted | Architecture |
 | 9. Architecture | MVP scope and risk review | Minimum viable technical shape, standards, constraints, ADRs as needed | Architecture agent or engineer | Human review before production-impacting architecture changes | Linear may track architecture tickets and blockers | Linear project confirmation |
 | 10. Linear project confirmation | Approved product scope and execution plan | Confirmed Linear project, milestones, labels, and execution backlog boundary | Linear project orchestrator | Human approval required before creating or changing Linear projects/tickets | Confirm one source-of-truth project before implementation tickets | Ticket creation |
-| 11. Ticket creation | Approved MVP scope, risk review, architecture, Linear project | Small, sequenced Linear tickets with acceptance criteria and dependencies | Roadmap orchestrator | Human approval required before creating tickets | Tickets become the execution source of truth | Ticket execution |
-| 12. Ticket execution | One approved Linear ticket | One scoped branch, one PR, validations, review, merge, Linear update | Assigned execution agent | Approval required before opening and merging PRs | Ticket moves through In Progress, review notes, Done after merge | Feedback and learning |
+| 11. Ticket creation | Approved MVP scope, risk review, architecture, Linear project, Tactical Execution Plan when required | Small, sequenced Linear tickets or stories with acceptance criteria, dependencies, validation plan, ADR needs, docs, and evidence expectations | Roadmap orchestrator | Human approval required before creating tickets | Tickets become the execution source of truth | Ticket execution |
+| 12. Ticket execution | One approved Linear ticket and linked Tactical Execution Plan or not-applicable reason | One scoped branch, one PR, validations, review, merge, Linear update | Assigned execution agent | Approval required before opening and merging PRs | Ticket moves through In Progress, review notes, Done after merge | Feedback and learning |
 | 13. First product trial | Merged MVP scope and validation plan | Trial-ready artifact, trial instructions, known risks, measurement plan | Founder, validation lead, execution agent | Approval required before outreach, external communication, billing, ads, or production deployment | Linear tracks trial tasks and blockers | Feedback loop |
 | 14. Feedback and learning | Trial observations, validation results, support notes, metrics with sources | Learning cards, decision log updates, GO/NO-GO recommendation, follow-up tickets | Validation lead or knowledge steward | Human review before changing strategy or claims | Linear receives follow-ups, blockers, pivots, or next-cycle tickets | Next iteration or stop |
 
@@ -46,12 +48,14 @@ Agents must not treat a completed document as evidence by itself. A stage can ad
 **Required artifacts:**
 
 - `product/product-context.md` or equivalent idea intake record
+- `product/solution-path-decision.md` or equivalent solution-path section when the path changes discovery or evidence requirements
 - `product/founder-focus.md`
 - `product/controle-evaluation.md`
 
 **Exit criteria:**
 
 - One target market, one initial persona or segment, one primary problem, one promised result, and one first channel hypothesis are explicit.
+- The solution path is confirmed as market-facing, own-pain, or specific-person when the idea could follow more than one route.
 - Assumptions, known evidence, and unknowns are separated.
 - C.O.N.T.R.O.L.E. has an Attack or Refine verdict with rationale and human approval before advancing.
 - Pivot or Kill decisions record the rationale and stop downstream PRD, build, growth, monetization, and launch work.
@@ -167,7 +171,9 @@ Implementation tickets are blocked until these are true:
 - `product/mvp-scope.md` defines the core loop, cut list, evidence threshold, and GO/NO-GO condition.
 - Risk review does not contain unresolved P0/P1 blockers.
 - Linear project is confirmed.
+- `execution/tactical-execution-plan.md` exists, is embedded in the ticket, or is explicitly marked not applicable with a reason.
 - The implementation ticket is approved and scoped.
+- The selected solution path does not contradict the evidence standard used to justify build work.
 
 ## Linear Impact Rules
 

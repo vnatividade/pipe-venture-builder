@@ -122,21 +122,22 @@ For parallel Codex and Claude Code execution, use `execution/parallel-execution-
 
 1. Read the ticket and relevant repository artifacts.
 2. Confirm dependencies and approval state.
-3. Move the Linear ticket to In Progress.
-4. Create a branch that references the ticket.
-5. Implement only the included scope.
-6. Avoid unrelated refactors, formatting churn, and template changes outside the ticket.
-7. Run available validation commands.
-8. Commit with the ticket identifier in the message.
-9. Push the branch and open a PR linked to the Linear ticket.
-10. Request review.
-11. Classify review findings as P0, P1, P2, or P3.
-12. Fix P0 and P1 in the same PR.
-13. Fix P2 only when simple, safe, and inside scope.
-14. Do not block merge on P3.
-15. Revalidate after changes.
-16. Merge only when review, validation, scope, and handoff are complete.
-17. Update Linear with the final handoff.
+3. Confirm `execution/tactical-execution-plan.md` is linked, embedded, or explicitly not applicable when development work is involved.
+4. Move the Linear ticket to In Progress.
+5. Create a branch that references the ticket.
+6. Implement only the included scope.
+7. Avoid unrelated refactors, formatting churn, and template changes outside the ticket.
+8. Run available validation commands.
+9. Commit with the ticket identifier in the message.
+10. Push the branch and open a PR linked to the Linear ticket.
+11. Request review.
+12. Classify review findings as P0, P1, P2, or P3.
+13. Fix P0 and P1 in the same PR.
+14. Fix P2 only when simple, safe, and inside scope.
+15. Do not block merge on P3.
+16. Revalidate after changes.
+17. Merge only when review, validation, scope, and handoff are complete.
+18. Update Linear with the final handoff.
 
 ## Pull Request Template
 
@@ -144,6 +145,7 @@ The repository PR template lives at `.github/pull_request_template.md`. PRs shou
 
 - Linear ticket link
 - context
+- Tactical Execution Plan link or not-applicable reason when development work is involved
 - included scope
 - excluded scope
 - validation performed
@@ -247,6 +249,7 @@ A ticket is done only when:
 - included scope is complete
 - excluded scope was not added
 - validations are run or explicitly unavailable
+- Tactical Execution Plan was followed or explicitly not applicable
 - review is complete
 - P0 and P1 findings are resolved
 - P2 findings are either resolved or documented as non-blocking

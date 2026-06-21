@@ -68,6 +68,8 @@ If a phase produces no reusable knowledge, state that in the Linear handoff inst
 
 For agentic operations metrics, use `execution/agentic-operations-metrics.md`. Keep the initial metric record in PR and Linear handoffs. Update `knowledge/` only when a batch summary or repeated signal changes future execution.
 
+For Notion search, publishing, or workspace registration, use `knowledge/notion-knowledge-base-policy.md` and `capabilities/entries/capability.external.notion-mcp.json`. Notion may mirror or surface approved knowledge, but it does not replace canonical repository, Linear, or GitHub records.
+
 ## Update Workflow
 
 1. Identify the originating Linear ticket and PR.
@@ -142,7 +144,7 @@ Every completed ticket should record:
 ## Out Of Scope
 
 - complex graph database modeling
-- external Notion/MCP synchronization
+- automatic external Notion/MCP synchronization
 - automatic customer-data ingestion
 - public publishing of customer quotes
 - making unsupported claims from weak evidence

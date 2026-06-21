@@ -12,6 +12,8 @@ Do not store private founder biography, secrets, credentials, sensitive customer
 - Date created:
 - Owner:
 - Current stage:
+- Solution path:
+- Solution path decision artifact:
 - Linear project:
 - Related Linear tickets:
 - Repository branch or fork:
@@ -34,6 +36,23 @@ Choose one current stage.
 - Selected stage:
 - Why this stage is accurate:
 - Stage gate currently blocking progress:
+
+## Solution Path
+
+Choose how the founder wants to proceed before assuming the idea is a market-facing venture.
+
+| Path | Meaning | Allowed Next Action |
+|---|---|---|
+| Market-facing solution | The founder wants to validate whether a broader market wants the solution. | Complete founder focus, respondent targeting, discovery, validation scorecard, and Market Validation Before Code before PRD/build. |
+| Own-pain solution | The founder wants to solve their own operational pain first. | Map the founder/operator workflow, dogfooding criteria, and internal evidence before considering market expansion. |
+| Specific-person solution | The founder wants to build for one specific person first. | Run deep discovery for that person and avoid generalizing until repeated patterns exist. |
+
+- Selected solution path:
+- Founder confirmation:
+- Why this path is first:
+- Paths intentionally not first:
+- Expansion condition:
+- Solution path decision artifact:
 
 ## Idea Summary
 

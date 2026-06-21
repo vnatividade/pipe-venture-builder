@@ -8,6 +8,7 @@ The central decision is:
 
 - Markdown repository artifacts are the canonical memory.
 - Linear and GitHub are the canonical execution state and delivery evidence surfaces.
+- Notion is a governed collaboration and publishing surface, not canonical memory.
 - pgvector, embeddings, and future retrieval services are recall infrastructure, not the source of truth.
 
 This architecture prepares future context-pack, pgvector, and Knowledge MCP work without implementing a database, Docker Compose, embeddings, or MCP server in this ticket.
@@ -31,6 +32,7 @@ This document does not:
 | Repository schemas | Machine-readable contracts for canonical record shapes | Yes | `schemas/LearningRecord.schema.json`, `schemas/DeliveryEvidence.schema.json` | Schemas define valid structure, not persistence. |
 | Linear | Execution state, priority, blockers, ownership, ticket handoff | Yes for execution | Issue status, comments, labels, links, delivery updates | Linear is not a replacement for durable repository decisions. |
 | GitHub | Delivery evidence, PR discussion, review state, merge history | Yes for delivery | PR body, review comments, merge commit, branch links | PR history proves what changed and how it was reviewed. |
+| Notion | Collaboration, stakeholder-readable mirrors, workspace search, and approved documentation registration | No | Approved Notion pages, meeting notes, published summaries | Notion must link back to canonical repository, Linear, or GitHub sources when used. |
 | pgvector / retrieval index | Semantic recall and context discovery | No | Embedded records, source pointers, search metadata | It must point back to canonical artifacts. It must not become hidden memory. |
 | Agent conversation memory | Short-lived local context | No | Current chat state, temporary notes | Future agents must not need this to continue execution. |
 
@@ -185,6 +187,7 @@ Use this architecture with:
 - `execution/context-routing-protocol.md`
 - `execution/multi-agent-operating-protocol.md`
 - `knowledge/decision-conflict-protocol.md`
+- `knowledge/notion-knowledge-base-policy.md`
 
 This document provides the runtime boundary. The existing files provide the schema, promotion, conflict, capability, and execution rules.
 

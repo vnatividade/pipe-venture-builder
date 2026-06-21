@@ -76,6 +76,7 @@ Add these fields when they apply:
 - Technical Dependencies: required for code, infrastructure, automation, observability, and technical governance work.
 - Operational Dependencies: required when approvals, merge order, external tools, Linear state, or human decisions affect execution.
 - Observability Requirements: required for code, infrastructure, automation, observability, and user-facing product changes.
+- Tactical Execution Plan: required for code, infrastructure, automation, observability, customer-facing product, multi-story implementation, or technical work that needs ADR/RFC decisions; explicitly mark not applicable for small documentation or governance tickets.
 - KPI Impact: required for product, growth, validation, and user-value tickets.
 - Human Decision Required: required when a decision blocks start, PR opening, merge, or Done.
 - Post-release Follow-up: required for product, infrastructure, automation, observability, or high-risk changes.
@@ -217,6 +218,7 @@ For new backlog without a code, use:
 - Approval state is clear.
 - Expected write set is declared.
 - Validation plan is known.
+- Tactical Execution Plan exists, is lightweight in this ticket, or is explicitly not applicable.
 - Human decisions required before start are resolved or explicitly marked as blockers.
 
 ## Definition of Done

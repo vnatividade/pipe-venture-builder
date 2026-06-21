@@ -11,6 +11,7 @@ Use this with:
 - `execution/context-routing-protocol.md`
 - `execution/approval-gates.md`
 - `execution/guided-session-artifact.md`
+- `product/solution-path-decision.md`
 - `validation/conversational-pipeline-mood-test-protocol.md`
 - `architecture/capability-registry-policy.md`
 - `architecture/executor-capability-matrix.md`
@@ -78,6 +79,7 @@ For every vague, abstract, or founder-facing request, the agent must run this lo
 2. **Detect pipeline stage.**
    - Map the intent to the earliest applicable stage in `execution/core-pipeline-map.md`.
    - Prefer an earlier stage when evidence is missing.
+   - For raw ideas, detect or ask which solution path applies: market-facing solution, own-pain solution, or specific-person solution.
    - Do not jump to PRD, architecture, implementation, growth, or monetization because the user sounds excited.
 
 3. **Check durable context.**
@@ -110,8 +112,10 @@ Use the user's language to infer intent. Do not require the user to name a phase
 
 | User says | Likely intent | Start stage | Front-door response |
 |---|---|---|---|
-| "I have an idea." | Raw idea shaping. | Idea intake | Ask for the idea in plain language and extract target, problem, promise, assumptions, and unknowns. |
+| "I have an idea." | Raw idea shaping. | Idea intake | Ask for the idea in plain language, then confirm whether this is market-facing, own-pain, or for one specific person. |
 | "I want this idea to succeed." | Strategic guidance. | Idea intake or founder focus | Narrow who, what pain, promised result, and first channel before validation. |
+| "I want to solve my own problem." | Own-pain solution path. | Idea intake | Confirm the own-pain path, then map the founder/operator workflow and dogfooding evidence before treating it as market validation. |
+| "I need to build this for one person." | Specific-person solution path. | Idea intake | Confirm the specific-person path, then focus discovery on that person's workflow without generalizing to a market. |
 | "Is this worth building?" | Validation decision. | C.O.N.T.R.O.L.E. or research/validation | Separate assumptions from evidence and define what must be learned before build. |
 | "Who should I talk to?" | Discovery targeting. | Research and validation plan | Guide toward respondent/persona selection, not automated outreach. |
 | "What should I build first?" | MVP scope pressure. | Validation or MVP scope | Check validation evidence before defining build scope. |
@@ -120,6 +124,30 @@ Use the user's language to infer intent. Do not require the user to name a phase
 | "Can agents handle this?" | Capability/executor routing. | Agent Master routing | Route through capability registry, executor matrix, and approval gates. |
 
 If the user intent spans multiple stages, guide the user through the earliest blocking stage.
+
+## Solution Path Selection
+
+When an idea could proceed through more than one route, ask the founder to choose the path before downstream discovery or build guidance.
+
+Founder-facing question:
+
+```txt
+How do you want to proceed with this idea right now?
+
+1. Turn it into a market-facing solution.
+2. Solve my own operational pain first.
+3. Build a specific solution for one person first.
+```
+
+If the user already implied one path, restate the inferred path and ask for confirmation before recording it.
+
+| Solution path | Use when | First discovery focus | Blocked premature action |
+|---|---|---|---|
+| Market-facing solution | The founder wants to validate demand beyond themselves or one person. | Respondent profiles, manual source paths, interview questions, ICP, and PMF-triad evidence. | PRD, MVP, growth, monetization, or build before Market Validation Before Code. |
+| Own-pain solution | The founder wants to solve their own operating pain first. | Current workflow, workaround, trigger, internal success criteria, and dogfooding evidence. | Claiming market validation or creating market-facing build tickets from internal evidence alone. |
+| Specific-person solution | The founder wants to solve a problem for one specific person first. | That person's workflow, constraints, desired result, privacy boundary, and bespoke success criteria. | Generalizing one person's request into market proof without repeated external evidence. |
+
+Record the selected path in `product/solution-path-decision.md` or the equivalent solution-path section of `product/product-context.md`. The path choice does not authorize outreach, customer data handling, PRD, implementation, growth, monetization, or external communication by itself.
 
 ## Stage Detection Rules
 
@@ -131,6 +159,7 @@ Use this minimal output internally:
 ## Conversational route
 
 - User intent:
+- Solution path:
 - Inferred pipeline stage:
 - Why this stage:
 - Durable context checked:
@@ -265,6 +294,7 @@ The agent does not need to show this full block to the user unless the user asks
 | C.O.N.T.R.O.L.E. and validation planning | PM Skills when approved; repository validation framework; `capability.external.consensus` only for approved source-backed research | Separate assumptions from evidence, define learning goals, identify respondent criteria, prepare questions | Treating research or synthetic output as customer validation |
 | Research synthesis | `capability.external.consensus` only when scientific/source-backed synthesis is in scope; `capability.external.notebooklm` only with approved source sets | Summarize cited sources, detect contradictions, support evidence review | Uploading private data by default, creating market proof, regulated conclusions |
 | Working Backwards, PRD, and MVP scope | PM Skills when approved; repository Working Backwards, PRD, and MVP templates | Draft or pressure-test product artifacts after validation gates allow | Skipping validation, broadening MVP, claiming demand without evidence |
+| Observability and runtime monitoring | `capability.external.datadog` when approved; repository-native observability requirements as fallback | Define logs, metrics, traces, dashboards, monitors, alerts, runtime evidence, and delivery instrumentation boundaries | Storing sensitive data, replacing knowledge base, claiming market validation, or starting paid telemetry without approval |
 | Ticket execution | `capability.external.codex`, `capability.external.claude-code`, `capability.external.superpowers`, Linear MCP, GitHub MCP or `gh` when approved | Implement one ticket, use planning/TDD/debugging/review discipline, update Linear, manage PR lifecycle | Product strategy authority, scope expansion, bypassing review or approval gates |
 | Feedback and learning | Knowledge workflows, Linear MCP, LearningRecord/KDR/DAR candidates | Preserve reusable learning, follow-ups, routing lessons, residual risks | Storing sensitive/customer data without approval, inventing evidence |
 | Future orchestration | `capability.future.openclaw-paperclip` only as future evaluation placeholder | Record future analysis requirements after Codex/Claude baseline is stable | Installing, running, dispatching, scheduling, or depending on OpenClaw/Paperclip now |
@@ -277,6 +307,7 @@ Use these rules when the front-door loop sees an available capability:
 - **Superpowers:** pilot execution-discipline capability for planning, TDD, debugging, review, and verification. Use for implementation or governance tickets when it helps execution discipline. Do not use it to decide product strategy, weaken approval gates, or broaden scope.
 - **Linear MCP:** pilot connector for reading assigned tickets, moving approved ticket state, linking branches/PRs, and recording delivery handoff. Creating projects or tickets still requires approval unless the current thread or ticket explicitly grants it.
 - **GitHub MCP or `gh`:** pilot route for PR metadata, review comments, CI checks, and merge state when approved. It does not remove the review requirement and cannot bypass P0/P1 findings.
+- **Datadog:** pilot observability capability for approved logs, metrics, traces, dashboards, monitors, alerts, runtime evidence, and instrumentation planning. Do not use it as a knowledge base, market validation source, or customer-evidence substitute. Do not transmit sensitive data, production data, or paid telemetry without explicit approval.
 - **Consensus:** proposed research capability for source-backed synthesis. Use only when the task calls for cited research and the source/citation discipline is clear. Do not use it to manufacture validation, customer demand, or regulated advice.
 - **NotebookLM:** proposed source-synthesis capability. Use only with an approved source set and explicit source boundary. Do not upload private, customer, production, or sensitive material by default.
 - **Codex, Claude Code, and Cursor/IDE agents:** executor routes, not policy authorities. They must follow `AGENTS.md`, the assigned Linear ticket, repository protocols, approval gates, and handoff requirements.
