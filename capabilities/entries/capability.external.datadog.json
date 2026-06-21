@@ -1,0 +1,201 @@
+{
+  "schemaVersion": "0.1.0",
+  "capabilityId": "capability.external.datadog",
+  "name": "Datadog",
+  "summary": "External observability service capability for approved logs, metrics, traces, dashboards, monitors, and runtime instrumentation evidence.",
+  "kind": "service",
+  "origin": "external",
+  "lifecycle": "pilot",
+  "owner": {
+    "primaryOwner": "Execution Steward Agent",
+    "supportingOwner": "Software Architecture Agent",
+    "reviewer": "human operator"
+  },
+  "source": {
+    "sourceType": "service",
+    "sourceName": "Datadog",
+    "sourceUrl": "https://www.datadoghq.com/",
+    "repositoryPath": null,
+    "licenseOrTerms": null,
+    "versionOrDate": "2026-06-21",
+    "notes": "Registered as a governed observability capability. This entry does not create a Datadog account, add SDK code, transmit telemetry, or approve paid usage by itself."
+  },
+  "routing": {
+    "useWhen": [
+      "A ticket requires observability planning for code, infrastructure, automation, runtime cockpit, agent runs, delivery evidence, or customer-facing product behavior.",
+      "A PRD, architecture review, risk review, tactical execution plan, or delivery handoff needs logging, metrics, traces, dashboards, monitor, alert, or error-reporting requirements.",
+      "A production or beta workflow needs approved operational telemetry with explicit data minimization, retention, and cost boundaries."
+    ],
+    "doNotUseWhen": [
+      "The ticket does not include observability, instrumentation, runtime monitoring, or delivery evidence scope.",
+      "Telemetry would include secrets, credentials, raw customer data, raw interview data, private evidence, production data, or sensitive personal data without explicit approval and retention rules.",
+      "Datadog output would be treated as customer validation, market demand, product-market fit, or canonical knowledge base.",
+      "Paid usage, new account setup, SDK installation, or external data transmission is implied but not approved."
+    ],
+    "pipelineStages": [
+      "prd",
+      "mvp-scope",
+      "risk-review",
+      "architecture",
+      "linear-ticketing",
+      "ticket-execution",
+      "review-merge",
+      "feedback-learning",
+      "orchestration-future"
+    ],
+    "ticketTypes": [
+      "architecture",
+      "automation",
+      "code",
+      "documentation",
+      "governance",
+      "infrastructure",
+      "observability",
+      "orchestration-prep",
+      "product",
+      "validation",
+      "workflow"
+    ],
+    "primaryConsumers": [
+      "codex",
+      "claude-code",
+      "human",
+      "future-orchestrator"
+    ],
+    "fallback": "Define repository-native observability requirements, sample event shapes, and manual validation evidence. Record a Datadog follow-up if credentials, paid use, or telemetry transmission is not approved."
+  },
+  "inputs": [
+    {
+      "name": "observabilityNeed",
+      "required": true,
+      "description": "The operational question the telemetry must answer, such as error rate, latency, run state, cost/session, customer-facing funnel behavior, or delivery evidence.",
+      "sourceOrDestination": "PRD, architecture review, tactical execution plan, delivery evidence, or Linear ticket"
+    },
+    {
+      "name": "dataBoundary",
+      "required": true,
+      "description": "Approved statement of what data may and may not be sent to Datadog, including PII, customer data, production data, secrets, and retention constraints.",
+      "sourceOrDestination": "Risk review, security/privacy gate, architecture review, or human approval"
+    },
+    {
+      "name": "runtimeSurface",
+      "required": false,
+      "description": "Service, workflow, agent run, product environment, or manual test surface to observe.",
+      "sourceOrDestination": "Architecture, product, or execution artifact"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "observabilityPlan",
+      "required": true,
+      "description": "Approved telemetry plan covering signals, event shape, dashboard or monitor needs, owner, threshold, and validation method.",
+      "sourceOrDestination": "Architecture review, tactical execution plan, or delivery handoff"
+    },
+    {
+      "name": "datadogReference",
+      "required": false,
+      "description": "Dashboard, monitor, log query, trace view, or Datadog configuration reference when actual Datadog use is approved and performed.",
+      "sourceOrDestination": "Linear handoff, PR, or delivery evidence"
+    }
+  ],
+  "schemas": {
+    "inputSchemas": [],
+    "outputSchemas": [],
+    "relatedSchemas": [
+      {
+        "name": "DeliveryEvidence",
+        "pathOrUrl": "schemas/DeliveryEvidence.schema.json",
+        "required": false
+      },
+      {
+        "name": "LearningRecord",
+        "pathOrUrl": "schemas/LearningRecord.schema.json",
+        "required": false
+      }
+    ],
+    "notes": "Future observability adapter work may define a normalized ObservabilitySignal or DatadogReference schema if multiple agents need machine-readable telemetry evidence."
+  },
+  "toolAccess": {
+    "accessType": "api",
+    "requiresCredential": true,
+    "requiresNetwork": true,
+    "canMutateExternalState": true,
+    "allowedOperations": [
+      "Define Datadog observability requirements",
+      "Propose log, metric, trace, dashboard, monitor, and alert shapes",
+      "Reference approved Datadog dashboards, monitors, log queries, or traces",
+      "Use approved Datadog telemetry as delivery, runtime, or operational evidence"
+    ],
+    "forbiddenOperations": [
+      "Create or configure Datadog accounts without approval",
+      "Transmit telemetry, logs, traces, metrics, or events without approved credentials and data boundary",
+      "Send secrets, credentials, private customer data, raw interview data, raw recordings, or sensitive production data",
+      "Treat Datadog telemetry as market validation, customer demand proof, or canonical knowledge base",
+      "Start or expand paid usage without approval"
+    ]
+  },
+  "cost": {
+    "costType": "usage_based",
+    "expectedCostLevel": "unknown",
+    "costDriver": "Datadog plan, ingested logs/metrics/traces, retention, dashboards, monitors, hosts, sessions, and product-specific instrumentation volume.",
+    "approvalRequiredBeforePaidUse": true
+  },
+  "risks": [
+    {
+      "category": "privacy",
+      "level": "high",
+      "description": "Telemetry can accidentally include customer data, production data, secrets, private evidence, or sensitive workflow details.",
+      "mitigation": "Require data minimization, redaction, retention boundaries, and explicit approval before transmitting data."
+    },
+    {
+      "category": "cost",
+      "level": "medium",
+      "description": "Ingestion and retention volume can create unexpected usage-based cost.",
+      "mitigation": "Require paid-use approval, event sampling or volume limits, retention review, and cost/session monitoring before broad instrumentation."
+    },
+    {
+      "category": "unsupported-claims",
+      "level": "medium",
+      "description": "Operational telemetry can be misread as product-market fit, customer demand, or market validation.",
+      "mitigation": "Use Datadog for runtime and delivery evidence only. Market validation still requires approved discovery and validation artifacts."
+    },
+    {
+      "category": "vendor",
+      "level": "low",
+      "description": "Datadog pricing, product capabilities, APIs, and permissions can change.",
+      "mitigation": "Review the registry entry before production rollout, paid use, or adapter implementation."
+    }
+  ],
+  "governance": {
+    "approvalRequired": true,
+    "approvalTriggers": [
+      "Creating or changing Datadog account, project, dashboard, monitor, alert, API key, or SDK integration",
+      "Sending telemetry, logs, traces, metrics, events, errors, sessions, or production data to Datadog",
+      "Using paid Datadog features or increasing ingestion volume",
+      "Capturing customer, production, private, security, compliance, or sensitive data",
+      "Using Datadog evidence to support launch, scale, reliability, or customer-facing claims"
+    ],
+    "dataBoundary": "Datadog may receive only approved, minimized operational telemetry. It must not receive secrets, credentials, raw customer interviews, raw recordings, raw transcripts, private founder notes, or sensitive customer/production data unless a dedicated ticket records approval, retention, and redaction rules.",
+    "sensitiveActionBoundary": "Datadog is observability, not knowledge base, validation proof, approval authority, or customer evidence source. It cannot override Market Validation Before Code, PR review, Linear governance, or human approval gates.",
+    "loggingRequirement": "Record signal names, data fields, environment, dashboard or monitor references, owner, threshold, approval status, cost boundary, and residual privacy risk in the PR or Linear handoff.",
+    "updatePolicy": "Review before first production use, before paid use, before customer-data telemetry, and whenever Datadog product behavior, credentials, pricing, or retention settings change."
+  },
+  "review": {
+    "lastReviewedAt": "2026-06-21",
+    "reviewCadence": "before-use",
+    "reviewStatus": "restricted",
+    "reviewNotes": "Pilot observability capability. Planning and references are allowed under ticket scope; real Datadog mutation, SDK integration, data transmission, or paid use requires explicit approval."
+  },
+  "examples": [
+    {
+      "scenario": "A build ticket adds a background agent workflow and needs delivery evidence for run failures and retries.",
+      "expectedUse": "Define Datadog log, metric, dashboard, or monitor requirements and use approved telemetry references in the delivery handoff after data boundaries are approved.",
+      "expectedNonUse": "Do not send raw prompts, secrets, customer data, or private evidence to Datadog while implementing the workflow."
+    },
+    {
+      "scenario": "A founder asks whether early interview feedback proves the market wants the product.",
+      "expectedUse": "Do not route to Datadog; use validation and interview evidence artifacts instead.",
+      "expectedNonUse": "Do not treat product telemetry, dashboards, or event counts as market validation without the required discovery evidence."
+    }
+  ]
+}
