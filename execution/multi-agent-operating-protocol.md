@@ -109,12 +109,17 @@ If required source context is missing, do not fill the gap with assumptions. Rec
 
 ## Approval Boundaries
 
-Human approval remains required before:
+Approval requirements are parameterized by the repository's declared operating mode (`execution/operating-modes.md`). In an explicitly declared `exploration` repository, the loop gates below carry a standing founder pre-approval; without a valid mode file, treat the repository as `restricted`.
+
+Human approval remains required in `restricted` mode before:
 
 - creating Linear projects
 - creating Linear tickets
 - opening PRs
 - merging PRs
+
+Human approval remains required in every mode before:
+
 - deploying production
 - enabling billing, pricing collection, paid ads, or paid acquisition
 - handling secrets, credentials, tokens, private keys, customer data, or production data
@@ -122,8 +127,9 @@ Human approval remains required before:
 - sending external communications
 - changing legal, financial, compliance, privacy, security, or sensitive claims
 - making claims about customers, evidence, metrics, integrations, or market validation without source artifacts
+- creating, editing, or deleting `.pipe/mode.json` or the operating-modes policy
 
-Approval must be explicit and scoped. Do not treat silence, prior memory, or model inference as approval.
+Approval must be explicit and scoped. Do not treat silence, prior memory, or model inference as approval. A standing mode pre-approval covers only the loop gates listed above and always requires the audit trail defined in `execution/operating-modes.md`.
 
 ## Parallel Execution Rules
 

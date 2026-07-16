@@ -172,6 +172,8 @@ Use this review path:
 4. If no automated review appears in a reasonable wait window, use the structured manual fallback only when the user has approved that fallback for the current cycle or the assigned ticket explicitly allows it.
 5. If no automated review is available and no manual fallback approval exists, stop and document the blocker in the PR and Linear ticket.
 
+In a repository that declares `exploration` mode (`execution/operating-modes.md`), step 4's fallback approval is granted as a standing pre-approval by that policy, and merge proceeds without waiting for a human once review passes: prefer cross-account agent review when a second agent identity is available; otherwise record the structured self-review in the PR before merging. P0 and P1 findings block merge in every mode.
+
 Review should cover:
 
 - correctness

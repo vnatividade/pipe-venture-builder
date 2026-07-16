@@ -16,6 +16,7 @@ Current schemas:
 
 - [DeliveryEvidence](DeliveryEvidence.schema.json)
 - [LearningRecord](LearningRecord.schema.json)
+- [OperatingMode](OperatingMode.schema.json) — contract for `.pipe/mode.json` (PIP-659; see `execution/operating-modes.md`)
 - [SyntheticPersona](SyntheticPersona.schema.json)
 
 Schema outlines:

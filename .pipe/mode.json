@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "0.1.0",
+  "mode": "restricted",
+  "reason": "Shared venture-building manual: governance contracts, schemas, and policies require human-approved merges. Knowledge-content paths follow the exploration-semantics lane defined in execution/operating-modes.md.",
+  "activatedBy": "Vitor Natividade",
+  "activatedAt": "2026-07-16",
+  "notes": "Founder instruction recorded in PIP-659."
+}

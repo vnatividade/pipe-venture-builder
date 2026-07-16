@@ -6,27 +6,37 @@ This policy defines actions that require human approval before an agent proceeds
 
 Approval gates protect founder control, legal and financial risk, customer trust, and operational traceability.
 
-Agents may prepare drafts, summarize options, or propose changes without approval. Agents must not execute gated actions until approval is explicit in the current conversation or recorded in the assigned Linear ticket.
+Agents may prepare drafts, summarize options, or propose changes without approval. Agents must not execute gated actions until approval is explicit in the current conversation, recorded in the assigned Linear ticket, or granted as a standing pre-approval by the repository's declared operating mode (`execution/operating-modes.md`).
+
+## Operating Modes
+
+`execution/operating-modes.md` parameterizes this policy per repository:
+
+- In a repository that explicitly declares `exploration` mode (`.pipe/mode.json`, human-activated), the gates marked **mode-sensitive** below carry a standing founder pre-approval: agents execute them autonomously with mandatory logging.
+- In `restricted` mode — or when no valid mode file exists — every gate below requires per-action human approval. Restricted is the fail-safe default.
+- Gates marked **absolute** require human approval in both modes, always.
 
 Before any real user, prospect, customer, partner, community member, or external participant touches a product, prototype, manual test, form, workflow, dataset, prompt output, trial, or validation artifact, apply `validation/pre-user-security-privacy-readiness-gate.md`.
 
 ## Required Approval Matrix
 
-| Action | Approval required before |
-|---|---|
-| Linear project creation | Creating the project |
-| Linear ticket creation | Creating the ticket |
-| Pull request opening | Opening the PR |
-| Pull request merge | Merging the PR |
-| Production deployment | Deploying or enabling production execution |
-| Paid ads or acquisition spend | Activating, scheduling, or increasing spend |
-| Billing or pricing collection | Enabling billing, payments, subscriptions, invoices, or checkout |
-| Secrets and credentials | Reading, storing, rotating, using, or transmitting secrets |
-| Customer outreach | Sending external messages, emails, DMs, or automated follow-ups |
-| External communications | Publishing, posting, announcing, or contacting third parties |
-| Legal, financial, compliance, privacy, or security content | Changing the substance of the content |
-| Sensitive claims | Adding or changing claims about evidence, customers, integrations, metrics, validation, or regulated outcomes |
-| Production/customer data | Accessing, exporting, modifying, deleting, or sharing data |
+| Action | Approval required before | Mode sensitivity |
+|---|---|---|
+| Linear project creation | Creating the project | Mode-sensitive |
+| Linear ticket creation | Creating the ticket | Mode-sensitive |
+| Pull request opening | Opening the PR | Mode-sensitive |
+| Pull request merge | Merging the PR | Mode-sensitive (exploration review path still applies; P0/P1 still block) |
+| Non-production deployment | Deploying to preview, staging, development, or demo targets | Mode-sensitive |
+| Production deployment | Deploying or enabling production execution | Absolute |
+| Paid ads or acquisition spend | Activating, scheduling, or increasing spend | Absolute |
+| Billing or pricing collection | Enabling billing, payments, subscriptions, invoices, or checkout | Absolute |
+| Secrets and credentials | Reading, storing, rotating, using, or transmitting secrets | Absolute |
+| Customer outreach | Sending external messages, emails, DMs, or automated follow-ups | Absolute |
+| External communications | Publishing, posting, announcing, or contacting third parties | Absolute |
+| Legal, financial, compliance, privacy, or security content | Changing the substance of the content | Absolute |
+| Sensitive claims | Adding or changing claims about evidence, customers, integrations, metrics, validation, or regulated outcomes | Absolute |
+| Production/customer data | Accessing, exporting, modifying, deleting, or sharing data | Absolute |
+| Operating mode changes | Creating, editing, or deleting `.pipe/mode.json`; changing this policy | Absolute (human-only) |
 
 ## Review Severity Rules
 

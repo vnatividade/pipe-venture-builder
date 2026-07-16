@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pipe-venture-builder.local/schemas/OperatingMode.schema.json",
+  "title": "OperatingMode",
+  "description": "Declaration of a repository's execution mode. Lives at .pipe/mode.json in the repository root. Absent or invalid file means restricted. Agents must never create or modify this file; mode changes are human-only actions. Contract: execution/operating-modes.md.",
+  "x-pipe-schema-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "mode",
+    "reason",
+    "activatedBy",
+    "activatedAt"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "exploration",
+        "restricted"
+      ],
+      "description": "exploration: agents run the ticket/PR/merge/non-production-deploy loop autonomously. restricted: human approval per execution/approval-gates.md."
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Why this mode is appropriate now, e.g. pre-production discovery vs live application."
+    },
+    "activatedBy": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human who activated this mode. Must be a person, not an agent."
+    },
+    "activatedAt": {
+      "type": "string",
+      "format": "date",
+      "description": "Date the mode was activated."
+    },
+    "notes": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Optional constraints or context, e.g. named exceptions already approved elsewhere."
+    }
+  },
+  "examples": [
+    {
+      "schemaVersion": "0.1.0",
+      "mode": "exploration",
+      "reason": "Pre-production discovery; no real users or customer data.",
+      "activatedBy": "Vitor Natividade",
+      "activatedAt": "2026-07-16",
+      "notes": null
+    },
+    {
+      "schemaVersion": "0.1.0",
+      "mode": "restricted",
+      "reason": "Application is live in production with real users.",
+      "activatedBy": "Vitor Natividade",
+      "activatedAt": "2026-07-16",
+      "notes": "Return to exploration only for isolated spike branches approved per ticket."
+    }
+  ]
+}

@@ -37,8 +37,21 @@ When branch protection legitimately needs to be bypassed (e.g., recovering from 
 
 Routine PRs MUST NOT use the override path.
 
+## Operating modes and protection profiles
+
+`execution/operating-modes.md` (PIP-659) defines per-repository execution modes. Protection must match the declared mode:
+
+| Repository state | Protection profile |
+|---|---|
+| This repository (`pipe-venture-builder`) | Always the full configuration above. Knowledge-content-lane PRs (see `execution/operating-modes.md`) satisfy the 1-review requirement via cross-account agent review; they never touch governance files. |
+| Venture repo in `restricted` mode | Full configuration above (≥1 human-or-trusted-bot approving review). |
+| Venture repo in `exploration` mode | Either omit `required_pull_request_reviews` and rely on green status checks plus the exploration review path recorded in the PR, or keep `required_approving_review_count: 1` satisfied by cross-account agent review. Document the chosen profile in the venture repository. |
+
+Absolute gates (production deploy, secrets, billing, customer data, external communications) are enforced by policy and operator behavior, not by branch protection — a merged PR still must not trigger them without human approval.
+
 ## Related artifacts
 
+- `execution/operating-modes.md` — per-repository execution modes (exploration vs restricted).
 - `execution/ticket-pr-handoff-system.md` — the substantive review and merge policy.
 - `knowledge/kdr-002-restore-pr-flow.md` — the strategic decision to enforce PR + review on `main`.
 - `knowledge/rca-001-pr-flow-regression-root-cause.md` — root cause of the PIP-130–135 review gap.

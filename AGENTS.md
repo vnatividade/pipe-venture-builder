@@ -4,12 +4,18 @@
 
 Agents operating in this repository must preserve founder solo velocity, strategic focus, traceability, and human approval gates.
 
-Stop and request human approval before:
+Approval requirements are parameterized by the repository's declared operating mode (`execution/operating-modes.md`). In a repository that explicitly declares `exploration` mode (`.pipe/mode.json`, human-activated, fail-safe default is `restricted`), agents run the execution loop autonomously — creating Linear projects and tickets, opening PRs, merging after the exploration review path passes, and deploying to non-production targets — with mandatory logging in Linear.
+
+Stop and request human approval before (in `restricted` mode, or when no valid mode file exists):
 
 - creating Linear projects
 - creating Linear tickets
 - opening PRs
 - merging PRs
+- deploying to non-production targets
+
+Stop and request human approval before (in **every** mode — these gates never relax):
+
 - deploying to production
 - enabling billing, pricing collection, paid ads, or paid acquisition
 - handling secrets, credentials, tokens, private keys, customer data, or production data
@@ -17,6 +23,7 @@ Stop and request human approval before:
 - sending external communications
 - changing legal, financial, compliance, privacy, security, or sensitive claims
 - making claims about customers, evidence, metrics, integrations, or market validation without source artifacts
+- creating, editing, or deleting `.pipe/mode.json` or the operating-modes policy
 
 If approval is missing, do not perform the action. Document the blocker in the assigned Linear ticket or PR.
 
@@ -145,12 +152,18 @@ Every PR must be reviewed before merge. P0 and P1 findings must be fixed before 
 
 ## Approval Gates
 
-Human approval is required before:
+Approval requirements depend on the repository's operating mode (`execution/operating-modes.md`).
+
+Mode-sensitive gates — human approval required in `restricted` mode; standing pre-approval in explicitly declared `exploration` mode:
 
 - creating Linear projects
 - creating Linear tickets
 - opening PRs
-- merging PRs
+- merging PRs (exploration review path still applies; P0/P1 block in any mode)
+- non-production deployment
+
+Absolute gates — human approval required in every mode:
+
 - production deployment
 - handling production data
 - activating paid ads
@@ -159,8 +172,9 @@ Human approval is required before:
 - contacting customers automatically
 - sending external communications
 - changing legal, financial, compliance, privacy, security, or sensitive claims
+- changing operating modes or `.pipe/mode.json`
 
-See `execution/approval-gates.md` for the approval gate policy.
+See `execution/approval-gates.md` for the approval gate policy and `execution/operating-modes.md` for the mode contract.
 
 ## Risky Actions
 
