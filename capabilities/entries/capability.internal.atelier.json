@@ -1,0 +1,187 @@
+{
+  "schemaVersion": "0.1.0",
+  "capabilityId": "capability.internal.atelier",
+  "name": "Atelier (Frontend/UX/UI Agent)",
+  "summary": "House frontend/UX/UI capability: concierge intake for outcome-level interface requests, visual direction, implementation, motion, asset-pipeline preparation, and audit — built on distilled house knowledge plus pinned external skill dependencies, with a mandatory learning loop.",
+  "kind": "capability",
+  "origin": "hybrid",
+  "lifecycle": "pilot",
+  "owner": {
+    "primaryOwner": "Atelier Agent",
+    "supportingOwner": "Execution Steward Agent",
+    "reviewer": "human operator"
+  },
+  "source": {
+    "sourceType": "skill",
+    "sourceName": "Atelier skill module",
+    "sourceUrl": null,
+    "repositoryPath": ".agents/skills/atelier/",
+    "licenseOrTerms": "Internal; external dependencies keep their own licenses (pinned in dependencies.lock.json)",
+    "versionOrDate": "2026-07-16",
+    "notes": "PIP-660 creates the F1 core: SKILL router (concierge default), reference chapters distilled from processed sources, stack adapters (vanilla, react-next, flutter, react-native-minimal), knowledge loop directories, dependency lock and updater, machine adapters installed by install.sh."
+  },
+  "routing": {
+    "useWhen": [
+      "A ticket or founder request involves designing, building, restyling, animating, or auditing a user interface (web or mobile).",
+      "An outcome-level interface request needs the concierge intake to become a Design Brief and rendered direction options.",
+      "Brand image/video assets for an interface need canonical prompts prepared for human execution."
+    ],
+    "doNotUseWhen": [
+      "The work is backend, data, or infrastructure with no user-facing surface.",
+      "The request is product strategy or validation without an interface deliverable.",
+      "Paid asset tools would need to be executed autonomously (human-in-the-loop only)."
+    ],
+    "pipelineStages": [
+      "mvp-scope",
+      "ticket-execution",
+      "review-merge",
+      "feedback-learning"
+    ],
+    "ticketTypes": [
+      "code",
+      "product",
+      "skill",
+      "documentation"
+    ],
+    "primaryConsumers": [
+      "claude-code",
+      "codex",
+      "human"
+    ],
+    "fallback": "Use the native frontend-design plugin skill plus the repository execution protocols; record that the Atelier module or its dependencies were unavailable and open a follow-up to restore them."
+  },
+  "inputs": [
+    {
+      "name": "interfaceRequest",
+      "required": true,
+      "description": "Founder/ticket request, from outcome-level (routed to concierge intake) to fully specified (routed directly to build/retheme/animate/audit).",
+      "sourceOrDestination": "Assigned ticket or founder conversation"
+    },
+    {
+      "name": "designBrief",
+      "required": false,
+      "description": "Existing design-brief.md of the target venture, when one was already produced.",
+      "sourceOrDestination": "Venture repository"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "verifiedInterfaceChange",
+      "required": true,
+      "description": "Implemented UI change with visual verification evidence and audit results (P0-P3).",
+      "sourceOrDestination": "Venture branch/PR + Linear handoff"
+    },
+    {
+      "name": "designBriefArtifact",
+      "required": false,
+      "description": "Versioned design-brief.md produced by the concierge intake.",
+      "sourceOrDestination": "Venture repository"
+    },
+    {
+      "name": "learningRecord",
+      "required": true,
+      "description": "Post-task learning per schemas/LearningRecord.schema.json (winning prompts, patterns, decisions, evidence).",
+      "sourceOrDestination": ".agents/skills/atelier/knowledge/learnings/"
+    }
+  ],
+  "schemas": {
+    "inputSchemas": [],
+    "outputSchemas": [
+      {
+        "name": "LearningRecord",
+        "pathOrUrl": "schemas/LearningRecord.schema.json",
+        "required": true
+      }
+    ],
+    "relatedSchemas": [
+      {
+        "name": "OperatingMode",
+        "pathOrUrl": "schemas/OperatingMode.schema.json",
+        "required": false
+      },
+      {
+        "name": "DeliveryEvidence",
+        "pathOrUrl": "schemas/DeliveryEvidence.schema.json",
+        "required": false
+      }
+    ],
+    "notes": "The Design Brief format is defined in .agents/skills/atelier/references/design-brief.md; a JSON schema may be extracted by a follow-up ticket if other capabilities start consuming it."
+  },
+  "toolAccess": {
+    "accessType": "local_file",
+    "requiresCredential": false,
+    "requiresNetwork": true,
+    "canMutateExternalState": true,
+    "allowedOperations": [
+      "Read skill chapters, patterns, and pinned dependencies",
+      "Edit venture UI code on ticket-scoped branches",
+      "Drive local previews/emulators for visual verification",
+      "Open PRs and merge per the target repo's operating mode",
+      "Write LearningRecords and pattern entries",
+      "Update dependency clones per lock policy"
+    ],
+    "forbiddenOperations": [
+      "Execute paid asset-generation tools",
+      "Deploy production or touch absolute-gate actions without human approval",
+      "Modify .pipe/mode.json or Atelier contract files outside a dedicated approved ticket",
+      "Ship UI without visual verification and the audit pass"
+    ]
+  },
+  "cost": {
+    "costType": "none",
+    "expectedCostLevel": "low",
+    "costDriver": "Local execution and model tokens; optional paid asset tools are human-executed and out of this capability's spend.",
+    "approvalRequiredBeforePaidUse": true
+  },
+  "risks": [
+    {
+      "category": "quality",
+      "level": "medium",
+      "description": "Generic (statistically convergent) design shipped despite the philosophy chapters.",
+      "mitigation": "Mandatory audit gate (slop pass + brief fidelity) before done; learning loop reinforces house taste over time."
+    },
+    {
+      "category": "security",
+      "level": "medium",
+      "description": "External skill dependencies could introduce adversarial instructions via updates.",
+      "mitigation": "Refs pinned in dependencies.lock.json; community-tier deltas touching executable instructions are held for review by update-deps.sh."
+    },
+    {
+      "category": "scope",
+      "level": "low",
+      "description": "Concierge mode could balloon a small fix into a redesign.",
+      "mitigation": "Vague-vs-specific routing law; ticket scope preserved; redesigns require their own ticket."
+    }
+  ],
+  "governance": {
+    "approvalRequired": false,
+    "approvalTriggers": [
+      "Production deployment of UI changes",
+      "Executing or paying for asset-generation services",
+      "Changing Atelier contract files (capability entry, specialization, SKILL routing)",
+      "External publication of designs or claims"
+    ],
+    "dataBoundary": "No secrets, customer data, or production data in briefs, learnings, patterns, or prompts sent to external tools; venture-sensitive learnings are marked via LearningRecord sensitivity and never cross ventures.",
+    "sensitiveActionBoundary": "Operating-mode contract governs tickets/PRs/merges; absolute gates in execution/approval-gates.md always require human approval.",
+    "loggingRequirement": "Every gated-or-autonomous action and every verified task logged in Linear handoff; LearningRecord per task; dependency update reports retained.",
+    "updatePolicy": "Knowledge content (references distillations, learnings, patterns) flows via the knowledge-content lane of execution/operating-modes.md under the standing umbrella ticket; contract changes require a dedicated approved ticket and PR."
+  },
+  "review": {
+    "lastReviewedAt": "2026-07-16",
+    "reviewCadence": "monthly",
+    "reviewStatus": "approved",
+    "reviewNotes": "F1 pilot approved by founder decisions of 2026-07-16 (stack set, weekly consolidation, community auto-update cut, concierge default, md-audio then Cofre pilots)."
+  },
+  "examples": [
+    {
+      "scenario": "Founder says 'preciso melhorar a interface do md-audio'.",
+      "expectedUse": "Concierge intake (≤5 questions with defaults), 2-3 rendered directions, Design Brief, then build/animate/audit on a branch with visual evidence and a LearningRecord.",
+      "expectedNonUse": "Do not interrogate at length, do not redesign beyond the chosen scope, do not ship without the audit pass."
+    },
+    {
+      "scenario": "Ticket asks for a hero section with exact specs.",
+      "expectedUse": "Skip the interview; build directly per motion-scroll and typography chapters; verify visually; audit; handoff.",
+      "expectedNonUse": "Do not run the concierge interview on a fully specified request."
+    }
+  ]
+}
