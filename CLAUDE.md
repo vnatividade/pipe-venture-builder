@@ -43,16 +43,23 @@ Use `claude/<ticket>-short-description` for Claude-led branches unless the ticke
 
 This file does not authorize Claude Code to bypass approval gates.
 
-Human approval remains required before:
+Check the repository's operating mode first (`.pipe/mode.json`, contract in `execution/operating-modes.md`). In an explicitly declared `exploration` repository, Claude Code runs the execution loop autonomously — Linear projects and tickets, PR opening, merge after the exploration review path, non-production deploys — logging every gated action in Linear. Without a valid mode file, behave as `restricted`.
+
+Human approval remains required in `restricted` mode before:
 
 - creating Linear projects or tickets
 - opening or merging pull requests
+- deploying to non-production targets
+
+Human approval remains required in **every** mode before:
+
 - deploying production
 - enabling billing, pricing collection, paid ads, or paid acquisition
 - handling secrets, credentials, private keys, customer data, or production data
 - contacting customers automatically or sending external communications
 - changing legal, financial, compliance, privacy, security, or sensitive claims
 - making claims about customers, evidence, metrics, integrations, or market validation without source artifacts
+- creating, editing, or deleting `.pipe/mode.json` or `execution/operating-modes.md`
 
 If approval is missing, stop and document the blocker in Linear or the PR.
 

@@ -12,6 +12,7 @@ Artifacts:
 - [Agent Master routing policy](agent-master-routing-policy.md)
 - [Tactical Execution Plan](tactical-execution-plan.md)
 - [development execution loop](development-execution-loop.md)
+- [operating modes: exploration vs restricted](operating-modes.md)
 - [ticket, PR, and handoff system](ticket-pr-handoff-system.md)
 - [test-oriented delivery rule](test-oriented-delivery-rule.md)
 - [Pipe command catalog](pipe-command-catalog.md)
