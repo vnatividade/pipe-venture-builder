@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "0.1.0",
+  "installRoot": "~/.claude/atelier-deps",
+  "updatedAt": "2026-07-16",
+  "trustTiers": {
+    "official": "auto-bump ref on update",
+    "community": "auto-fetch; apply only data-only deltas; hold and report deltas touching executable instructions (SKILL.md, commands, scripts, hooks)"
+  },
+  "dependencies": [
+    {
+      "name": "skills",
+      "repo": "https://github.com/anthropics/skills.git",
+      "ref": "9d2f1ae187231d8199c64b5b762e1bdf2244733d",
+      "trustTier": "official",
+      "role": "Anthropic frontend-design skill — base anti-cliché direction (also enabled as native plugin)",
+      "entryPoint": "skills/frontend-design/"
+    },
+    {
+      "name": "impeccable",
+      "repo": "https://github.com/pbakaus/impeccable.git",
+      "ref": "8259c28209b92792005cec14dad573df39f68eaf",
+      "trustTier": "community",
+      "role": "Iteration passes (animate/quieter/audit/document) + 46 deterministic slop detectors",
+      "entryPoint": "README.md"
+    },
+    {
+      "name": "ui-ux-pro-max-skill",
+      "repo": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill.git",
+      "ref": "f8ac5e1266dba8354ea96e19994d9f4345e7ec31",
+      "trustTier": "community",
+      "role": "Reasoning database: 67 UI styles, 161 palettes, 57 font pairs, 99 UX guidelines, 16 stacks",
+      "entryPoint": "SKILL.md"
+    },
+    {
+      "name": "web-interface-guidelines",
+      "repo": "https://github.com/vercel-labs/web-interface-guidelines.git",
+      "ref": "4e799d45c17aec1498c269287a83b9dba22b966b",
+      "trustTier": "official",
+      "role": "100+ interface/a11y audit rules (audit workflow)",
+      "entryPoint": "AGENTS.md"
+    },
+    {
+      "name": "astryx",
+      "repo": "https://github.com/facebook/astryx.git",
+      "ref": "06b5c6e8dafa95e8a7a80387c6058b471ad98135",
+      "trustTier": "official",
+      "role": "Agent-ready React+StyleX design system (per-venture opt-in component floor)",
+      "entryPoint": "CLAUDE.md"
+    },
+    {
+      "name": "boneyard",
+      "repo": "https://github.com/0xGF/boneyard.git",
+      "ref": "c085b32fe5647ac055871282ec93fa622149d183",
+      "trustTier": "community",
+      "role": "Skeleton screens snapshotted from real UI (states workflow)",
+      "entryPoint": ".claude/skills/boneyard/SKILL.md"
+    },
+    {
+      "name": "hyperframes",
+      "repo": "https://github.com/heygen-com/hyperframes.git",
+      "ref": "3bb26b0f08142e95126b4934511a09a1e68c143d",
+      "trustTier": "community",
+      "role": "HTML→video rendering for video deliverables; architectural reference for skill routing",
+      "entryPoint": "skills/hyperframes/SKILL.md"
+    }
+  ]
+}
