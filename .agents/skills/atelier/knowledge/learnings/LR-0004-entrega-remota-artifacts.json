@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "0.1.0",
+  "recordId": "LR-0004",
+  "title": "Entrega de direções para fundador remoto: artifacts com fontes embutidas, não paths/GitHub",
+  "learningType": "capability_usage",
+  "source": {
+    "originType": "manual_observation",
+    "linearId": "PIP-661",
+    "pullRequestUrl": null,
+    "artifactPathOrUrl": "~/Documents/frontend-ux-ui-agent/aurasite-directions/",
+    "observedAt": "2026-07-18",
+    "sourceSummary": "No piloto AuraSite fase 1, o fundador não conseguiu visualizar as direções HTML nem via GitHub (HTML não renderiza em blob view; repo privado) nem via paths locais (ele opera remoto via claude.ai/code). A entrega funcional foi publicar cada direção como Artifact — mas o CSP de artifacts bloqueia fonts.googleapis, exigindo embutir as fontes como data URI (subset latin cobre pt-BR) antes de publicar."
+  },
+  "scope": {
+    "domains": ["capability", "execution"],
+    "appliesToAgents": ["claude-code", "any-agent"],
+    "ticketTypes": ["skill", "product"],
+    "horizon": "now",
+    "limits": "Vale para deliverables HTML self-contained (direções, previews). Não substitui os arquivos canônicos no repo da venture — o artifact é o veículo de visualização do checkpoint de gosto."
+  },
+  "agent": {
+    "recordedBy": "claude-code (Atelier, Fable 5)",
+    "agentRole": "orchestrator",
+    "intendedConsumers": ["atelier skill (references/design-brief.md)", "futuras execucoes Atelier", "founder"]
+  },
+  "capability": {
+    "name": "atelier",
+    "type": "skill",
+    "maturity": "pilot",
+    "notes": "Complementa o fluxo concierge fase 1: o checkpoint de gosto precisa de visualização de 1 clique onde quer que o fundador esteja."
+  },
+  "confidence": {
+    "level": "high",
+    "score": 4,
+    "rationale": "Fricção real observada (fundador reportou não conseguir abrir); solução verificada: 3 artifacts publicados com 5/9/7 faces embutidas, zero refs externas, tipografia preservada."
+  },
+  "importance": {
+    "level": "high",
+    "score": 4,
+    "rationale": "O checkpoint de gosto é o único touchpoint humano do concierge; se o fundador não consegue VER as direções, o fluxo inteiro trava. Aplicável a todas as ventures."
+  },
+  "tags": ["concierge", "artifacts", "fonts", "csp", "delivery", "remote"],
+  "summary": "Direções do checkpoint de gosto devem ser entregues como Artifacts (1 por direção) com Google Fonts embutidas como data URI (subset latin), porque o fundador frequentemente opera remoto e HTML não renderiza no GitHub.",
+  "insight": "1) O deliverable da fase 1 do concierge tem dois formatos: arquivos canônicos no repo (para a fase 2 construir) + artifacts publicados (para o fundador escolher de qualquer dispositivo). 2) CSP de artifact bloqueia fonts.googleapis — embutir woff2 base64 do subset latin (cobre pt-BR, ~100-300KB por família) mantendo o resto do arquivo intacto. 3) Processo mecânico: extrair URL css2, fetch com UA de browser (garante woff2), manter blocos latin, substituir <link> por <style> com data URIs, validar zero refs externas.",
+  "evidence": "3 artifacts publicados na sessão de 2026-07-18 (direção A 403KB/5 faces, B 811KB/9 faces, C 361KB/7 faces), todos sem referências externas; fundador desbloqueado para o checkpoint.",
+  "recommendation": "Incorporar ao contrato do design-brief.md: fase 1 termina com a publicação das direções como artifacts font-embedded + links entregues ao fundador. Automatizar o embedding como script do módulo (scripts/embed-fonts.py) na próxima iteração.",
+  "promotion": {
+    "state": "candidate",
+    "humanReviewRequiredForPromotion": true,
+    "humanReviewStatus": "not_requested",
+    "automaticPromotionAllowed": false,
+    "targetCanonicalArtifact": ".agents/skills/atelier/references/design-brief.md",
+    "promotionRationale": "Muda o passo de entrega do checkpoint de gosto no contrato do concierge; revisão humana na consolidação semanal."
+  },
+  "sensitivity": {
+    "containsSensitiveData": false,
+    "containsCustomerEvidence": false,
+    "redactionRequired": false,
+    "humanReviewStatus": "not_required",
+    "notes": "Somente mecânica de entrega; nenhum dado de cliente ou segredo."
+  }
+}
