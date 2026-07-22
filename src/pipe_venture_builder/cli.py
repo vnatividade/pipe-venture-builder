@@ -12,6 +12,7 @@ from .adopt import generate_product_baseline, write_product_baseline
 from .discovery import discover_project_root, resolve_baseline_schema
 from .errors import PipeError
 from .exit_codes import INTERNAL_CONTRACT_ERROR, SUCCESS
+from .idea import generate_idea_baseline, write_idea_baseline
 from .validation import (
     invalid_baseline_error,
     load_json_document,
@@ -25,17 +26,44 @@ def build_parser() -> argparse.ArgumentParser:
         prog="pipe",
         description="Governed AI product delivery from idea or existing product context.",
     )
-    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+    parser.add_argument(
+        "--version", action="version", version=f"%(prog)s {__version__}"
+    )
     commands = parser.add_subparsers(dest="command", required=True)
 
-    version_parser = commands.add_parser("version", help="Show the installed Pipe CLI version.")
+    version_parser = commands.add_parser(
+        "version", help="Show the installed Pipe CLI version."
+    )
     version_parser.add_argument("--json", action="store_true", dest="as_json")
     version_parser.set_defaults(handler=_handle_version)
 
-    root_parser = commands.add_parser("root", help="Find the nearest Pipe project root.")
-    root_parser.add_argument("start", nargs="?", default=None, help="Location to search from.")
+    root_parser = commands.add_parser(
+        "root", help="Find the nearest Pipe project root."
+    )
+    root_parser.add_argument(
+        "start", nargs="?", default=None, help="Location to search from."
+    )
     root_parser.add_argument("--json", action="store_true", dest="as_json")
     root_parser.set_defaults(handler=_handle_root)
+
+    idea_parser = commands.add_parser(
+        "idea",
+        help="Generate a governed ProductBaseline from one brainstorm source.",
+    )
+    idea_parser.add_argument(
+        "source", help="Approved Markdown or JSON brainstorm file."
+    )
+    idea_parser.add_argument(
+        "--root",
+        help="Pipe toolkit root used to resolve the canonical ProductBaseline schema.",
+    )
+    idea_output = idea_parser.add_mutually_exclusive_group(required=True)
+    idea_output.add_argument(
+        "--output",
+        help="Write the baseline to a new file. Existing files are never replaced.",
+    )
+    idea_output.add_argument("--json", action="store_true", dest="as_json")
+    idea_parser.set_defaults(handler=_handle_idea)
 
     adopt_parser = commands.add_parser(
         "adopt",
@@ -59,13 +87,19 @@ def build_parser() -> argparse.ArgumentParser:
     adopt_output.add_argument("--json", action="store_true", dest="as_json")
     adopt_parser.set_defaults(handler=_handle_adopt)
 
-    baseline_parser = commands.add_parser("baseline", help="Work with ProductBaseline artifacts.")
-    baseline_commands = baseline_parser.add_subparsers(dest="baseline_command", required=True)
+    baseline_parser = commands.add_parser(
+        "baseline", help="Work with ProductBaseline artifacts."
+    )
+    baseline_commands = baseline_parser.add_subparsers(
+        dest="baseline_command", required=True
+    )
     validate_parser = baseline_commands.add_parser(
         "validate",
         help="Validate a ProductBaseline JSON artifact.",
     )
-    validate_parser.add_argument("baseline", help="ProductBaseline JSON file to validate.")
+    validate_parser.add_argument(
+        "baseline", help="ProductBaseline JSON file to validate."
+    )
     validate_parser.add_argument(
         "--root",
         help="Pipe repository root or a location inside it. Defaults to the current directory.",
@@ -104,7 +138,9 @@ def main(
             message="Pipe stopped after an unexpected internal error.",
             exit_code=INTERNAL_CONTRACT_ERROR,
         )
-        _render_error(internal_error, as_json=getattr(args, "as_json", False), stream=err)
+        _render_error(
+            internal_error, as_json=getattr(args, "as_json", False), stream=err
+        )
         return internal_error.exit_code
 
     _render_success(payload, as_json=getattr(args, "as_json", False), stream=out)
@@ -127,6 +163,35 @@ def _handle_root(args: argparse.Namespace) -> dict[str, Any]:
         "command": "root",
         "root": str(root),
         "message": str(root),
+    }
+
+
+def _handle_idea(args: argparse.Namespace) -> dict[str, Any]:
+    toolkit_root = discover_project_root(args.root)
+    schema_path = resolve_baseline_schema(toolkit_root)
+    schema = load_json_document(schema_path, kind="schema")
+    baseline = generate_idea_baseline(args.source)
+    findings = validate_product_baseline(baseline, schema)
+    if findings:
+        raise PipeError(
+            code="GENERATED_IDEA_BASELINE_INVALID",
+            message="Pipe generated an idea ProductBaseline that violates the canonical contract.",
+            exit_code=INTERNAL_CONTRACT_ERROR,
+            details=[finding.as_dict() for finding in findings[:50]],
+        )
+    if args.output:
+        write_idea_baseline(args.output, baseline)
+    return {
+        "ok": True,
+        "command": "idea",
+        "schemaVersion": baseline["schemaVersion"],
+        "baselineId": baseline["baselineId"],
+        "baseline": baseline if args.as_json else None,
+        "message": (
+            "Idea ProductBaseline generated. Review is required before founder focus."
+            if args.as_json
+            else "Idea ProductBaseline written. Review is required before founder focus."
+        ),
     }
 
 
@@ -194,4 +259,6 @@ def _render_error(error: PipeError, *, as_json: bool, stream: TextIO) -> None:
 
     print(f"Error [{error.code}]: {error.message}", file=stream)
     for detail in error.details:
-        print(f"- {detail['path']}: {detail['message']} ({detail['rule']})", file=stream)
+        print(
+            f"- {detail['path']}: {detail['message']} ({detail['rule']})", file=stream
+        )

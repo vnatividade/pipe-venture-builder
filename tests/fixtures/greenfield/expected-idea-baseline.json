@@ -1,0 +1,382 @@
+{
+  "approvals": [],
+  "artifacts": [
+    {
+      "artifactId": "ART-demand-validation",
+      "artifactType": "validation_artifact",
+      "externalRef": null,
+      "provenanceStatementIds": [
+        "ST-demand-evidence-missing"
+      ],
+      "sourceRef": null,
+      "status": "missing",
+      "title": "Customer-demand evidence"
+    },
+    {
+      "artifactId": "ART-idea-brief",
+      "artifactType": "product_context",
+      "externalRef": null,
+      "provenanceStatementIds": [
+        "ST-assumption-7baede13be",
+        "ST-assumption-d91c0c6cf4",
+        "ST-channel",
+        "ST-evidence-claim-0f4f848715",
+        "ST-mechanism",
+        "ST-problem",
+        "ST-product-name",
+        "ST-promise",
+        "ST-raw-idea",
+        "ST-solution-path",
+        "ST-target-user"
+      ],
+      "sourceRef": "single-idea.md",
+      "status": "candidate",
+      "title": "Greenfield idea brief candidate"
+    },
+    {
+      "artifactId": "ART-solution-path",
+      "artifactType": "decision",
+      "externalRef": null,
+      "provenanceStatementIds": [
+        "ST-solution-path"
+      ],
+      "sourceRef": "single-idea.md",
+      "status": "candidate",
+      "title": "Solution path decision"
+    }
+  ],
+  "baselineId": "PB-focusflow-idea",
+  "entryMode": "idea",
+  "evidence": {
+    "boundaryStatement": "The brainstorm is founder-authored hypothesis material. It does not prove customer demand, behavior, willingness to pay, product-market fit, or readiness to build.",
+    "customerEvidencePresent": false,
+    "demandValidationStatus": "hypothesis_only",
+    "statementIds": [],
+    "strongestEvidenceLane": "internal_assumption"
+  },
+  "generatedAt": "1970-01-01T00:00:00Z",
+  "governanceGaps": [
+    {
+      "affectedArtifactIds": [
+        "ART-demand-validation",
+        "ART-idea-brief"
+      ],
+      "blocks": [
+        "customer-demand claims",
+        "PRD or implementation authorization"
+      ],
+      "category": "validation",
+      "description": "The brainstorm contains no approved customer-demand evidence.",
+      "evidenceStatementIds": [
+        "ST-demand-evidence-missing"
+      ],
+      "gapId": "GAP-demand-evidence",
+      "owner": "Validation Agent",
+      "remediation": "Complete founder focus and governed validation before treating the idea as market evidence.",
+      "severity": "P2",
+      "status": "open"
+    },
+    {
+      "affectedArtifactIds": [
+        "ART-demand-validation",
+        "ART-idea-brief"
+      ],
+      "blocks": [
+        "using the claims as customer or market evidence"
+      ],
+      "category": "validation",
+      "description": "Founder-provided evidence claims have not been verified against approved source artifacts.",
+      "evidenceStatementIds": [
+        "ST-evidence-claim-0f4f848715"
+      ],
+      "gapId": "GAP-unverified-evidence-claims",
+      "owner": "Validation Agent",
+      "remediation": "Inspect and classify the underlying sources through the validation workflow.",
+      "severity": "P1",
+      "status": "blocked"
+    }
+  ],
+  "lifecycle": {
+    "currentStage": "idea_intake",
+    "nextAllowedStage": "founder_focus",
+    "stageConfidence": "medium",
+    "stageRationaleStatementIds": [
+      "ST-assumption-7baede13be",
+      "ST-assumption-d91c0c6cf4",
+      "ST-channel",
+      "ST-evidence-claim-0f4f848715",
+      "ST-mechanism",
+      "ST-problem",
+      "ST-product-name",
+      "ST-promise",
+      "ST-raw-idea",
+      "ST-solution-path",
+      "ST-target-user"
+    ]
+  },
+  "nextActions": [
+    {
+      "actionId": "NEXT-founder-focus",
+      "approvalRequired": false,
+      "blockedByGapIds": [],
+      "ownerRole": "Product Strategist",
+      "priority": "P2",
+      "suggestedCommand": "/pipe:discover",
+      "title": "Narrow founder focus and confirm the solution path"
+    }
+  ],
+  "product": {
+    "name": "FocusFlow",
+    "owner": "founder",
+    "productId": "focusflow",
+    "summary": "Greenfield product idea normalized from one approved brainstorm source; all product and evidence claims remain hypotheses pending review."
+  },
+  "reconciliationPlan": [],
+  "relationships": [
+    {
+      "confidence": "medium",
+      "fromArtifactId": "ART-idea-brief",
+      "relationshipType": "contains",
+      "sourceStatementIds": [
+        "ST-solution-path"
+      ],
+      "toArtifactId": "ART-solution-path"
+    },
+    {
+      "confidence": "high",
+      "fromArtifactId": "ART-idea-brief",
+      "relationshipType": "relates_to",
+      "sourceStatementIds": [
+        "ST-demand-evidence-missing"
+      ],
+      "toArtifactId": "ART-demand-validation"
+    }
+  ],
+  "schemaVersion": "0.1.0",
+  "sources": [
+    {
+      "accessStatus": "inspected",
+      "canonicality": "candidate",
+      "inspectedAt": "1970-01-01T00:00:00Z",
+      "limitation": "A founder-authored brainstorm records hypotheses and intent; it is not customer or market evidence.",
+      "location": "single-idea.md",
+      "sensitivity": "internal",
+      "sourceId": "SRC-brainstorm-65fb1a0290",
+      "sourceType": "brainstorm"
+    }
+  ],
+  "statements": [
+    {
+      "classification": "assumption",
+      "confidence": "low",
+      "decisionImpact": [
+        "validation planning"
+      ],
+      "disposition": "validate",
+      "reviewRequired": true,
+      "sourceIds": [
+        "SRC-brainstorm-65fb1a0290"
+      ],
+      "statementId": "ST-assumption-7baede13be",
+      "text": "Founder assumption: Founders will prefer a guided workflow over manually maintaining governance documents."
+    },
+    {
+      "classification": "assumption",
+      "confidence": "low",
+      "decisionImpact": [
+        "validation planning"
+      ],
+      "disposition": "validate",
+      "reviewRequired": true,
+      "sourceIds": [
+        "SRC-brainstorm-65fb1a0290"
+      ],
+      "statementId": "ST-assumption-d91c0c6cf4",
+      "text": "Founder assumption: One baseline can reduce repeated context reconstruction."
+    },
+    {
+      "classification": "fact",
+      "confidence": "high",
+      "decisionImpact": [
+        "source traceability"
+      ],
+      "disposition": "accepted_for_scope",
+      "reviewRequired": true,
+      "sourceIds": [
+        "SRC-brainstorm-65fb1a0290"
+      ],
+      "statementId": "ST-brainstorm-source",
+      "text": "One approved brainstorm source was safely parsed for greenfield intake."
+    },
+    {
+      "classification": "assumption",
+      "confidence": "low",
+      "decisionImpact": [
+        "channel hypothesis"
+      ],
+      "disposition": "validate",
+      "reviewRequired": true,
+      "sourceIds": [
+        "SRC-brainstorm-65fb1a0290"
+      ],
+      "statementId": "ST-channel",
+      "text": "Founder hypothesis — channel hypothesis: Founder-operated product repositories."
+    },
+    {
+      "classification": "missing",
+      "confidence": "high",
+      "decisionImpact": [
+        "validation posture",
+        "customer and market claims"
+      ],
+      "disposition": "fill_gap",
+      "reviewRequired": true,
+      "sourceIds": [],
+      "statementId": "ST-demand-evidence-missing",
+      "text": "No approved customer-demand evidence was inspected during brainstorm intake."
+    },
+    {
+      "classification": "assumption",
+      "confidence": "low",
+      "decisionImpact": [
+        "validation posture"
+      ],
+      "disposition": "validate",
+      "reviewRequired": true,
+      "sourceIds": [
+        "SRC-brainstorm-65fb1a0290"
+      ],
+      "statementId": "ST-evidence-claim-0f4f848715",
+      "text": "Unverified founder-provided evidence claim: The founder believes scattered context is slowing delivery."
+    },
+    {
+      "classification": "assumption",
+      "confidence": "low",
+      "decisionImpact": [
+        "solution hypothesis"
+      ],
+      "disposition": "validate",
+      "reviewRequired": true,
+      "sourceIds": [
+        "SRC-brainstorm-65fb1a0290"
+      ],
+      "statementId": "ST-mechanism",
+      "text": "Founder hypothesis — proposed mechanism: Normalize one approved brainstorm into a governed product baseline and route it to founder focus."
+    },
+    {
+      "classification": "assumption",
+      "confidence": "low",
+      "decisionImpact": [
+        "problem definition"
+      ],
+      "disposition": "validate",
+      "reviewRequired": true,
+      "sourceIds": [
+        "SRC-brainstorm-65fb1a0290"
+      ],
+      "statementId": "ST-problem",
+      "text": "Founder hypothesis — problem: Product context and delivery decisions are scattered across conversations, repositories, and task trackers."
+    },
+    {
+      "classification": "assumption",
+      "confidence": "medium",
+      "decisionImpact": [
+        "product identity"
+      ],
+      "disposition": "validate",
+      "reviewRequired": true,
+      "sourceIds": [
+        "SRC-brainstorm-65fb1a0290"
+      ],
+      "statementId": "ST-product-name",
+      "text": "Founder-provided working product name: FocusFlow"
+    },
+    {
+      "classification": "assumption",
+      "confidence": "low",
+      "decisionImpact": [
+        "offer definition"
+      ],
+      "disposition": "validate",
+      "reviewRequired": true,
+      "sourceIds": [
+        "SRC-brainstorm-65fb1a0290"
+      ],
+      "statementId": "ST-promise",
+      "text": "Founder hypothesis — promise: Produce one traceable next product-delivery action without requiring the founder to manage internal agent mechanics."
+    },
+    {
+      "classification": "assumption",
+      "confidence": "low",
+      "decisionImpact": [
+        "product framing"
+      ],
+      "disposition": "validate",
+      "reviewRequired": true,
+      "sourceIds": [
+        "SRC-brainstorm-65fb1a0290"
+      ],
+      "statementId": "ST-raw-idea",
+      "text": "Founder hypothesis — raw idea: A guided workspace that helps solo founders turn scattered product thoughts into one governed next step."
+    },
+    {
+      "classification": "assumption",
+      "confidence": "low",
+      "decisionImpact": [
+        "discovery route"
+      ],
+      "disposition": "validate",
+      "reviewRequired": true,
+      "sourceIds": [
+        "SRC-brainstorm-65fb1a0290"
+      ],
+      "statementId": "ST-solution-path",
+      "text": "Founder hypothesis — solution path: Own-pain solution."
+    },
+    {
+      "classification": "assumption",
+      "confidence": "low",
+      "decisionImpact": [
+        "target definition"
+      ],
+      "disposition": "validate",
+      "reviewRequired": true,
+      "sourceIds": [
+        "SRC-brainstorm-65fb1a0290"
+      ],
+      "statementId": "ST-target-user",
+      "text": "Founder hypothesis — target user: Solo founders maintaining an early-stage software product."
+    },
+    {
+      "classification": "missing",
+      "confidence": "high",
+      "decisionImpact": [
+        "founder focus",
+        "validation planning"
+      ],
+      "disposition": "fill_gap",
+      "reviewRequired": true,
+      "sourceIds": [
+        "SRC-brainstorm-65fb1a0290"
+      ],
+      "statementId": "ST-unknown-47b1ea1124",
+      "text": "Open question from the brainstorm: Which minimum fields make the first guided session useful?"
+    }
+  ],
+  "status": "review_required",
+  "stopConditions": [
+    "Do not treat founder statements or unverified source claims as customer or market evidence.",
+    "Do not perform research, outreach, billing, implementation, deployment, or external mutation during idea intake.",
+    "Do not ingest secrets, credentials, personal data, customer data, or production data.",
+    "Split multiple products into separate source artifacts before rerunning pipe idea."
+  ],
+  "systems": {
+    "github": null,
+    "linear": null,
+    "repository": {
+      "identifier": "focusflow",
+      "location": ".",
+      "status": "candidate"
+    }
+  }
+}
