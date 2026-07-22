@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pipe-venture-builder.local/schemas/ProductManifest.schema.json",
+  "title": "ProductManifest",
+  "description": "Portable, non-sensitive binding between one product repository and a compatible Pipe toolkit/runtime selection. The canonical instance lives at .pipe/project.json. It must not contain credentials, customer data, production data, private source content, or machine-specific absolute paths.",
+  "x-pipe-schema-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "productId",
+    "pipeVersion",
+    "entryMode",
+    "repository",
+    "linear",
+    "github",
+    "capabilities",
+    "runtime"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "productId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
+      "description": "Stable, non-sensitive product identifier. This is not a customer, tenant, or environment identifier."
+    },
+    "pipeVersion": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:[-+][0-9A-Za-z.-]+)?$",
+      "description": "Pipe toolkit version expected by this repository. Compatibility is checked by pipe doctor."
+    },
+    "entryMode": {
+      "type": "string",
+      "enum": [
+        "idea",
+        "adopt"
+      ]
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "root"
+      ],
+      "properties": {
+        "root": {
+          "type": "string",
+          "const": ".",
+          "description": "Repository-relative root. Absolute and user-specific paths are forbidden."
+        }
+      }
+    },
+    "linear": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId"
+      ],
+      "properties": {
+        "projectId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Za-z0-9_-]{1,128}$",
+          "description": "Stable Linear project identifier only; never an API token or credential."
+        }
+      }
+    },
+    "github": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository"
+      ],
+      "properties": {
+        "repository": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}$",
+          "description": "GitHub owner/repository identifier only; never a clone URL with embedded credentials."
+        }
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 32,
+          "items": {
+            "type": "string",
+            "pattern": "^capability\\.[a-z0-9][a-z0-9-]*(?:\\.[a-z0-9][a-z0-9-]*)*$"
+          }
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "preferred",
+        "fallbacks"
+      ],
+      "properties": {
+        "preferred": {
+          "type": "string",
+          "enum": [
+            "hermes",
+            "codex",
+            "claude-code"
+          ]
+        },
+        "fallbacks": {
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 2,
+          "items": {
+            "type": "string",
+            "enum": [
+              "hermes",
+              "codex",
+              "claude-code"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "schemaVersion": "0.1.0",
+      "productId": "example-product",
+      "pipeVersion": "0.1.0",
+      "entryMode": "idea",
+      "repository": {
+        "root": "."
+      },
+      "linear": {
+        "projectId": null
+      },
+      "github": {
+        "repository": null
+      },
+      "capabilities": {
+        "enabled": [
+          "capability.internal.atelier"
+        ]
+      },
+      "runtime": {
+        "preferred": "hermes",
+        "fallbacks": [
+          "codex",
+          "claude-code"
+        ]
+      }
+    }
+  ]
+}

@@ -17,6 +17,7 @@ Current schemas:
 - [DeliveryEvidence](DeliveryEvidence.schema.json)
 - [LearningRecord](LearningRecord.schema.json)
 - [OperatingMode](OperatingMode.schema.json) — contract for `.pipe/mode.json` (PIP-659; see `execution/operating-modes.md`)
+- [ProductManifest](ProductManifest.schema.json) — portable, non-sensitive repository binding at `.pipe/project.json` (PIP-709)
 - [ProductBaseline](ProductBaseline.schema.json) — common current-state contract for `idea` and `adopt` intake (PIP-700)
 - [SyntheticPersona](SyntheticPersona.schema.json)
 
