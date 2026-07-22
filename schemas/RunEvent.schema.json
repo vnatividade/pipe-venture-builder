@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pipe-venture-builder.local/schemas/RunEvent.schema.json",
+  "title": "RunEvent",
+  "description": "Append-only, hash-chained control-plane event containing normalized identifiers, state and fingerprints only. It excludes credentials, raw adapter payloads, customer data and production data.",
+  "x-pipe-schema-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "eventId",
+    "runId",
+    "sequence",
+    "occurredAt",
+    "eventType",
+    "status",
+    "reasonCode",
+    "references",
+    "fingerprints",
+    "checkpoint",
+    "constraints",
+    "previousEventHash",
+    "eventHash"
+  ],
+  "properties": {
+    "schemaVersion": { "type": "string", "const": "0.1.0" },
+    "eventId": { "type": "string", "pattern": "^EV-[a-f0-9]{12}$" },
+    "runId": { "type": "string", "pattern": "^RUN-[a-f0-9]{12}$" },
+    "sequence": { "type": "integer", "minimum": 1 },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "eventType": {
+      "type": "string",
+      "enum": [
+        "run.created",
+        "run.resumed",
+        "run.interrupted",
+        "run.completed",
+        "run.failed",
+        "plan.registered",
+        "approval.recorded",
+        "action.precondition_started",
+        "action.precondition_passed",
+        "action.blocked",
+        "action.skipped",
+        "action.apply_started",
+        "action.apply_succeeded",
+        "action.verify_started",
+        "action.verified",
+        "action.verify_failed"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "running", "succeeded", "skipped", "blocked", "failed", "interrupted"]
+    },
+    "reasonCode": {
+      "type": ["string", "null"],
+      "enum": [
+        null,
+        "approval_missing",
+        "approval_mismatch",
+        "approval_expired",
+        "approval_not_granted",
+        "action_not_applicable",
+        "action_blocked",
+        "source_changed",
+        "target_changed",
+        "target_version_missing",
+        "already_verified",
+        "adapter_conflict",
+        "adapter_failed",
+        "verification_failed",
+        "interrupted_after_apply",
+        "audit_chain_invalid"
+      ]
+    },
+    "references": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["planId", "actionId", "approvalId", "idempotencyKey", "resultRef"],
+      "properties": {
+        "planId": { "$ref": "#/$defs/nullablePlanId" },
+        "actionId": { "$ref": "#/$defs/nullableActionId" },
+        "approvalId": { "$ref": "#/$defs/nullableApprovalId" },
+        "idempotencyKey": { "$ref": "#/$defs/nullableSafeIdentifier" },
+        "resultRef": { "$ref": "#/$defs/nullableSafeIdentifier" }
+      }
+    },
+    "fingerprints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plan", "source", "expectedTarget", "observedTarget", "result"],
+      "properties": {
+        "plan": { "$ref": "#/$defs/nullableFingerprint" },
+        "source": { "$ref": "#/$defs/nullableFingerprint" },
+        "expectedTarget": { "$ref": "#/$defs/nullableFingerprint" },
+        "observedTarget": { "$ref": "#/$defs/nullableFingerprint" },
+        "result": { "$ref": "#/$defs/nullableFingerprint" }
+      }
+    },
+    "checkpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "attempt"],
+      "properties": {
+        "state": {
+          "type": ["string", "null"],
+          "enum": [
+            null,
+            "pending",
+            "precondition_passed",
+            "applying",
+            "applied",
+            "verifying",
+            "verified",
+            "skipped",
+            "blocked",
+            "failed",
+            "interrupted"
+          ]
+        },
+        "attempt": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rawPayloadPersisted",
+        "credentialsPersisted",
+        "customerDataPersisted",
+        "productionDataPersisted"
+      ],
+      "properties": {
+        "rawPayloadPersisted": { "const": false },
+        "credentialsPersisted": { "const": false },
+        "customerDataPersisted": { "const": false },
+        "productionDataPersisted": { "const": false }
+      }
+    },
+    "previousEventHash": { "$ref": "#/$defs/nullableFingerprint" },
+    "eventHash": { "$ref": "#/$defs/fingerprint" }
+  },
+  "$defs": {
+    "safeIdentifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/+=-]*$"
+    },
+    "fingerprint": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "nullableSafeIdentifier": {
+      "oneOf": [{ "$ref": "#/$defs/safeIdentifier" }, { "type": "null" }]
+    },
+    "nullableFingerprint": {
+      "oneOf": [{ "$ref": "#/$defs/fingerprint" }, { "type": "null" }]
+    },
+    "nullablePlanId": {
+      "oneOf": [
+        { "type": "string", "pattern": "^RP-[a-f0-9]{12}$" },
+        { "type": "null" }
+      ]
+    },
+    "nullableActionId": {
+      "oneOf": [
+        { "type": "string", "pattern": "^RA-[a-f0-9]{12}$" },
+        { "type": "null" }
+      ]
+    },
+    "nullableApprovalId": {
+      "oneOf": [
+        { "type": "string", "pattern": "^AP-[a-f0-9]{12}$" },
+        { "type": "null" }
+      ]
+    }
+  }
+}
