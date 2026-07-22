@@ -5,15 +5,17 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from pathlib import Path
 from typing import Any, Sequence, TextIO
 
 from . import __version__
+from .adopt import generate_product_baseline, write_product_baseline
 from .discovery import discover_project_root, resolve_baseline_schema
 from .errors import PipeError
 from .exit_codes import INTERNAL_CONTRACT_ERROR, SUCCESS
 from .validation import (
     invalid_baseline_error,
+    load_json_document,
+    validate_product_baseline,
     validate_product_baseline_files,
 )
 
@@ -34,6 +36,28 @@ def build_parser() -> argparse.ArgumentParser:
     root_parser.add_argument("start", nargs="?", default=None, help="Location to search from.")
     root_parser.add_argument("--json", action="store_true", dest="as_json")
     root_parser.set_defaults(handler=_handle_root)
+
+    adopt_parser = commands.add_parser(
+        "adopt",
+        help="Generate a safe ProductBaseline from a local repository.",
+    )
+    adopt_parser.add_argument(
+        "repository",
+        nargs="?",
+        default=".",
+        help="Existing product repository to inventory. Defaults to the current directory.",
+    )
+    adopt_parser.add_argument(
+        "--root",
+        help="Pipe toolkit root used to resolve the canonical ProductBaseline schema.",
+    )
+    adopt_output = adopt_parser.add_mutually_exclusive_group(required=True)
+    adopt_output.add_argument(
+        "--output",
+        help="Write the baseline to a new file. Existing files are never replaced.",
+    )
+    adopt_output.add_argument("--json", action="store_true", dest="as_json")
+    adopt_parser.set_defaults(handler=_handle_adopt)
 
     baseline_parser = commands.add_parser("baseline", help="Work with ProductBaseline artifacts.")
     baseline_commands = baseline_parser.add_subparsers(dest="baseline_command", required=True)
@@ -103,6 +127,35 @@ def _handle_root(args: argparse.Namespace) -> dict[str, Any]:
         "command": "root",
         "root": str(root),
         "message": str(root),
+    }
+
+
+def _handle_adopt(args: argparse.Namespace) -> dict[str, Any]:
+    toolkit_root = discover_project_root(args.root)
+    schema_path = resolve_baseline_schema(toolkit_root)
+    schema = load_json_document(schema_path, kind="schema")
+    baseline = generate_product_baseline(args.repository)
+    findings = validate_product_baseline(baseline, schema)
+    if findings:
+        raise PipeError(
+            code="GENERATED_BASELINE_INVALID",
+            message="Pipe generated a ProductBaseline that violates the canonical contract.",
+            exit_code=INTERNAL_CONTRACT_ERROR,
+            details=[finding.as_dict() for finding in findings[:50]],
+        )
+    if args.output:
+        write_product_baseline(args.output, baseline)
+    return {
+        "ok": True,
+        "command": "adopt",
+        "schemaVersion": baseline["schemaVersion"],
+        "baselineId": baseline["baselineId"],
+        "baseline": baseline if args.as_json else None,
+        "message": (
+            "ProductBaseline generated. Review is required before downstream routing."
+            if args.as_json
+            else "ProductBaseline written. Review is required before downstream routing."
+        ),
     }
 
 

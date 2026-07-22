@@ -1,0 +1,1 @@
+"""Adoption command tests."""

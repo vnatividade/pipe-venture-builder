@@ -1,0 +1,304 @@
+{
+  "approvals": [],
+  "artifacts": [
+    {
+      "artifactId": "ART-demand-validation",
+      "artifactType": "validation_artifact",
+      "externalRef": null,
+      "provenanceStatementIds": [
+        "ST-demand-evidence-missing"
+      ],
+      "sourceRef": null,
+      "status": "missing",
+      "title": "Customer-demand evidence"
+    },
+    {
+      "artifactId": "ART-package-50c86b7ed8",
+      "artifactType": "code_artifact",
+      "externalRef": null,
+      "provenanceStatementIds": [
+        "ST-package-metadata-present"
+      ],
+      "sourceRef": "pyproject.toml",
+      "status": "present",
+      "title": "Package metadata"
+    },
+    {
+      "artifactId": "ART-product-context",
+      "artifactType": "product_context",
+      "externalRef": null,
+      "provenanceStatementIds": [
+        "ST-product-identity"
+      ],
+      "sourceRef": "README.md",
+      "status": "partial",
+      "title": "README product context"
+    },
+    {
+      "artifactId": "ART-tests-1a4de2337e",
+      "artifactType": "code_artifact",
+      "externalRef": null,
+      "provenanceStatementIds": [
+        "ST-tests-1a4de2337e"
+      ],
+      "sourceRef": "tests/",
+      "status": "present",
+      "title": "Test suite metadata"
+    }
+  ],
+  "baselineId": "PB-brownfield-widget-adopt",
+  "entryMode": "adopt",
+  "evidence": {
+    "boundaryStatement": "Repository files, package metadata, tests, and Git history can show implementation maturity but do not prove customer demand, willingness to pay, product-market fit, or completion of historical validation gates.",
+    "customerEvidencePresent": false,
+    "demandValidationStatus": "unproven",
+    "statementIds": [],
+    "strongestEvidenceLane": "none"
+  },
+  "generatedAt": "1970-01-01T00:00:00Z",
+  "governanceGaps": [
+    {
+      "affectedArtifactIds": [
+        "ART-demand-validation",
+        "ART-product-context"
+      ],
+      "blocks": [
+        "customer-demand claims",
+        "market expansion based on repository maturity"
+      ],
+      "category": "validation",
+      "description": "No approved customer evidence was available to establish demand validation.",
+      "evidenceStatementIds": [
+        "ST-demand-evidence-missing"
+      ],
+      "gapId": "GAP-demand-evidence",
+      "owner": "Validation Agent",
+      "remediation": "Run the governed validation workflow before using demand claims for scope, launch, or expansion decisions.",
+      "severity": "P2",
+      "status": "open"
+    },
+    {
+      "affectedArtifactIds": [],
+      "blocks": [
+        "Git-based delivery reconstruction"
+      ],
+      "category": "execution",
+      "description": "Git delivery history was unavailable or empty for this repository inventory.",
+      "evidenceStatementIds": [
+        "ST-git-unavailable"
+      ],
+      "gapId": "GAP-git-history",
+      "owner": "Architecture Agent",
+      "remediation": "Confirm the intended repository or preserve the limitation when Git history is intentionally absent.",
+      "severity": "P3",
+      "status": "open"
+    }
+  ],
+  "lifecycle": {
+    "currentStage": "ticket_execution",
+    "nextAllowedStage": "validation_planning",
+    "stageConfidence": "medium",
+    "stageRationaleStatementIds": [
+      "ST-implementation-stage-assessment"
+    ]
+  },
+  "nextActions": [
+    {
+      "actionId": "NEXT-validate-demand",
+      "approvalRequired": false,
+      "blockedByGapIds": [
+        "GAP-demand-evidence"
+      ],
+      "ownerRole": "Validation Agent",
+      "priority": "P2",
+      "suggestedCommand": "/pipe:validate",
+      "title": "Define and execute the missing demand-validation plan"
+    }
+  ],
+  "product": {
+    "name": "Brownfield Widget",
+    "owner": "founder",
+    "productId": "brownfield-widget",
+    "summary": "Existing repository reconstructed from bounded local repository and Git metadata; product and demand claims remain unverified."
+  },
+  "reconciliationPlan": [],
+  "relationships": [
+    {
+      "confidence": "low",
+      "fromArtifactId": "ART-product-context",
+      "relationshipType": "documents",
+      "sourceStatementIds": [
+        "ST-package-metadata-present"
+      ],
+      "toArtifactId": "ART-package-50c86b7ed8"
+    },
+    {
+      "confidence": "low",
+      "fromArtifactId": "ART-product-context",
+      "relationshipType": "documents",
+      "sourceStatementIds": [
+        "ST-tests-1a4de2337e"
+      ],
+      "toArtifactId": "ART-tests-1a4de2337e"
+    }
+  ],
+  "schemaVersion": "0.1.0",
+  "sources": [
+    {
+      "accessStatus": "inspected",
+      "canonicality": "operational",
+      "inspectedAt": "1970-01-01T00:00:00Z",
+      "limitation": "Package metadata indicates implementation structure but does not prove product validation.",
+      "location": "pyproject.toml",
+      "sensitivity": "internal",
+      "sourceId": "SRC-pyproject.toml-50c86b7ed8",
+      "sourceType": "repository_file"
+    },
+    {
+      "accessStatus": "inspected",
+      "canonicality": "canonical",
+      "inspectedAt": "1970-01-01T00:00:00Z",
+      "limitation": "README metadata can describe intended product context but does not prove customer demand.",
+      "location": "README.md",
+      "sensitivity": "internal",
+      "sourceId": "SRC-readme.md-b335630551",
+      "sourceType": "repository_file"
+    },
+    {
+      "accessStatus": "inspected",
+      "canonicality": "canonical",
+      "inspectedAt": "1970-01-01T00:00:00Z",
+      "limitation": "Repository presence proves only that a local product workspace was inspected.",
+      "location": ".",
+      "sensitivity": "internal",
+      "sourceId": "SRC-repository",
+      "sourceType": "other"
+    },
+    {
+      "accessStatus": "inspected",
+      "canonicality": "operational",
+      "inspectedAt": "1970-01-01T00:00:00Z",
+      "limitation": "Test-path metadata indicates implementation structure only; test contents were not inspected.",
+      "location": "tests/",
+      "sensitivity": "internal",
+      "sourceId": "SRC-tests-1a4de2337e",
+      "sourceType": "code_artifact"
+    }
+  ],
+  "statements": [
+    {
+      "classification": "missing",
+      "confidence": "high",
+      "decisionImpact": [
+        "validation posture",
+        "launch and expansion claims"
+      ],
+      "disposition": "fill_gap",
+      "reviewRequired": true,
+      "sourceIds": [],
+      "statementId": "ST-demand-evidence-missing",
+      "text": "No approved customer-demand evidence was inspected during repository-only adoption."
+    },
+    {
+      "classification": "missing",
+      "confidence": "high",
+      "decisionImpact": [
+        "delivery traceability"
+      ],
+      "disposition": "fill_gap",
+      "reviewRequired": true,
+      "sourceIds": [],
+      "statementId": "ST-git-unavailable",
+      "text": "No local Git metadata was available for the adoption inventory."
+    },
+    {
+      "classification": "inference",
+      "confidence": "medium",
+      "decisionImpact": [
+        "current stage assessment"
+      ],
+      "disposition": "validate",
+      "reviewRequired": true,
+      "sourceIds": [
+        "SRC-pyproject.toml-50c86b7ed8",
+        "SRC-tests-1a4de2337e"
+      ],
+      "statementId": "ST-implementation-stage-assessment",
+      "text": "Repository and Git metadata support an implementation-maturity assessment at ticket execution; this does not advance validation posture."
+    },
+    {
+      "classification": "fact",
+      "confidence": "high",
+      "decisionImpact": [
+        "implementation maturity",
+        "runtime inventory"
+      ],
+      "disposition": "accepted_for_scope",
+      "reviewRequired": true,
+      "sourceIds": [
+        "SRC-pyproject.toml-50c86b7ed8"
+      ],
+      "statementId": "ST-package-metadata-present",
+      "text": "Approved package metadata is present in the repository."
+    },
+    {
+      "classification": "fact",
+      "confidence": "medium",
+      "decisionImpact": [
+        "product identity"
+      ],
+      "disposition": "accepted_for_scope",
+      "reviewRequired": true,
+      "sourceIds": [
+        "SRC-pyproject.toml-50c86b7ed8",
+        "SRC-readme.md-b335630551"
+      ],
+      "statementId": "ST-product-identity",
+      "text": "Approved repository metadata declares the current product name."
+    },
+    {
+      "classification": "fact",
+      "confidence": "high",
+      "decisionImpact": [
+        "product identity",
+        "inventory completeness"
+      ],
+      "disposition": "accepted_for_scope",
+      "reviewRequired": true,
+      "sourceIds": [
+        "SRC-repository"
+      ],
+      "statementId": "ST-repository-inventory",
+      "text": "A bounded local repository inventory completed using approved metadata classes."
+    },
+    {
+      "classification": "fact",
+      "confidence": "medium",
+      "decisionImpact": [
+        "implementation maturity"
+      ],
+      "disposition": "accepted_for_scope",
+      "reviewRequired": true,
+      "sourceIds": [
+        "SRC-tests-1a4de2337e"
+      ],
+      "statementId": "ST-tests-1a4de2337e",
+      "text": "Approved test-path metadata contains 1 test file(s)."
+    }
+  ],
+  "status": "review_required",
+  "stopConditions": [
+    "Do not inspect excluded sensitive sources without explicit human approval.",
+    "Do not create or update Linear, GitHub, deployment, or other external records during repository-only adoption.",
+    "Do not treat implementation maturity as customer-demand validation."
+  ],
+  "systems": {
+    "github": null,
+    "linear": null,
+    "repository": {
+      "identifier": "brownfield-widget",
+      "location": ".",
+      "status": "confirmed"
+    }
+  }
+}
