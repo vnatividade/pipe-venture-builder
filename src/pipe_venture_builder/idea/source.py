@@ -89,6 +89,11 @@ class IdeaSource:
 
 def load_idea_source(path: str | Path) -> IdeaSource:
     candidate = Path(path)
+    if candidate.is_symlink():
+        raise _source_error(
+            "IDEA_SOURCE_BLOCKED",
+            "The brainstorm source was blocked by the sensitive-data or bounded-input policy.",
+        )
     try:
         source = candidate.resolve(strict=True)
     except (OSError, FileNotFoundError) as exc:

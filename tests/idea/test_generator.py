@@ -94,6 +94,44 @@ class IdeaBaselineGeneratorTests(TestCase):
             first["sources"][0]["sourceId"], r"^SRC-brainstorm-[a-f0-9]{10}$"
         )
 
+    def test_non_latin_names_keep_distinct_content_derived_identities(self) -> None:
+        with TemporaryDirectory(prefix="pipe idea unicode ") as temporary:
+            first_source = Path(temporary) / "first.md"
+            second_source = Path(temporary) / "second.md"
+            first_source.write_text(
+                "# 製品\n\n## Target User\nFounders\n\n## Problem\nScattered context\n\n## Promise\nOne next step\n",
+                encoding="utf-8",
+            )
+            second_source.write_text(
+                "# فكرة\n\n## Target User\nFounders\n\n## Problem\nScattered context\n\n## Promise\nOne next step\n",
+                encoding="utf-8",
+            )
+
+            first = generate_idea_baseline(first_source)
+            second = generate_idea_baseline(second_source)
+
+        self.assertRegex(first["product"]["productId"], r"^idea-[a-f0-9]{10}$")
+        self.assertRegex(second["product"]["productId"], r"^idea-[a-f0-9]{10}$")
+        self.assertNotEqual(
+            first["product"]["productId"], second["product"]["productId"]
+        )
+        self.assertNotEqual(first["baselineId"], second["baselineId"])
+
+    def test_symlink_source_is_blocked(self) -> None:
+        with TemporaryDirectory(prefix="pipe idea symlink ") as temporary:
+            target = Path(temporary) / "target.md"
+            link = Path(temporary) / "link.md"
+            target.write_text("# Safe Name\n", encoding="utf-8")
+            try:
+                link.symlink_to(target)
+            except OSError as exc:
+                self.skipTest(f"Symlinks unavailable in this test environment: {exc}")
+
+            with self.assertRaises(PipeError) as captured:
+                generate_idea_baseline(link)
+
+        self.assertEqual(captured.exception.code, "IDEA_SOURCE_BLOCKED")
+
     def test_secret_and_personal_data_sources_are_blocked_without_leakage(self) -> None:
         sentinel = "FAKE_SECRET_VALUE_MUST_NOT_LEAK_123456789"
         with TemporaryDirectory(prefix="pipe idea safety ") as temporary:

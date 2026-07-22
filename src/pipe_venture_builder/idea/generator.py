@@ -25,7 +25,7 @@ REQUIRED_FRAMING_FIELDS = {"target_user", "problem", "promise"}
 def generate_idea_baseline(source_path: str | Path) -> dict[str, Any]:
     source = load_idea_source(source_path)
     product_id = (
-        slug(source.name, fallback="idea")
+        slug(source.name, fallback=f"idea-{source.source_digest[:10]}")
         if source.name
         else f"idea-{source.source_digest[:10]}"
     )
