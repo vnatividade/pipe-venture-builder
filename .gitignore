@@ -1,0 +1,20 @@
+# Python runtime and packaging artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+build/
+dist/
+
+# Local environments and machine-only configuration
+.venv/
+venv/
+.env
+.env.local
+.env.*.local
+
+# Operating-system metadata
+.DS_Store
+Thumbs.db
