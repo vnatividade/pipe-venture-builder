@@ -9,6 +9,7 @@ The commands are not executable slash commands, CLI commands, MCP tools, automat
 Use this catalog with:
 
 - `execution/core-pipeline-map.md`
+- `execution/dual-entry-product-intake-workflow.md`
 - `execution/agent-master-routing-policy.md`
 - `execution/context-routing-protocol.md`
 - `execution/tactical-execution-plan.md`
@@ -17,6 +18,7 @@ Use this catalog with:
 - `schemas/planning-schema-outlines.md`
 - `schemas/DeliveryEvidence.schema.json`
 - `schemas/LearningRecord.schema.json`
+- `schemas/ProductBaseline.schema.json`
 
 ## Global Rules
 
@@ -37,7 +39,8 @@ Every command in this catalog is spec-only until a later ticket explicitly autho
 
 | Command | Pipeline stage | Primary output | Next command |
 |---|---|---|---|
-| `/pipe:idea` | Idea intake | Focused idea brief or intake artifact | `/pipe:discover` |
+| `/pipe:idea` | Greenfield idea intake | ProductBaseline plus focused idea brief or intake artifact | `/pipe:discover` |
+| `/pipe:adopt` | Existing-product intake and governance reconstruction | ProductBaseline, governance gaps, and reconciliation proposal | Smallest safe existing command |
 | `/pipe:discover` | Founder focus and early framing | Founder focus, assumptions, unknowns, discovery questions | `/pipe:validate` |
 | `/pipe:validate` | C.O.N.T.R.O.L.E., research, validation plan | Validation plan, scorecard, GO/NO-GO gate | `/pipe:prd` |
 | `/pipe:prd` | Working Backwards and PRD | PRD and product requirements | `/pipe:plan` |
@@ -56,6 +59,8 @@ Every command in this catalog is spec-only until a later ticket explicitly autho
 Convert a raw idea into a narrow, traceable idea intake artifact.
 
 **Current artifacts:**
+- `schemas/ProductBaseline.schema.json`
+- `execution/dual-entry-product-intake-workflow.md`
 - `product/product-context.md`
 - `product/solution-path-decision.md`
 - `product/founder-focus.md`
@@ -68,6 +73,7 @@ Convert a raw idea into a narrow, traceable idea intake artifact.
 - Known target user, problem, promise, assumptions, and unknowns if available.
 
 **Expected output:**
+- `ProductBaseline` with `entryMode: idea`.
 - One focused idea hypothesis.
 - Selected solution path: market-facing solution, own-pain solution, or specific-person solution.
 - Initial target market and segment.
@@ -77,6 +83,7 @@ Convert a raw idea into a narrow, traceable idea intake artifact.
 - Next gate recommendation.
 
 **Required schema or outline:**
+- `ProductBaseline` schema.
 - `IdeaBrief` outline in `schemas/planning-schema-outlines.md`.
 
 **Capability routing:**
@@ -96,6 +103,63 @@ Convert a raw idea into a narrow, traceable idea intake artifact.
 
 **Next stage:**
 - `/pipe:discover`
+
+### `/pipe:adopt`
+
+**Purpose:**
+Bring an already-started product under Pipe governance without discarding implementation history or fabricating earlier strategy and validation evidence.
+
+**Current artifacts:**
+- `architecture/adr/adr-001-dual-entry-product-intake.md`
+- `execution/dual-entry-product-intake-workflow.md`
+- `schemas/ProductBaseline.schema.json`
+- `execution/core-pipeline-map.md`
+- `execution/linear-governance-model.md`
+- `architecture/context-pack-builder-spec.md`
+
+**Inputs:**
+- Approved local repository path or repository reference.
+- Product documents, Git history, and code artifacts available inside the declared source boundary.
+- Linear project/ticket and GitHub issue/PR/release references when configured and authorized.
+- User goal for adoption and intended next action.
+
+**Expected output:**
+- `ProductBaseline` with `entryMode: adopt`.
+- As-is artifact inventory and source-linked relationships.
+- Facts, inferences, assumptions, conflicts, and missing context.
+- Current strategic stage, implementation maturity, and next safe stage.
+- Governance gaps with severity and remediation.
+- Plan-first, idempotent reconciliation proposals for repository, Linear, and GitHub.
+- Explicit statement of what implementation history does not prove.
+
+**Required schema or outline:**
+- `ProductBaseline` schema.
+- Guided Session Artifact when the adoption goal originated in conversation and needs durable handoff.
+
+**Capability routing:**
+- Conversational Founder Guide for entry detection and founder-facing handoff.
+- Architecture Agent for repository and technical reconstruction.
+- Validation Agent for evidence classification.
+- Risk Reviewer for sensitive boundaries and P0/P1 gaps.
+- Linear Steward and Ticket/Roadmap Orchestrator for reconciliation planning.
+- Read-only connectors only during inventory.
+
+**GO conditions:**
+- Product identity and at least one inspectable source are confirmed.
+- Material statements have provenance and classification.
+- Customer/demand evidence boundary is explicit.
+- External differences remain proposed unless a separately approved apply action exists.
+- Next safe stage and blocked actions are visible.
+
+**NO-GO conditions:**
+- Required inspection would access secrets, customer data, production data, or sensitive material without approval.
+- The user requests implementation history to be labeled as customer validation.
+- Product identity or reconciliation target is uncertain.
+- P0/P1 conflict makes stage routing unsafe.
+- The command would delete, close, merge, deploy, rewrite history, or mutate external state.
+
+**Next stage:**
+- `/pipe:discover`, `/pipe:validate`, `/pipe:prd`, `/pipe:plan`, `/pipe:build`, or `/pipe:learn`, chosen from the accepted baseline.
 
 ### `/pipe:discover`
 
@@ -563,11 +627,23 @@ Walkthrough result:
 - Repository artifacts remain strategic and knowledge source of truth.
 - LearningRecord appears only when reusable learning exists.
 
+Brownfield variant:
+
+1. `/pipe:adopt`
+   - Reads approved repository and external operational metadata without mutation.
+   - Produces `ProductBaseline`, governance gaps, and reconciliation proposals.
+   - Keeps implementation facts separate from unproven demand or historical gate assumptions.
+2. Convergence gate
+   - Reviews material inferences, conflicts, evidence boundaries, and approvals.
+3. Existing command route
+   - Continues at the smallest safe command from the accepted current stage.
+
 ## Validation Expectations
 
 For this catalog ticket, validation should confirm:
 
 - all proposed commands are covered
+- `idea` and `adopt` both produce the canonical ProductBaseline
 - every command links to current repository artifacts
 - every command has GO and NO-GO conditions
 - every command has expected outputs

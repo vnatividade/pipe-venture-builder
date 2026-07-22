@@ -8,3 +8,4 @@ Do not store secrets, tokens, local credentials, or machine-specific configurati
 
 - [operating manual](operating-manual.md)
 - [template initialization workflow](template-initialization-workflow.md)
+- [portable bootstrap and runtime boundaries](portable-bootstrap-and-runtime-boundaries.md)

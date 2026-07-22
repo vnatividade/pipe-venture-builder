@@ -7,6 +7,7 @@ The founder or user should not need to know which Markdown file, gate, skill, MC
 Use this with:
 
 - `execution/core-pipeline-map.md`
+- `execution/dual-entry-product-intake-workflow.md`
 - `execution/agent-master-routing-policy.md`
 - `execution/context-routing-protocol.md`
 - `execution/approval-gates.md`
@@ -113,6 +114,7 @@ Use the user's language to infer intent. Do not require the user to name a phase
 | User says | Likely intent | Start stage | Front-door response |
 |---|---|---|---|
 | "I have an idea." | Raw idea shaping. | Idea intake | Ask for the idea in plain language, then confirm whether this is market-facing, own-pain, or for one specific person. |
+| "I already built part of the product but skipped the process." | Existing-product adoption. | Product baseline reconstruction | Route to `/pipe:adopt`; inventory approved repository/Linear/GitHub sources read-only, separate facts from inferences, and propose governance/reconciliation work without fabricating historical evidence. |
 | "I want this idea to succeed." | Strategic guidance. | Idea intake or founder focus | Narrow who, what pain, promised result, and first channel before validation. |
 | "I want to solve my own problem." | Own-pain solution path. | Idea intake | Confirm the own-pain path, then map the founder/operator workflow and dogfooding evidence before treating it as market validation. |
 | "I need to build this for one person." | Specific-person solution path. | Idea intake | Confirm the specific-person path, then focus discovery on that person's workflow without generalizing to a market. |
@@ -291,6 +293,7 @@ The agent does not need to show this full block to the user unless the user asks
 | Pipeline moment | Candidate capability route | Allowed use | Do not use for |
 |---|---|---|---|
 | Idea intake and founder focus | `capability.external.pm-skills` when approved or explicitly allowed; repository product and validation artifacts as fallback | Structure target user, pain, promise, assumptions, unknowns, anti-goals, and first manual discovery path | Customer proof, outreach, PRD, build tickets, automated lead search |
+| Existing-product adoption | Repository-native inspection through Codex or Claude Code; read-only Linear/GitHub connectors when configured and authorized | Produce ProductBaseline, artifact inventory, evidence boundaries, governance gaps, and reconciliation proposals | Treating code as market proof, semantic auto-linking, external mutation during inventory, secret/customer/production-data access |
 | C.O.N.T.R.O.L.E. and validation planning | PM Skills when approved; repository validation framework; `capability.external.consensus` only for approved source-backed research | Separate assumptions from evidence, define learning goals, identify respondent criteria, prepare questions | Treating research or synthetic output as customer validation |
 | Research synthesis | `capability.external.consensus` only when scientific/source-backed synthesis is in scope; `capability.external.notebooklm` only with approved source sets | Summarize cited sources, detect contradictions, support evidence review | Uploading private data by default, creating market proof, regulated conclusions |
 | Working Backwards, PRD, and MVP scope | PM Skills when approved; repository Working Backwards, PRD, and MVP templates | Draft or pressure-test product artifacts after validation gates allow | Skipping validation, broadening MVP, claiming demand without evidence |
@@ -370,6 +373,7 @@ Retrieve only what helps the current stage.
 | Pipeline moment | Retrieve first | Avoid |
 |---|---|---|
 | Idea intake | Existing product context, prior idea records, similar venture memory, active KDR/DAR constraints, customer-language memory if approved | Asking the user to repeat known idea context; treating synthetic or stale notes as evidence |
+| Existing-product adoption | Product repository, Git history, ProductBaseline, architecture/decision records, Linear/GitHub operational metadata, known failures | Broad unbounded dumps, invented historical gates, or treating implementation/delivery state as customer evidence |
 | Founder focus | Founder focus artifacts, anti-goals, prior market/channel decisions, decision conflicts, relevant venture memory | Expanding to multiple markets because memory contains many options |
 | C.O.N.T.R.O.L.E. | Prior C.O.N.T.R.O.L.E. evaluations, evidence scoring rules, KDR/DAR, relevant risk decisions | Reusing old scores without checking freshness or supersession |
 | Research and validation | Validation scorecards, persona/geography rubrics, research synthesis, customer-language memory, evidence records, source-quality rules | Using raw or identifiable customer data; treating research as customer proof |

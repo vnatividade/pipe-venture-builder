@@ -1,0 +1,1009 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pipe-venture-builder.local/schemas/ProductBaseline.schema.json",
+  "title": "ProductBaseline",
+  "description": "Canonical current-state contract emitted by both idea and adopt intake. It records provenance, evidence classification, artifact inventory, governance gaps, reconciliation proposals, approvals, and next safe actions. It does not prove historical gates, customer validation, or permission to mutate external systems.",
+  "x-pipe-schema-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "baselineId",
+    "generatedAt",
+    "entryMode",
+    "status",
+    "product",
+    "lifecycle",
+    "systems",
+    "sources",
+    "statements",
+    "artifacts",
+    "relationships",
+    "evidence",
+    "governanceGaps",
+    "reconciliationPlan",
+    "approvals",
+    "nextActions",
+    "stopConditions"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "0.1.0",
+      "description": "ProductBaseline schema version used by this record."
+    },
+    "baselineId": {
+      "type": "string",
+      "pattern": "^PB-[A-Za-z0-9._-]+$",
+      "description": "Stable baseline identifier. It must not contain customer or secret data."
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "entryMode": {
+      "type": "string",
+      "enum": [
+        "idea",
+        "adopt"
+      ],
+      "description": "idea ingests a brainstorm or early product source; adopt reconstructs an already-started product."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "review_required",
+        "accepted",
+        "blocked",
+        "superseded"
+      ]
+    },
+    "product": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "productId",
+        "name",
+        "summary",
+        "owner"
+      ],
+      "properties": {
+        "productId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Narrow current-state summary. Unsupported customer, revenue, integration, metric, or validation claims are forbidden."
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "currentStage",
+        "stageConfidence",
+        "stageRationaleStatementIds",
+        "nextAllowedStage"
+      ],
+      "properties": {
+        "currentStage": {
+          "$ref": "#/$defs/pipelineStage"
+        },
+        "stageConfidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "stageRationaleStatementIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "uniqueItems": true
+        },
+        "nextAllowedStage": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/pipelineStage"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "systems": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "linear",
+        "github"
+      ],
+      "properties": {
+        "repository": {
+          "$ref": "#/$defs/systemReference"
+        },
+        "linear": {
+          "$ref": "#/$defs/nullableSystemReference"
+        },
+        "github": {
+          "$ref": "#/$defs/nullableSystemReference"
+        }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "statements": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/statement"
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/artifact"
+      }
+    },
+    "relationships": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/relationship"
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "customerEvidencePresent",
+        "demandValidationStatus",
+        "strongestEvidenceLane",
+        "statementIds",
+        "boundaryStatement"
+      ],
+      "properties": {
+        "customerEvidencePresent": {
+          "type": "boolean"
+        },
+        "demandValidationStatus": {
+          "type": "string",
+          "enum": [
+            "unproven",
+            "hypothesis_only",
+            "partial",
+            "validated_for_declared_scope",
+            "conflicting",
+            "unknown"
+          ]
+        },
+        "strongestEvidenceLane": {
+          "type": "string",
+          "enum": [
+            "none",
+            "internal_assumption",
+            "synthetic",
+            "market_signal",
+            "scientific_or_expert",
+            "customer_language",
+            "usage_or_trial",
+            "customer_behavior"
+          ]
+        },
+        "statementIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "uniqueItems": true
+        },
+        "boundaryStatement": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Required plain-language statement of what the available sources do not prove."
+        }
+      }
+    },
+    "governanceGaps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/governanceGap"
+      }
+    },
+    "reconciliationPlan": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/reconciliationAction"
+      }
+    },
+    "approvals": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/approval"
+      }
+    },
+    "nextActions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/nextAction"
+      }
+    },
+    "stopConditions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/nonEmptyString"
+      }
+    }
+  },
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "confidence": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "P0",
+        "P1",
+        "P2",
+        "P3"
+      ]
+    },
+    "pipelineStage": {
+      "type": "string",
+      "enum": [
+        "idea_intake",
+        "founder_focus",
+        "controle_evaluation",
+        "validation_planning",
+        "working_backwards_prd",
+        "mvp_scope_review",
+        "risk_review",
+        "architecture",
+        "linear_planning",
+        "ticket_execution",
+        "first_product_trial",
+        "feedback_learning",
+        "unknown"
+      ]
+    },
+    "systemReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "identifier",
+        "location",
+        "status"
+      ],
+      "properties": {
+        "identifier": {
+          "type": "string",
+          "minLength": 1
+        },
+        "location": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Repository-relative path, clone URL, or approved external URL. Never include credentials."
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "confirmed",
+            "candidate",
+            "unavailable",
+            "conflicting"
+          ]
+        }
+      }
+    },
+    "nullableSystemReference": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/systemReference"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceId",
+        "sourceType",
+        "location",
+        "canonicality",
+        "sensitivity",
+        "accessStatus",
+        "inspectedAt",
+        "limitation"
+      ],
+      "properties": {
+        "sourceId": {
+          "type": "string",
+          "pattern": "^SRC-[A-Za-z0-9._-]+$"
+        },
+        "sourceType": {
+          "type": "string",
+          "enum": [
+            "brainstorm",
+            "guided_session",
+            "repository_file",
+            "git_history",
+            "code_artifact",
+            "linear_project",
+            "linear_ticket",
+            "github_issue",
+            "github_pull_request",
+            "release",
+            "research",
+            "customer_evidence",
+            "external_document",
+            "other"
+          ]
+        },
+        "location": {
+          "type": "string",
+          "minLength": 1
+        },
+        "canonicality": {
+          "type": "string",
+          "enum": [
+            "canonical",
+            "operational",
+            "candidate",
+            "derived"
+          ]
+        },
+        "sensitivity": {
+          "type": "string",
+          "enum": [
+            "public_safe",
+            "internal",
+            "sensitive_pointer_only",
+            "blocked"
+          ]
+        },
+        "accessStatus": {
+          "type": "string",
+          "enum": [
+            "inspected",
+            "not_available",
+            "not_authorized",
+            "not_applicable"
+          ]
+        },
+        "inspectedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "limitation": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "statementId",
+        "classification",
+        "text",
+        "sourceIds",
+        "confidence",
+        "decisionImpact",
+        "reviewRequired",
+        "disposition"
+      ],
+      "properties": {
+        "statementId": {
+          "type": "string",
+          "pattern": "^ST-[A-Za-z0-9._-]+$"
+        },
+        "classification": {
+          "type": "string",
+          "enum": [
+            "fact",
+            "inference",
+            "assumption",
+            "conflict",
+            "missing"
+          ]
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "uniqueItems": true
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "decisionImpact": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        },
+        "reviewRequired": {
+          "type": "boolean"
+        },
+        "disposition": {
+          "type": "string",
+          "enum": [
+            "accepted_for_scope",
+            "validate",
+            "resolve_conflict",
+            "fill_gap",
+            "ignore_with_reason",
+            "blocked"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "classification": {
+                "const": "fact"
+              }
+            },
+            "required": [
+              "classification"
+            ]
+          },
+          "then": {
+            "properties": {
+              "sourceIds": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifactId",
+        "artifactType",
+        "title",
+        "status",
+        "sourceRef",
+        "externalRef",
+        "provenanceStatementIds"
+      ],
+      "properties": {
+        "artifactId": {
+          "type": "string",
+          "pattern": "^ART-[A-Za-z0-9._-]+$"
+        },
+        "artifactType": {
+          "type": "string",
+          "enum": [
+            "product_context",
+            "product_requirement",
+            "feature",
+            "epic",
+            "ticket",
+            "adr",
+            "decision",
+            "code_artifact",
+            "audit_finding",
+            "validation_artifact",
+            "research_artifact",
+            "learning_record",
+            "other"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "present",
+            "partial",
+            "missing",
+            "candidate",
+            "conflicting",
+            "superseded"
+          ]
+        },
+        "sourceRef": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "externalRef": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "provenanceStatementIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "relationship": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fromArtifactId",
+        "relationshipType",
+        "toArtifactId",
+        "confidence",
+        "sourceStatementIds"
+      ],
+      "properties": {
+        "fromArtifactId": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "relationshipType": {
+          "type": "string",
+          "enum": [
+            "contains",
+            "implements",
+            "documents",
+            "decides",
+            "tracks",
+            "evidences",
+            "blocks",
+            "supersedes",
+            "finds",
+            "relates_to"
+          ]
+        },
+        "toArtifactId": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "sourceStatementIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "governanceGap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gapId",
+        "category",
+        "severity",
+        "description",
+        "affectedArtifactIds",
+        "evidenceStatementIds",
+        "blocks",
+        "remediation",
+        "owner",
+        "status"
+      ],
+      "properties": {
+        "gapId": {
+          "type": "string",
+          "pattern": "^GAP-[A-Za-z0-9._-]+$"
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "product",
+            "validation",
+            "research",
+            "architecture",
+            "execution",
+            "linear",
+            "github",
+            "documentation",
+            "knowledge",
+            "risk",
+            "portability",
+            "other"
+          ]
+        },
+        "severity": {
+          "$ref": "#/$defs/severity"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "affectedArtifactIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        },
+        "evidenceStatementIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        },
+        "blocks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        },
+        "remediation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "open",
+            "accepted",
+            "remediated",
+            "not_applicable",
+            "blocked"
+          ]
+        }
+      }
+    },
+    "reconciliationAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "actionId",
+        "targetSystem",
+        "actionType",
+        "targetRef",
+        "sourceArtifactIds",
+        "matchStrategy",
+        "confidence",
+        "idempotencyKey",
+        "reason",
+        "expectedEffect",
+        "approvalRequired",
+        "status"
+      ],
+      "properties": {
+        "actionId": {
+          "type": "string",
+          "pattern": "^REC-[A-Za-z0-9._-]+$"
+        },
+        "targetSystem": {
+          "type": "string",
+          "enum": [
+            "linear",
+            "github",
+            "repository"
+          ]
+        },
+        "actionType": {
+          "type": "string",
+          "enum": [
+            "create",
+            "update",
+            "link",
+            "ignore",
+            "investigate"
+          ]
+        },
+        "targetRef": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sourceArtifactIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "uniqueItems": true
+        },
+        "matchStrategy": {
+          "type": "string",
+          "enum": [
+            "explicit_reference",
+            "stable_external_id",
+            "git_relationship",
+            "semantic_candidate",
+            "manual"
+          ]
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Stable key used to prevent duplicate application across repeated adoption runs."
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expectedEffect": {
+          "type": "string",
+          "minLength": 1
+        },
+        "approvalRequired": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "proposed",
+            "approved",
+            "applied",
+            "skipped",
+            "blocked"
+          ]
+        }
+      }
+    },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action",
+        "required",
+        "status",
+        "sourceRef"
+      ],
+      "properties": {
+        "action": {
+          "type": "string",
+          "minLength": 1
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "not_required",
+            "missing",
+            "granted",
+            "denied",
+            "expired",
+            "blocked"
+          ]
+        },
+        "sourceRef": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "nextAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "actionId",
+        "title",
+        "ownerRole",
+        "priority",
+        "blockedByGapIds",
+        "approvalRequired",
+        "suggestedCommand"
+      ],
+      "properties": {
+        "actionId": {
+          "type": "string",
+          "pattern": "^NEXT-[A-Za-z0-9._-]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ownerRole": {
+          "type": "string",
+          "minLength": 1
+        },
+        "priority": {
+          "$ref": "#/$defs/severity"
+        },
+        "blockedByGapIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "uniqueItems": true
+        },
+        "approvalRequired": {
+          "type": "boolean"
+        },
+        "suggestedCommand": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "schemaVersion": "0.1.0",
+      "baselineId": "PB-example-product-001",
+      "generatedAt": "2026-07-20T12:00:00Z",
+      "entryMode": "adopt",
+      "status": "review_required",
+      "product": {
+        "productId": "example-product",
+        "name": "Example Product",
+        "summary": "Existing repository with an implemented feature and incomplete product governance.",
+        "owner": "founder"
+      },
+      "lifecycle": {
+        "currentStage": "ticket_execution",
+        "stageConfidence": "medium",
+        "stageRationaleStatementIds": [
+          "ST-implemented-feature"
+        ],
+        "nextAllowedStage": "feedback_learning"
+      },
+      "systems": {
+        "repository": {
+          "identifier": "example-product",
+          "location": ".",
+          "status": "confirmed"
+        },
+        "linear": null,
+        "github": null
+      },
+      "sources": [
+        {
+          "sourceId": "SRC-readme",
+          "sourceType": "repository_file",
+          "location": "README.md",
+          "canonicality": "canonical",
+          "sensitivity": "public_safe",
+          "accessStatus": "inspected",
+          "inspectedAt": "2026-07-20T12:00:00Z",
+          "limitation": "Describes intended behavior but does not prove customer demand."
+        }
+      ],
+      "statements": [
+        {
+          "statementId": "ST-implemented-feature",
+          "classification": "fact",
+          "text": "The repository documents one implemented feature.",
+          "sourceIds": [
+            "SRC-readme"
+          ],
+          "confidence": "medium",
+          "decisionImpact": [
+            "current stage assessment"
+          ],
+          "reviewRequired": true,
+          "disposition": "accepted_for_scope"
+        }
+      ],
+      "artifacts": [
+        {
+          "artifactId": "ART-product-context",
+          "artifactType": "product_context",
+          "title": "README product description",
+          "status": "partial",
+          "sourceRef": "README.md",
+          "externalRef": null,
+          "provenanceStatementIds": [
+            "ST-implemented-feature"
+          ]
+        },
+        {
+          "artifactId": "ART-implemented-feature",
+          "artifactType": "code_artifact",
+          "title": "Implemented feature candidate",
+          "status": "present",
+          "sourceRef": "README.md",
+          "externalRef": null,
+          "provenanceStatementIds": [
+            "ST-implemented-feature"
+          ]
+        }
+      ],
+      "relationships": [
+        {
+          "fromArtifactId": "ART-product-context",
+          "relationshipType": "documents",
+          "toArtifactId": "ART-implemented-feature",
+          "confidence": "medium",
+          "sourceStatementIds": [
+            "ST-implemented-feature"
+          ]
+        }
+      ],
+      "evidence": {
+        "customerEvidencePresent": false,
+        "demandValidationStatus": "unproven",
+        "strongestEvidenceLane": "internal_assumption",
+        "statementIds": [],
+        "boundaryStatement": "Implementation history does not prove customer demand or historical validation."
+      },
+      "governanceGaps": [
+        {
+          "gapId": "GAP-demand-evidence",
+          "category": "validation",
+          "severity": "P2",
+          "description": "No customer evidence was available to support demand validation.",
+          "affectedArtifactIds": [
+            "ART-product-context"
+          ],
+          "evidenceStatementIds": [],
+          "blocks": [
+            "market expansion claims"
+          ],
+          "remediation": "Run the appropriate validation workflow before using demand claims for scope or launch decisions.",
+          "owner": "Validation Agent",
+          "status": "open"
+        }
+      ],
+      "reconciliationPlan": [],
+      "approvals": [],
+      "nextActions": [
+        {
+          "actionId": "NEXT-validate-demand",
+          "title": "Define the missing demand-validation plan",
+          "ownerRole": "Validation Agent",
+          "priority": "P2",
+          "blockedByGapIds": [],
+          "approvalRequired": false,
+          "suggestedCommand": "/pipe:validate"
+        }
+      ],
+      "stopConditions": [
+        "Do not create or update external records without the required approval."
+      ]
+    }
+  ]
+}
