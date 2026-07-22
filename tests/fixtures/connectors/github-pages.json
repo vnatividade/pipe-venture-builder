@@ -1,0 +1,83 @@
+{
+  "sourceSystem": "github",
+  "container": {
+    "requestedId": "example/product",
+    "id": "R_example_001",
+    "nameWithOwner": "example/product",
+    "url": "https://github.com/example/product",
+    "createdAt": "2026-07-01T10:00:00Z",
+    "updatedAt": "2026-07-20T12:00:00Z",
+    "defaultBranchRef": {
+      "name": "main"
+    }
+  },
+  "pages": [
+    {
+      "items": [
+        {
+          "_pipeEntityType": "issue",
+          "id": "I_example_001",
+          "number": 7,
+          "title": "Document the read-only boundary",
+          "url": "https://github.com/example/product/issues/7",
+          "state": "CLOSED",
+          "createdAt": "2026-07-02T10:00:00Z",
+          "updatedAt": "2026-07-03T11:00:00Z",
+          "closedAt": "2026-07-03T11:00:00Z",
+          "labels": [
+            {
+              "name": "documentation"
+            }
+          ]
+        },
+        {
+          "_pipeEntityType": "pull_request",
+          "id": "PR_example_001",
+          "number": 12,
+          "title": "Add connector inventory",
+          "url": "https://github.com/example/product/pull/12",
+          "state": "MERGED",
+          "isDraft": false,
+          "headRefName": "feature/read-only",
+          "baseRefName": "main",
+          "headRefOid": "1111111111111111111111111111111111111111",
+          "createdAt": "2026-07-05T10:00:00Z",
+          "updatedAt": "2026-07-06T11:00:00Z",
+          "closedAt": "2026-07-06T11:00:00Z",
+          "mergedAt": "2026-07-06T11:00:00Z",
+          "mergeCommit": {
+            "oid": "2222222222222222222222222222222222222222"
+          },
+          "reviewDecision": "APPROVED",
+          "statusCheckRollup": [
+            {
+              "conclusion": "SUCCESS"
+            },
+            {
+              "state": "PENDING"
+            }
+          ],
+          "labels": [
+            {
+              "name": "type:code"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "items": [
+        {
+          "_pipeEntityType": "release",
+          "tagName": "v0.1.0",
+          "name": "First governed release",
+          "isDraft": false,
+          "isPrerelease": false,
+          "publishedAt": "2026-07-07T11:00:00Z",
+          "createdAt": "2026-07-07T10:00:00Z",
+          "url": "https://github.com/example/product/releases/tag/v0.1.0"
+        }
+      ]
+    }
+  ]
+}

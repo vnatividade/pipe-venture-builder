@@ -1,0 +1,85 @@
+{
+  "sourceSystem": "linear",
+  "container": {
+    "requestedId": "linear-project-001",
+    "id": "project-0001",
+    "slugId": "example-project",
+    "name": "Example Product",
+    "url": "https://linear.app/example/project/example-product",
+    "state": {
+      "name": "In Progress",
+      "type": "started"
+    },
+    "createdAt": "2026-07-01T10:00:00Z",
+    "updatedAt": "2026-07-20T12:00:00Z"
+  },
+  "pages": [
+    {
+      "items": [
+        {
+          "id": "issue-0001",
+          "identifier": "EX-1",
+          "title": "Create the governed intake baseline",
+          "url": "https://linear.app/example/issue/EX-1/example",
+          "state": {
+            "name": "Done",
+            "type": "completed"
+          },
+          "priority": {
+            "value": 2,
+            "name": "High"
+          },
+          "createdAt": "2026-07-02T10:00:00Z",
+          "updatedAt": "2026-07-03T11:00:00Z",
+          "completedAt": "2026-07-03T11:00:00Z",
+          "labels": {
+            "nodes": [
+              {
+                "name": "type:code"
+              }
+            ]
+          },
+          "relations": {
+            "blocks": [
+              {
+                "id": "issue-0002"
+              }
+            ],
+            "blockedBy": []
+          }
+        }
+      ]
+    },
+    {
+      "items": [
+        {
+          "id": "issue-0002",
+          "identifier": "EX-2",
+          "title": "Plan reconciliation without mutation",
+          "url": "https://linear.app/example/issue/EX-2/example",
+          "state": {
+            "name": "Backlog",
+            "type": "backlog"
+          },
+          "priority": 3,
+          "createdAt": "2026-07-04T10:00:00Z",
+          "updatedAt": "2026-07-05T11:00:00Z",
+          "labels": [
+            "type:workflow"
+          ],
+          "parent": {
+            "id": "issue-0001"
+          },
+          "relations": {
+            "blocks": [],
+            "blockedBy": [
+              {
+                "id": "issue-0001"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

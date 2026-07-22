@@ -1,0 +1,494 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pipe-venture-builder.local/schemas/ExternalSnapshot.schema.json",
+  "title": "ExternalSnapshot",
+  "description": "Canonical read-only inventory snapshot for bounded Linear and GitHub execution metadata. It stores normalized identifiers and timestamps, never credentials, headers, raw connector payloads, comments, bodies, customer data, or permission to mutate an external system.",
+  "x-pipe-schema-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "snapshotId",
+    "sourceSystem",
+    "sourceContainer",
+    "capturedAt",
+    "status",
+    "records",
+    "pagination",
+    "constraints",
+    "diagnostics"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "snapshotId": {
+      "type": "string",
+      "pattern": "^ES-(linear|github)-[a-f0-9]{12}$"
+    },
+    "sourceSystem": {
+      "type": "string",
+      "enum": [
+        "linear",
+        "github"
+      ]
+    },
+    "sourceContainer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id",
+        "url"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "project",
+            "repository"
+          ]
+        },
+        "id": {
+          "$ref": "#/$defs/safeIdentifier"
+        },
+        "url": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/safeUrl"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "capturedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "complete",
+        "partial",
+        "empty",
+        "unavailable",
+        "unauthorized",
+        "rate_limited",
+        "failed",
+        "blocked"
+      ]
+    },
+    "records": {
+      "type": "array",
+      "maxItems": 1001,
+      "items": {
+        "$ref": "#/$defs/record"
+      }
+    },
+    "pagination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "limit",
+        "returnedCount",
+        "pagesRead",
+        "truncated"
+      ],
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "returnedCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "pagesRead": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      }
+    },
+    "constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "readOnly",
+        "mutationSurfaceExposed",
+        "credentialsPersisted",
+        "rawPayloadPersisted"
+      ],
+      "properties": {
+        "readOnly": {
+          "const": true
+        },
+        "mutationSurfaceExposed": {
+          "const": false
+        },
+        "credentialsPersisted": {
+          "const": false
+        },
+        "rawPayloadPersisted": {
+          "const": false
+        }
+      }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/diagnostic"
+      }
+    }
+  },
+  "$defs": {
+    "safeIdentifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/+=-]*$"
+    },
+    "safeText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "safeUrl": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://[A-Za-z0-9.-]+(?::[0-9]{1,5})?(?:/[^?#]*)?$"
+    },
+    "nullableDateTime": {
+      "oneOf": [
+        {
+          "type": "string",
+          "format": "date-time"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recordId",
+        "sourceId",
+        "sourceKey",
+        "entityType",
+        "title",
+        "state",
+        "url",
+        "sourceCreatedAt",
+        "sourceUpdatedAt",
+        "sourceClosedAt",
+        "observedAt",
+        "relationships",
+        "attributes"
+      ],
+      "properties": {
+        "recordId": {
+          "type": "string",
+          "pattern": "^ER-(linear|github)-[a-f0-9]{12}$"
+        },
+        "sourceId": {
+          "$ref": "#/$defs/safeIdentifier"
+        },
+        "sourceKey": {
+          "$ref": "#/$defs/safeIdentifier"
+        },
+        "entityType": {
+          "type": "string",
+          "enum": [
+            "project",
+            "issue",
+            "repository",
+            "pull_request",
+            "release"
+          ]
+        },
+        "title": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/safeText"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "state": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/safeText"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "url": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/safeUrl"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceCreatedAt": {
+          "$ref": "#/$defs/nullableDateTime"
+        },
+        "sourceUpdatedAt": {
+          "$ref": "#/$defs/nullableDateTime"
+        },
+        "sourceClosedAt": {
+          "$ref": "#/$defs/nullableDateTime"
+        },
+        "observedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "relationships": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/relationship"
+          }
+        },
+        "attributes": {
+          "$ref": "#/$defs/attributes"
+        }
+      }
+    },
+    "relationship": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "targetSourceId"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "belongs_to",
+            "parent_of",
+            "child_of",
+            "blocks",
+            "blocked_by"
+          ]
+        },
+        "targetSourceId": {
+          "$ref": "#/$defs/safeIdentifier"
+        }
+      }
+    },
+    "attributes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "number",
+        "priority",
+        "labels",
+        "draft",
+        "merged",
+        "reviewDecision",
+        "baseBranch",
+        "headBranch",
+        "headSha",
+        "mergeCommitSha",
+        "defaultBranch",
+        "tag",
+        "prerelease",
+        "checkSummary"
+      ],
+      "properties": {
+        "number": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "priority": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 4
+        },
+        "labels": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/safeText"
+          }
+        },
+        "draft": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "merged": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "reviewDecision": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 100
+        },
+        "baseBranch": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256
+        },
+        "headBranch": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256
+        },
+        "headSha": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Fa-f0-9]{7,64}$"
+        },
+        "mergeCommitSha": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Fa-f0-9]{7,64}$"
+        },
+        "defaultBranch": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256
+        },
+        "tag": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256
+        },
+        "prerelease": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "checkSummary": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/checkSummary"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "checkSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total",
+        "successful",
+        "failed",
+        "pending",
+        "skipped"
+      ],
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "successful": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pending": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "skipped": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "category",
+        "severity",
+        "summary",
+        "retryable"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "access",
+            "availability",
+            "rate_limit",
+            "contract",
+            "safety",
+            "pagination"
+          ]
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "info",
+            "warning",
+            "error"
+          ]
+        },
+        "summary": {
+          "$ref": "#/$defs/safeText"
+        },
+        "retryable": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}
