@@ -1,0 +1,1 @@
+"""Greenfield idea-intake tests."""

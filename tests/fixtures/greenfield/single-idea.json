@@ -1,0 +1,16 @@
+{
+  "nome": "Rota Clara",
+  "ideia": "Organizar uma ideia bruta em um próximo passo governado.",
+  "publico alvo": "Fundadores solo",
+  "problema": "O contexto fica espalhado entre conversas e ferramentas.",
+  "promessa": "Gerar um próximo passo rastreável.",
+  "mecanismo": "Normalização local do brainstorm.",
+  "canal": "Repositórios do fundador",
+  "caminho da solucao": "Own-pain solution",
+  "hipoteses": [
+    "O fluxo guiado reduz reconstrução de contexto."
+  ],
+  "duvidas": [
+    "Qual é o conjunto mínimo de campos?"
+  ]
+}
