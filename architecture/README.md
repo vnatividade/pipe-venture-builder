@@ -22,6 +22,7 @@ Artifacts:
 - [proprietary data moat strategy](proprietary-data-moat-strategy.md)
 - [technical decision guide](technical-decision-guide.md)
 - [RFC template](rfc-template.md)
+- [ADR-001: dual-entry product intake](adr/adr-001-dual-entry-product-intake.md)
 - architecture decision records in `adr/`
 
 Architecture should optimize for learning speed, operational simplicity, and safe evolution.

@@ -4,10 +4,12 @@ This manual defines the first practical operating path for `pipe-venture-builder
 
 For starting a new product repository from this base template, use [template-initialization-workflow.md](template-initialization-workflow.md).
 
+For bringing an already-started product under Pipe governance, use [the dual-entry product intake workflow](../execution/dual-entry-product-intake-workflow.md). Adoption records the as-is state and governance gaps; it does not fabricate historical validation.
+
 ## Default Execution Loop
 
-1. Start from a single product idea.
-2. Capture the idea in `product/`.
+1. Choose `idea` for a brainstorm/new product or `adopt` for an existing product.
+2. Produce a source-linked `ProductBaseline`; for `idea`, also capture the idea in `product/`; for `adopt`, produce the as-is inventory and reconciliation proposal.
 3. Complete founder focus and strategic framing.
 4. Run C.O.N.T.R.O.L.E. before serious execution.
 5. Define research and validation work before implementation.

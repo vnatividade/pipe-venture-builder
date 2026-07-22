@@ -2,6 +2,14 @@
 
 This map defines the required sequence from raw idea intake to first product trial. It prevents implementation, billing, growth, or autonomous outreach from moving ahead of validation.
 
+## Entry Normalization
+
+New ideas enter through `/pipe:idea`. Products with existing code or operational history enter through `/pipe:adopt` as defined in `execution/dual-entry-product-intake-workflow.md`.
+
+Both entries must produce `schemas/ProductBaseline.schema.json`. Adoption may confirm later implementation maturity while recording earlier strategy, validation, documentation, or approval gaps. It must not invent historical gates or treat code, commits, tickets, PRs, or releases as customer evidence.
+
+The baseline routes the product to the smallest safe phase below. It does not waive any gate required for the next intended action.
+
 ## Pipeline Rule
 
 Do not create implementation tickets until:

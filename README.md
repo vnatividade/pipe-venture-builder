@@ -1,34 +1,27 @@
 # pipe-venture-builder
 
-Reusable venture builder operating-system template for taking a product idea from raw intake to validated MVP execution.
+Reusable venture builder operating-system template for taking either a raw product idea or an already-started product into governed, evidence-aware delivery.
 
-This repository is the base starting point for future product ideas. It is designed for solo founders and very small teams using Codex, Linear, GitHub, and focused agentic workflows.
+This repository is the base operating system for future product ideas and existing products that need governance recovery. It is designed for solo founders and very small teams using Codex, Linear, GitHub, and focused agentic workflows.
 
 ## What This Template Is
 
-`pipe-venture-builder` is not a general idea notebook or a prompt dump. It is a controlled execution pipeline for moving one product idea through founder focus, strategic validation, MVP definition, ticketed execution, review, and learning updates.
+`pipe-venture-builder` is not a general idea notebook or a prompt dump. It is a controlled execution system with two entry paths: shape a new idea, or adopt an existing product without inventing the documentation and evidence it never had. Both paths converge on one governed product baseline and then use the same validation, planning, delivery, review, and learning lifecycle.
 
 The repository should help future agents understand the current product state without relying on conversational memory.
 
 ## Operating Flow
 
 ```txt
-Idea
--> idea intake
--> founder focus
--> C.O.N.T.R.O.L.E. evaluation
--> research and validation plan
--> Working Backwards
--> PRD
--> MVP scope review
--> risk review
--> architecture
--> Linear project
--> Linear tickets
--> GitHub branch and PR
--> review and merge
--> learning updates
+New idea ---------> /pipe:idea ----┐
+                                   ├-> ProductBaseline -> stage assessment
+Existing product -> /pipe:adopt ---┘                         |
+                                                             v
+          discover -> validate -> prd -> plan -> build -> check
+             -> review -> ship -> learn -> next iteration or stop
 ```
+
+Stage assessment selects the smallest safe command; it never uses an existing implementation to waive missing validation, risk, or approval gates.
 
 Do not skip the validation gates just because implementation is possible. The point of the system is to keep execution narrow, traceable, and evidence-led.
 
@@ -36,7 +29,12 @@ For stage-level GO / REFINE / NO-GO boundaries across Idea, MVP, Launch, and Sca
 
 ## First-Run Path
 
-Start here when using this template for a new product idea:
+Choose the entry that matches the product:
+
+- New idea or brainstorm: start with `/pipe:idea`, then follow the greenfield path below.
+- Existing code/product: start with the specification in [execution/dual-entry-product-intake-workflow.md](execution/dual-entry-product-intake-workflow.md) and use `/pipe:adopt` to produce a current-state baseline and reconciliation plan before changing external systems.
+
+For a new product idea:
 
 1. Create a new repository from this template.
 2. Write the raw idea, target user, problem, promised result, and early assumptions in `product/`.
@@ -49,7 +47,7 @@ Start here when using this template for a new product idea:
 9. Execute one ticket per branch and one PR per ticket.
 10. Update `knowledge/` with decisions and learning after each cycle.
 
-See [setup/operating-manual.md](setup/operating-manual.md) for the operating manual.
+See [setup/operating-manual.md](setup/operating-manual.md) for the operating manual and [setup/portable-bootstrap-and-runtime-boundaries.md](setup/portable-bootstrap-and-runtime-boundaries.md) for the cross-machine target architecture.
 
 ## When Not To Proceed
 
@@ -84,6 +82,7 @@ When blocked, document the gap and create or execute the relevant setup or valid
 | `.codex/workflows/` | Codex execution workflows. |
 | `.github/` | GitHub project metadata and PR templates. |
 | `setup/` | Bootstrap and setup guidance. |
+| `schemas/` | Canonical machine-readable contracts shared by commands, agents, and future runtimes. |
 | `examples/` | Example pipeline runs for future product ideas. |
 
 ## Operating Principles
@@ -113,4 +112,4 @@ Human approval is required before:
 
 ## Current Status
 
-The repository skeleton and Linear project confirmation are in place. Foundation tickets continue to add the concrete README, operating manual, agent instructions, C.O.N.T.R.O.L.E. gate, founder focus templates, Working Backwards, PRD, and MVP scope templates.
+The declarative governance layer, command catalog, agent contracts, operating modes, capability registry, and core schemas are in place. The dual-entry architecture and `ProductBaseline` contract are specified. Executable `/pipe:*` commands, portable bootstrap/doctor, reconciliation adapters, and a persistent runtime remain follow-up implementation work.
