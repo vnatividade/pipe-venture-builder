@@ -110,6 +110,7 @@ class ProductBaselineGeneratorTests(TestCase):
 
             baseline = generate_product_baseline(repository)
 
+        self.assertEqual(validate_product_baseline(baseline, load_schema()), [])
         gap_ids = {gap["gapId"] for gap in baseline["governanceGaps"]}
         self.assertIn("GAP-inventory-truncated", gap_ids)
         self.assertNotIn("GAP-safety-omissions", gap_ids)
@@ -121,6 +122,15 @@ class ProductBaselineGeneratorTests(TestCase):
         self.assertEqual(
             (bounded_gap["severity"], bounded_gap["status"]), ("P2", "open")
         )
+        self.assertEqual(
+            bounded_gap["evidenceStatementIds"], ["ST-inventory-truncated"]
+        )
+        bounded_action = next(
+            action
+            for action in baseline["nextActions"]
+            if action["actionId"] == "NEXT-complete-bounded-inventory"
+        )
+        self.assertEqual(bounded_action["blockedByGapIds"], ["GAP-inventory-truncated"])
 
     def test_all_generated_references_resolve(self) -> None:
         baseline = generate_product_baseline(FIXTURE_ROOT)

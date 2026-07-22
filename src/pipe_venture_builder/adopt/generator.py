@@ -632,7 +632,7 @@ def _build_gaps(
                 "gapId": "GAP-safety-omissions",
                 "category": "risk",
                 "severity": "P1",
-                "description": "Potential sources were omitted because of sensitive-path, secret-shape, size, or traversal boundaries.",
+                "description": "Potential sources were omitted because of sensitive-path, secret-shape, access, or decoding boundaries.",
                 "affectedArtifactIds": [],
                 "evidenceStatementIds": [safety_statement_id],
                 "blocks": ["claiming a complete repository inventory"],
