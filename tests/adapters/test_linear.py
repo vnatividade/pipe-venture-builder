@@ -135,6 +135,17 @@ class LinearInventoryTests(TestCase):
         self.assertEqual(snapshot["status"], "empty")
         assert_valid_snapshot(self, snapshot)
 
+    def test_blank_connector_error_code_fails_closed(self) -> None:
+        source = LinearConnectorSource(lambda _tool_name, _arguments: {"error": "   "})
+
+        snapshot = LinearInventoryAdapter(source).capture(
+            "linear-project-001", captured_at=CAPTURED_AT
+        )
+
+        self.assertEqual(snapshot["status"], "failed")
+        self.assertEqual(snapshot["diagnostics"][0]["code"], "source_contract_failed")
+        assert_valid_snapshot(self, snapshot)
+
     def test_unsafe_payload_and_error_details_never_leak(self) -> None:
         sentinel = "ghp_" + ("S" * 24)
         container = {

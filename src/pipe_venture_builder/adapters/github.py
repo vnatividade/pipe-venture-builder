@@ -119,19 +119,32 @@ class GitHubGhCliSource:
         if any(not isinstance(collection, list) for collection in collections):
             raise SourceContractFailure()
 
+        typed_collections = tuple(
+            (entity_type, collection)
+            for entity_type, collection in zip(
+                ("issue", "pull_request", "release"), collections, strict=True
+            )
+        )
         combined: list[Mapping[str, Any]] = []
-        for entity_type, collection in zip(
-            ("issue", "pull_request", "release"), collections, strict=True
-        ):
-            for item in collection:
+        max_collection_size = max(
+            (len(collection) for collection in collections), default=0
+        )
+        for index in range(max_collection_size):
+            for entity_type, collection in typed_collections:
+                if index >= len(collection):
+                    continue
+                item = collection[index]
                 if not isinstance(item, Mapping):
                     raise SourceContractFailure()
                 enriched = dict(item)
                 enriched["_pipeEntityType"] = entity_type
                 combined.append(enriched)
+                if len(combined) >= limit:
+                    break
+            if len(combined) >= limit:
+                break
         truncated = any(len(collection) >= limit for collection in collections)
-        if len(combined) > limit:
-            combined = combined[:limit]
+        if sum(len(collection) for collection in collections) > len(combined):
             truncated = True
         return SourcePayload(
             container=repository,

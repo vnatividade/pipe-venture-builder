@@ -125,3 +125,92 @@ class GitHubInventoryTests(TestCase):
         self.assertEqual(snapshot["status"], "blocked")
         self.assertNotIn(sentinel, json.dumps(snapshot))
         assert_valid_snapshot(self, snapshot)
+
+    def test_non_hex_commit_identifier_fails_closed(self) -> None:
+        responses = {
+            ("repo", "view"): {
+                "id": "R_example_001",
+                "nameWithOwner": "example/product",
+                "url": "https://github.com/example/product",
+                "createdAt": CAPTURED_AT,
+                "updatedAt": CAPTURED_AT,
+                "defaultBranchRef": {"name": "main"},
+            },
+            ("issue", "list"): [],
+            ("pr", "list"): [
+                {
+                    "id": "PR_example_invalid",
+                    "number": 99,
+                    "title": "Invalid commit fixture",
+                    "url": "https://github.com/example/product/pull/99",
+                    "state": "OPEN",
+                    "headRefOid": "not-a-git-sha",
+                    "createdAt": CAPTURED_AT,
+                    "updatedAt": CAPTURED_AT,
+                }
+            ],
+            ("release", "list"): [],
+        }
+
+        def runner(command: Sequence[str], _timeout: float) -> CommandResult:
+            return CommandResult(0, json.dumps(responses[tuple(command[1:3])]))
+
+        snapshot = GitHubInventoryAdapter(GitHubGhCliSource(runner)).capture(
+            "example/product", captured_at=CAPTURED_AT
+        )
+
+        self.assertEqual(snapshot["status"], "failed")
+        assert_valid_snapshot(self, snapshot)
+
+    def test_total_limit_round_robins_across_github_entity_types(self) -> None:
+        repository = {
+            "id": "R_example_001",
+            "nameWithOwner": "example/product",
+            "url": "https://github.com/example/product",
+            "createdAt": CAPTURED_AT,
+            "updatedAt": CAPTURED_AT,
+            "defaultBranchRef": {"name": "main"},
+        }
+        issues = [
+            {
+                "id": f"I_example_{number}",
+                "number": number,
+                "title": f"Issue {number}",
+                "url": f"https://github.com/example/product/issues/{number}",
+                "state": "OPEN",
+                "createdAt": CAPTURED_AT,
+                "updatedAt": CAPTURED_AT,
+            }
+            for number in (1, 2, 3)
+        ]
+        pulls = [
+            {
+                "id": "PR_example_001",
+                "number": 10,
+                "title": "Pull request",
+                "url": "https://github.com/example/product/pull/10",
+                "state": "OPEN",
+                "createdAt": CAPTURED_AT,
+                "updatedAt": CAPTURED_AT,
+            }
+        ]
+        responses = {
+            ("repo", "view"): repository,
+            ("issue", "list"): issues,
+            ("pr", "list"): pulls,
+            ("release", "list"): [],
+        }
+
+        def runner(command: Sequence[str], _timeout: float) -> CommandResult:
+            return CommandResult(0, json.dumps(responses[tuple(command[1:3])]))
+
+        snapshot = GitHubInventoryAdapter(GitHubGhCliSource(runner)).capture(
+            "example/product", captured_at=CAPTURED_AT, limit=2
+        )
+
+        self.assertEqual(snapshot["status"], "partial")
+        self.assertEqual(
+            {record["entityType"] for record in snapshot["records"]},
+            {"repository", "issue", "pull_request"},
+        )
+        assert_valid_snapshot(self, snapshot)

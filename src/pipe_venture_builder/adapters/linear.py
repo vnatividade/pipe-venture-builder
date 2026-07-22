@@ -255,7 +255,10 @@ def _error_code(result: Mapping[str, Any]) -> str | None:
         code = result.get("errorCode")
     if code is None and result.get("ok") is False:
         return "unknown"
-    return safe_text(code, limit=100).lower() if code is not None else None
+    normalized = safe_text(code, limit=100) if code is not None else None
+    return (
+        normalized.lower() if normalized else ("unknown" if error is not None else None)
+    )
 
 
 def _state(value: Any) -> str | None:

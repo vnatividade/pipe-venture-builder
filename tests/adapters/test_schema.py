@@ -23,3 +23,15 @@ class ExternalSnapshotSchemaTests(TestCase):
             ],
             False,
         )
+
+    def test_schema_rejects_credentials_in_url_userinfo(self) -> None:
+        schema = external_snapshot_schema()
+        url_schema = schema["$defs"]["safeUrl"]
+
+        findings = list(
+            Draft202012Validator(url_schema).iter_errors(
+                "https://user:password@github.com/example/product"
+            )
+        )
+
+        self.assertTrue(findings)

@@ -34,7 +34,7 @@ The adapters scan the source envelope before normalization and scan the normaliz
 
 `sourceId` preserves the provider's stable entity identifier. `sourceKey` keeps the operator-facing key such as `PIP-710`, PR number, repository name, or release tag. `recordId` is derived from source system, entity type, and `sourceId`.
 
-`snapshotId` is derived from source system, container, status, and normalized records. The `capturedAt`/`observedAt` timestamp remains part of a capture's normalized record set, so a new observation can be distinguished from an older one even when external state is unchanged.
+`snapshotId` is derived from source system, container, capture time, status, and normalized records. A new success or failure observation can therefore be distinguished from an older one even when external state is unchanged; repeating the same fixture with the same injected capture time remains deterministic.
 
 PIP-711 owns reconciliation idempotency keys and difference planning. An `ExternalSnapshot` never grants permission to apply a difference.
 

@@ -41,3 +41,11 @@ class FailureStateTests(TestCase):
                 self.assertEqual(snapshot["diagnostics"][0]["code"], code)
                 self.assertEqual(snapshot["records"], [])
                 assert_valid_snapshot(self, snapshot)
+
+    def test_failure_snapshot_identity_includes_capture_time(self) -> None:
+        adapter = LinearInventoryAdapter(_FailureSource(SourceUnavailable()))
+
+        first = adapter.capture("project-example", captured_at=CAPTURED_AT)
+        second = adapter.capture("project-example", captured_at="2026-07-21T12:00:01Z")
+
+        self.assertNotEqual(first["snapshotId"], second["snapshotId"])

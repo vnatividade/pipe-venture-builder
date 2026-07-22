@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from datetime import datetime, timezone
 from typing import Any, Callable, Iterable, Mapping
 
@@ -22,6 +23,7 @@ from .safety import UnsafeValueError, payload_is_safe, safe_identifier, safe_url
 Normalizer = Callable[
     [Mapping[str, Any], tuple[Mapping[str, Any], ...], str], list[dict[str, Any]]
 ]
+_GIT_SHA = re.compile(r"^[A-Fa-f0-9]{7,64}$")
 
 
 def capture_snapshot(
@@ -192,7 +194,10 @@ def make_record(
         base_attributes[key] = safe_text(base_attributes[key], limit=256)
     for key in ("headSha", "mergeCommitSha"):
         if base_attributes[key] is not None:
-            base_attributes[key] = safe_identifier(base_attributes[key])
+            candidate = str(base_attributes[key])
+            if not _GIT_SHA.fullmatch(candidate):
+                raise ValueError("invalid Git commit identifier")
+            base_attributes[key] = candidate
 
     return {
         "recordId": _stable_id(
@@ -265,6 +270,7 @@ def _snapshot(
         {
             "sourceSystem": source_system,
             "containerId": container_id,
+            "capturedAt": captured_at,
             "status": status,
             "records": records,
         },

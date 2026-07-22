@@ -29,6 +29,7 @@ _FORBIDDEN_KEYS = {
     "token",
 }
 _SAFE_IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/+=-]{0,255}$")
+_SAFE_HTTPS_URL = re.compile(r"^https://[A-Za-z0-9.-]+(?::[0-9]{1,5})?(?:/[^?#]*)?$")
 
 
 class UnsafeValueError(ValueError):
@@ -80,6 +81,7 @@ def safe_url(value: Any) -> str | None:
         or parsed.query
         or parsed.fragment
         or contains_sensitive_value(candidate)
+        or _SAFE_HTTPS_URL.fullmatch(candidate) is None
     ):
         raise UnsafeValueError("unsafe external URL")
     return candidate
