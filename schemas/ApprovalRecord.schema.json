@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pipe-venture-builder.local/schemas/ApprovalRecord.schema.json",
+  "title": "ApprovalRecord",
+  "description": "A time-bounded human decision for one exact reconciliation action and source/target scope. It is an audit record, not a credential or a reusable permission grant.",
+  "x-pipe-schema-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "approvalId",
+    "planId",
+    "actionId",
+    "actionVersion",
+    "idempotencyKey",
+    "decision",
+    "actor",
+    "decidedAt",
+    "expiresAt",
+    "sourceRef",
+    "scope",
+    "constraints",
+    "recordFingerprint"
+  ],
+  "properties": {
+    "schemaVersion": { "type": "string", "const": "0.1.0" },
+    "approvalId": { "type": "string", "pattern": "^AP-[a-f0-9]{12}$" },
+    "planId": { "type": "string", "pattern": "^RP-[a-f0-9]{12}$" },
+    "actionId": { "type": "string", "pattern": "^RA-[a-f0-9]{12}$" },
+    "actionVersion": { "type": "string", "pattern": "^v[0-9]+$" },
+    "idempotencyKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(linear|github|repository):[A-Za-z0-9._:/+=-]+:[A-Za-z0-9._-]+:ART-[A-Za-z0-9._-]+:v[0-9]+$"
+    },
+    "decision": { "type": "string", "enum": ["approved", "denied", "revoked"] },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["actorId", "actorType"],
+      "properties": {
+        "actorId": { "$ref": "#/$defs/safeIdentifier" },
+        "actorType": { "const": "human" }
+      }
+    },
+    "decidedAt": { "type": "string", "format": "date-time" },
+    "expiresAt": { "type": "string", "format": "date-time" },
+    "sourceRef": { "$ref": "#/$defs/safeIdentifier" },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "targetSystem",
+        "targetContainerId",
+        "actionType",
+        "sourceArtifactIds",
+        "targetRecordIds",
+        "sourceFingerprint",
+        "targetFingerprint"
+      ],
+      "properties": {
+        "targetSystem": { "type": "string", "enum": ["linear", "github", "repository"] },
+        "targetContainerId": { "$ref": "#/$defs/safeIdentifier" },
+        "actionType": { "type": "string", "enum": ["create", "update", "link"] },
+        "sourceArtifactIds": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^ART-[A-Za-z0-9._-]+$" }
+        },
+        "targetRecordIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^ER-(linear|github)-[a-f0-9]{12}$" }
+        },
+        "sourceFingerprint": { "$ref": "#/$defs/fingerprint" },
+        "targetFingerprint": {
+          "oneOf": [{ "$ref": "#/$defs/fingerprint" }, { "type": "null" }]
+        }
+      }
+    },
+    "constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "automaticApproval",
+        "productionAuthorized",
+        "secretsAuthorized",
+        "customerDataAuthorized",
+        "destructiveActionsAuthorized"
+      ],
+      "properties": {
+        "automaticApproval": { "const": false },
+        "productionAuthorized": { "const": false },
+        "secretsAuthorized": { "const": false },
+        "customerDataAuthorized": { "const": false },
+        "destructiveActionsAuthorized": { "const": false }
+      }
+    },
+    "recordFingerprint": { "$ref": "#/$defs/fingerprint" }
+  },
+  "$defs": {
+    "safeIdentifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/+=-]*$"
+    },
+    "fingerprint": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    }
+  }
+}
