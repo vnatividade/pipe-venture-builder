@@ -580,7 +580,7 @@ def _runtime_checks(
     preferred = manifest["runtime"]["preferred"]
     candidates = [preferred, *manifest["runtime"]["fallbacks"]]
     available: list[str] = []
-    adapter_ready: list[str] = []
+    adapter_usable: list[str] = []
     checks: list[DoctorCheck] = []
     for runtime in candidates:
         present = which(RUNTIME_BINARIES[runtime]) is not None
@@ -606,13 +606,13 @@ def _runtime_checks(
             required=False,
             check_prefix="runtime_adapter",
         )
-        if adapter.status == "configured":
-            adapter_ready.append(runtime)
+        if adapter.status in {"configured", "unauthorized"}:
+            adapter_usable.append(runtime)
         checks.append(adapter)
     usable = [
         runtime
         for runtime in candidates
-        if runtime in available and runtime in adapter_ready
+        if runtime in available and runtime in adapter_usable
     ]
     checks.append(
         DoctorCheck(
@@ -621,7 +621,7 @@ def _runtime_checks(
             "configured" if usable else "blocked",
             True,
             (
-                "At least one selected executor and its registry entry are available."
+                "At least one selected executor is installed and registered; action-specific authorization may still be required."
                 if usable
                 else "No selected executor has both a local binary and usable registry entry."
             ),
@@ -689,14 +689,19 @@ def _capability_entry_check(
             "Restore a schema-valid capability entry with matching identity.",
         )
     lifecycle = entry.get("lifecycle")
-    if lifecycle == "blocked":
+    review_status = entry.get("review", {}).get("reviewStatus")
+    if lifecycle == "blocked" or review_status == "changes_requested":
         status = "blocked"
-    elif lifecycle in {"proposed", "restricted", "deprecated"}:
+    elif lifecycle == "proposed":
+        status = "unavailable"
+    elif lifecycle == "deprecated":
+        status = "incompatible"
+    elif lifecycle == "restricted" or review_status == "restricted":
         status = "unauthorized"
     else:
         status = "configured"
     repository_path = entry.get("source", {}).get("repositoryPath")
-    if status == "configured" and repository_path:
+    if repository_path:
         if _machine_specific(repository_path) or ".." in Path(repository_path).parts:
             status = "blocked"
         else:

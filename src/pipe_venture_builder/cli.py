@@ -372,6 +372,8 @@ def _handle_adopt(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def _handle_baseline_validate(args: argparse.Namespace) -> dict[str, Any]:
+    # Standalone validation preserves the original minimal-root contract;
+    # idea/adopt consume the full PIP-709 toolkit surface.
     root = discover_project_root(args.root)
     schema_path = resolve_baseline_schema(root, args.schema)
     findings = validate_product_baseline_files(args.baseline, schema_path)

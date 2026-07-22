@@ -38,6 +38,10 @@ class DoctorTests(TestCase):
             checks["runtime_adapter_capability_external_hermes"].status,
             "unavailable",
         )
+        self.assertEqual(
+            checks["runtime_adapter_capability_external_codex"].status,
+            "unauthorized",
+        )
 
     def test_check_states_distinguish_unauthorized_and_incompatible(self) -> None:
         with TemporaryDirectory(prefix="pipe doctor states ") as temporary:

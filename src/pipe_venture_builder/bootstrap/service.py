@@ -147,6 +147,13 @@ def apply_bootstrap(
                 planned.manifest, handle, indent=2, sort_keys=True, ensure_ascii=False
             )
             handle.write("\n")
+        loaded = load_product_manifest(product_root, toolkit_root)
+        if loaded.data != planned.manifest:
+            raise PipeError(
+                code="BOOTSTRAP_POSTCONDITION_FAILED",
+                message="The created ProductManifest did not match the validated plan.",
+                exit_code=MANIFEST_INVALID,
+            )
     except FileExistsError as exc:
         raise PipeError(
             code="BOOTSTRAP_CONFLICT",
@@ -166,13 +173,6 @@ def apply_bootstrap(
             exit_code=INPUT_UNAVAILABLE,
         ) from exc
 
-    loaded = load_product_manifest(product_root, toolkit_root)
-    if loaded.data != planned.manifest:
-        raise PipeError(
-            code="BOOTSTRAP_POSTCONDITION_FAILED",
-            message="The created ProductManifest did not match the validated plan.",
-            exit_code=MANIFEST_INVALID,
-        )
     return BootstrapResult(
         action="created",
         operations=planned.operations,

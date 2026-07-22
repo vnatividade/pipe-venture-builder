@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
+from unittest.mock import patch
 
 from pipe_venture_builder.bootstrap import (
     BootstrapOptions,
@@ -11,6 +12,7 @@ from pipe_venture_builder.bootstrap import (
     plan_bootstrap,
 )
 from pipe_venture_builder.errors import PipeError
+from pipe_venture_builder.manifest import ProductManifest
 
 from tests.portability.helpers import TOOLKIT_ROOT
 
@@ -98,6 +100,34 @@ class BootstrapTests(TestCase):
 
         self.assertEqual(captured.exception.code, "BOOTSTRAP_CONFLICT")
         self.assertEqual(preserved, original)
+
+    def test_failed_postcondition_rolls_back_created_targets(self) -> None:
+        with TemporaryDirectory(prefix="pipe bootstrap rollback ") as temporary:
+            root = Path(temporary)
+            unexpected = ProductManifest(
+                root=root,
+                path=root / ".pipe/project.json",
+                data={"unexpected": True},
+            )
+
+            with (
+                patch(
+                    "pipe_venture_builder.bootstrap.service.load_product_manifest",
+                    return_value=unexpected,
+                ),
+                self.assertRaises(PipeError) as captured,
+            ):
+                apply_bootstrap(
+                    root,
+                    TOOLKIT_ROOT,
+                    pipe_version="0.1.0",
+                    options=OPTIONS,
+                )
+
+            remaining = tuple(root.iterdir())
+
+        self.assertEqual(captured.exception.code, "BOOTSTRAP_POSTCONDITION_FAILED")
+        self.assertEqual(remaining, ())
 
     def test_missing_initial_configuration_writes_nothing(self) -> None:
         with TemporaryDirectory(prefix="pipe bootstrap missing ") as temporary:

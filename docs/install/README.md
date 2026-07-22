@@ -139,6 +139,8 @@ pipe adopt /path/to/existing-product --json
 
 Both commands resolve the local toolkit without requiring a product manifest to contain its installation path. Their generated ProductBaseline remains `review_required` and does not authorize implementation or external mutation.
 
+`pipe baseline validate` intentionally retains the earlier minimal-root contract: a standalone validation root needs the canonical ProductBaseline schema and a Pipe marker, but not ProductManifest. `idea`, `adopt`, `bootstrap`, and `doctor` use the full PIP-709 toolkit resolver because they consume the wider portability surface.
+
 ## Safety Boundary
 
 Bootstrap and doctor do not:
