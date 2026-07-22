@@ -6,6 +6,7 @@ from tempfile import TemporaryDirectory
 from unittest import TestCase
 
 from pipe_venture_builder.doctor import run_doctor
+from pipe_venture_builder.doctor.checks import _capability_governance_status
 
 from tests.portability.helpers import (
     TOOLKIT_ROOT,
@@ -15,6 +16,25 @@ from tests.portability.helpers import (
 
 
 class DoctorTests(TestCase):
+    def test_capability_review_status_uses_the_canonical_enum(self) -> None:
+        cases = {
+            ("pilot", "approved"): "configured",
+            ("pilot", "restricted"): "unauthorized",
+            ("pilot", "not-reviewed"): "unauthorized",
+            ("pilot", "needs-update"): "incompatible",
+            ("pilot", "blocked"): "blocked",
+            ("proposed", "approved"): "unavailable",
+            ("deprecated", "approved"): "incompatible",
+            ("blocked", "approved"): "blocked",
+            ("restricted", "approved"): "unauthorized",
+        }
+        for (lifecycle, review_status), expected in cases.items():
+            with self.subTest(lifecycle=lifecycle, review_status=review_status):
+                self.assertEqual(
+                    _capability_governance_status(lifecycle, review_status),
+                    expected,
+                )
+
     def test_configured_product_uses_fallback_and_reports_warning(self) -> None:
         with TemporaryDirectory(prefix="pipe doctor ready ") as temporary:
             root = Path(temporary)

@@ -690,16 +690,7 @@ def _capability_entry_check(
         )
     lifecycle = entry.get("lifecycle")
     review_status = entry.get("review", {}).get("reviewStatus")
-    if lifecycle == "blocked" or review_status == "changes_requested":
-        status = "blocked"
-    elif lifecycle == "proposed":
-        status = "unavailable"
-    elif lifecycle == "deprecated":
-        status = "incompatible"
-    elif lifecycle == "restricted" or review_status == "restricted":
-        status = "unauthorized"
-    else:
-        status = "configured"
+    status = _capability_governance_status(lifecycle, review_status)
     repository_path = entry.get("source", {}).get("repositoryPath")
     if repository_path:
         if _machine_specific(repository_path) or ".." in Path(repository_path).parts:
@@ -758,6 +749,18 @@ def _connector_checks(manifest: dict[str, Any]) -> list[DoctorCheck]:
                 )
             )
     return checks
+
+
+def _capability_governance_status(lifecycle: Any, review_status: Any) -> str:
+    if lifecycle == "blocked" or review_status == "blocked":
+        return "blocked"
+    if lifecycle == "proposed":
+        return "unavailable"
+    if lifecycle == "deprecated" or review_status == "needs-update":
+        return "incompatible"
+    if lifecycle == "restricted" or review_status in {"restricted", "not-reviewed"}:
+        return "unauthorized"
+    return "configured"
 
 
 def _overall_status(checks: tuple[DoctorCheck, ...]) -> str:
