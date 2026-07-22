@@ -1,0 +1,81 @@
+[
+  {
+    "name": "explicit",
+    "records": [
+      {"source_id": "issue-711", "source_key": "PIP-711"}
+    ],
+    "expected": {
+      "actionType": "update",
+      "status": "proposed",
+      "matchStrategy": "explicit_reference",
+      "confidence": "high",
+      "blockers": []
+    }
+  },
+  {
+    "name": "ambiguous",
+    "baseline": {
+      "action_type": "create",
+      "target_ref": null,
+      "match_strategy": "manual"
+    },
+    "records": [
+      {"source_id": "issue-711", "source_key": "PIP-711"},
+      {"source_id": "issue-712", "source_key": "PIP-712"}
+    ],
+    "expected": {
+      "actionType": "investigate",
+      "status": "blocked",
+      "matchStrategy": "semantic_candidate",
+      "confidence": "low",
+      "blockers": ["ambiguous_match"]
+    }
+  },
+  {
+    "name": "duplicate",
+    "records": [
+      {"source_id": "issue-711-a", "source_key": "PIP-711"},
+      {"source_id": "issue-711-b", "source_key": "PIP-711"}
+    ],
+    "expected": {
+      "actionType": "investigate",
+      "status": "blocked",
+      "matchStrategy": "explicit_reference",
+      "confidence": "high",
+      "reason": "An exact identity resolved to multiple external records.",
+      "blockers": ["duplicate_target"]
+    }
+  },
+  {
+    "name": "stale",
+    "snapshot": {
+      "captured_at": "2026-07-19T00:00:00Z"
+    },
+    "records": [
+      {"source_id": "issue-711", "source_key": "PIP-711", "observed_at": "2026-07-19T00:00:00Z"}
+    ],
+    "expected": {
+      "actionType": "investigate",
+      "status": "blocked",
+      "matchStrategy": "explicit_reference",
+      "confidence": "high",
+      "blockers": ["stale_snapshot"]
+    }
+  },
+  {
+    "name": "conflicting",
+    "baseline": {
+      "artifact_status": "conflicting"
+    },
+    "records": [
+      {"source_id": "issue-711", "source_key": "PIP-711"}
+    ],
+    "expected": {
+      "actionType": "investigate",
+      "status": "blocked",
+      "matchStrategy": "explicit_reference",
+      "confidence": "high",
+      "blockers": ["source_conflict"]
+    }
+  }
+]

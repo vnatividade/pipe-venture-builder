@@ -1,0 +1,269 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pipe-venture-builder.local/schemas/ReconciliationPlan.schema.json",
+  "title": "ReconciliationPlan",
+  "description": "Deterministic, review-only reconciliation plan. It contains normalized references and fingerprints, never credentials, raw external payloads, permission grants, or an external mutation capability.",
+  "x-pipe-schema-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "planId",
+    "generatedAt",
+    "baseline",
+    "snapshots",
+    "status",
+    "summary",
+    "actions",
+    "blockers",
+    "constraints"
+  ],
+  "properties": {
+    "schemaVersion": { "type": "string", "const": "0.1.0" },
+    "planId": { "type": "string", "pattern": "^RP-[a-f0-9]{12}$" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "baseline": { "$ref": "#/$defs/baselineReference" },
+    "snapshots": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/snapshotReference" }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["ready_for_review", "blocked", "no_changes"]
+    },
+    "summary": { "$ref": "#/$defs/summary" },
+    "actions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/action" }
+    },
+    "blockers": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/blocker" }
+    },
+    "constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "planOnly",
+        "externalMutationPerformed",
+        "mutationSurfaceExposed",
+        "semanticMatchesAutoConfirmed",
+        "destructiveActionsAllowed"
+      ],
+      "properties": {
+        "planOnly": { "const": true },
+        "externalMutationPerformed": { "const": false },
+        "mutationSurfaceExposed": { "const": false },
+        "semanticMatchesAutoConfirmed": { "const": false },
+        "destructiveActionsAllowed": { "const": false }
+      }
+    }
+  },
+  "$defs": {
+    "fingerprint": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "baselineReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baselineId", "generatedAt", "fingerprint"],
+      "properties": {
+        "baselineId": { "type": "string", "pattern": "^PB-[A-Za-z0-9._-]+$" },
+        "generatedAt": { "type": "string", "format": "date-time" },
+        "fingerprint": { "$ref": "#/$defs/fingerprint" }
+      }
+    },
+    "snapshotReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "snapshotId",
+        "sourceSystem",
+        "sourceContainerId",
+        "capturedAt",
+        "status",
+        "fingerprint"
+      ],
+      "properties": {
+        "role": { "type": "string", "enum": ["observed", "verification"] },
+        "snapshotId": { "type": "string", "pattern": "^ES-(linear|github)-[a-f0-9]{12}$" },
+        "sourceSystem": { "type": "string", "enum": ["linear", "github"] },
+        "sourceContainerId": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "capturedAt": { "type": "string", "format": "date-time" },
+        "status": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "empty",
+            "unavailable",
+            "unauthorized",
+            "rate_limited",
+            "failed",
+            "blocked"
+          ]
+        },
+        "fingerprint": { "$ref": "#/$defs/fingerprint" }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "proposed", "blocked", "alreadySatisfied", "investigate"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "proposed": { "type": "integer", "minimum": 0 },
+        "blocked": { "type": "integer", "minimum": 0 },
+        "alreadySatisfied": { "type": "integer", "minimum": 0 },
+        "investigate": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "actionId",
+        "idempotencyKey",
+        "targetSystem",
+        "targetContainerId",
+        "actionType",
+        "status",
+        "sourceArtifactIds",
+        "targetRecordIds",
+        "snapshotIds",
+        "matchStrategy",
+        "confidence",
+        "targetFingerprint",
+        "reason",
+        "expectedEffect",
+        "approvalRequired",
+        "reviewRequired",
+        "blockerIds"
+      ],
+      "properties": {
+        "actionId": { "type": "string", "pattern": "^RA-[a-f0-9]{12}$" },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^(linear|github|repository):[A-Za-z0-9._:/+=-]+:[A-Za-z0-9._-]+:ART-[A-Za-z0-9._-]+:v[0-9]+$"
+        },
+        "targetSystem": { "type": "string", "enum": ["linear", "github", "repository"] },
+        "targetContainerId": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "actionType": { "type": "string", "enum": ["create", "update", "link", "ignore", "investigate"] },
+        "status": { "type": "string", "enum": ["proposed", "blocked", "already_satisfied"] },
+        "sourceArtifactIds": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^ART-[A-Za-z0-9._-]+$" }
+        },
+        "targetRecordIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^ER-(linear|github)-[a-f0-9]{12}$" }
+        },
+        "snapshotIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^ES-(linear|github)-[a-f0-9]{12}$" }
+        },
+        "matchStrategy": {
+          "type": "string",
+          "enum": ["explicit_reference", "stable_external_id", "git_relationship", "semantic_candidate", "manual"]
+        },
+        "confidence": { "type": "string", "enum": ["low", "medium", "high"] },
+        "targetFingerprint": {
+          "oneOf": [{ "$ref": "#/$defs/fingerprint" }, { "type": "null" }]
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "A declared external reference resolved to one record.",
+            "A stable source identifier resolved to one record.",
+            "A Git branch or commit identifier resolved to one record.",
+            "A title-only candidate requires human confirmation.",
+            "Multiple external records are plausible matches.",
+            "An exact identity resolved to multiple external records.",
+            "The declared target was not present in the observed snapshot.",
+            "No external record matched the declared create intent.",
+            "The declared relationship is already represented.",
+            "The observed target differs from the verification snapshot.",
+            "The observed snapshot is too old for a safe proposal.",
+            "The source inventory is incomplete or unavailable.",
+            "Source evidence contains an unresolved conflict.",
+            "The baseline declares a manual reconciliation intent."
+          ]
+        },
+        "expectedEffect": {
+          "type": "string",
+          "enum": [
+            "Create one missing external record after approval.",
+            "Update one confirmed external record after approval.",
+            "Link one source artifact to one confirmed external record after approval.",
+            "Record that no external change is needed.",
+            "Resolve the candidate or blocker before any external change."
+          ]
+        },
+        "approvalRequired": { "type": "boolean" },
+        "reviewRequired": { "const": true },
+        "blockerIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^RB-[a-f0-9]{12}$" }
+        }
+      }
+    },
+    "blocker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "blockerId",
+        "type",
+        "severity",
+        "description",
+        "sourceArtifactIds",
+        "targetRecordIds",
+        "snapshotIds",
+        "reviewRequired"
+      ],
+      "properties": {
+        "blockerId": { "type": "string", "pattern": "^RB-[a-f0-9]{12}$" },
+        "type": {
+          "type": "string",
+          "enum": ["stale_snapshot", "changed_target", "duplicate_target", "ambiguous_match", "unavailable_source", "source_conflict"]
+        },
+        "severity": { "type": "string", "enum": ["P0", "P1", "P2", "P3"] },
+        "description": {
+          "type": "string",
+          "enum": [
+            "The observed snapshot predates the baseline by more than the allowed planning window.",
+            "The target changed after the observed snapshot was captured.",
+            "More than one record has the same exact external identity.",
+            "More than one record is a plausible semantic match.",
+            "The source inventory is incomplete or unavailable for this action.",
+            "The source artifact depends on an unresolved conflict."
+          ]
+        },
+        "sourceArtifactIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^ART-[A-Za-z0-9._-]+$" }
+        },
+        "targetRecordIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^ER-(linear|github)-[a-f0-9]{12}$" }
+        },
+        "snapshotIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^ES-(linear|github)-[a-f0-9]{12}$" }
+        },
+        "reviewRequired": { "const": true }
+      }
+    }
+  }
+}
