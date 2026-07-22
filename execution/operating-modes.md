@@ -86,9 +86,13 @@ Policy and enforcement must agree:
 
 ## This Repository
 
-`pipe-venture-builder` is the shared manual, not a venture. Its `.pipe/mode.json` declares `restricted`: governance contracts, schemas, capability entries, and execution policies always require human-approved merges.
+`pipe-venture-builder` is the shared manual and its `.pipe/mode.json` currently declares `exploration` under the founder's explicit PIP-716 instruction. Agents may run the mode-sensitive ticket → branch → PR → review → merge → non-production loop autonomously for the approved Pipe delivery backlog and future scoped pre-production work.
 
-One lane is explicitly classified as exploration-semantics content: **knowledge-content paths** — `knowledge/learnings/`-style records, `.agents/skills/*/knowledge/` (learnings, patterns, ingested-source distillations), and other append-only learning artifacts named by an approved capability entry. Agents may open and merge batch PRs limited to those paths autonomously under a standing umbrella ticket, following the exploration review path, provided the PR touches no governance file. A PR that mixes knowledge content with anything else follows restricted rules.
+The repository keeps the full branch-protection profile in `.github/branch-protection-policy.md`. Every PR still requires substantive review, P0/P1 findings still block merge, and a separate reviewing identity must provide the GitHub approval when available. Shared governance, schema, capability, and execution-policy changes therefore gain execution velocity, not unreviewed authority.
+
+The declaration does not authorize an agent to change modes again. It does not relax production, secrets/credentials, customer/production data, billing, paid acquisition, outreach, external communications, legal/privacy/security content, or sensitive-claim gates. An invalid mode file or any production signal restores fail-safe `restricted` behavior immediately.
+
+One lane remains explicitly classified as exploration-semantics content: **knowledge-content paths** — `knowledge/learnings/`-style records, `.agents/skills/*/knowledge/` (learnings, patterns, ingested-source distillations), and other append-only learning artifacts named by an approved capability entry. While the repository is in `exploration`, this lane follows the same reviewed autonomous loop as other scoped work. If the repository later returns to `restricted`, pure knowledge-content batches retain their standing exploration path under an umbrella ticket; a PR that mixes them with governance or implementation files follows the repository's stricter declared mode.
 
 ## Precedence
 

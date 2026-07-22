@@ -102,17 +102,21 @@ When blocked, document the gap and create or execute the relevant setup or valid
 
 ## Human Approval Gates
 
-Human approval is required before:
+Mode-sensitive actions depend on the valid declaration in [`.pipe/mode.json`](.pipe/mode.json) and the [operating-mode policy](execution/operating-modes.md):
 
-- creating Linear projects or tickets
-- opening or merging PRs
+- In `restricted`, human approval is required before creating Linear projects/tickets, opening or merging PRs, and non-production deploys.
+- In `exploration`, those actions carry standing founder pre-approval, but must remain ticket-scoped, reviewed, and logged in Linear.
+
+Human approval is required in every mode before:
+
 - production deployment
 - enabling billing
 - activating paid ads
-- handling secrets
+- handling secrets, credentials, customer data, or production data
 - contacting customers automatically
 - sending external communications
-- changing legal, financial, or compliance-related content
+- changing legal, financial, compliance, privacy, security, or sensitive claims
+- changing the operating mode or its policy
 
 ## Current Status
 
