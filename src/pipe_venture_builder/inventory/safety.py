@@ -67,8 +67,10 @@ def read_allowlisted_text(path: Path) -> SafeText:
     if is_sensitive_path(Path(path.name)) or path.is_symlink():
         return SafeText("blocked")
     try:
-        if not path.is_file() or path.stat().st_size > MAX_METADATA_BYTES:
+        if not path.is_file():
             return SafeText("unavailable")
+        if path.stat().st_size > MAX_METADATA_BYTES:
+            return SafeText("bounded")
         raw = path.read_bytes()
     except (OSError, PermissionError):
         return SafeText("unavailable")

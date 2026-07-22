@@ -39,9 +39,11 @@ Inventory traversal is capped by depth, entry count, metadata file size, and tes
 
 ## Sensitive-Data Boundary
 
-Likely secret-bearing paths such as `.env`, private keys, credentials, tokens, and passwords are outside the allowlist and are never emitted. Allowlisted metadata is rejected as a whole if it is binary, oversized, invalid UTF-8, symlinked, or contains a recognized secret-shaped value.
+Likely secret-bearing paths such as `.env`, private keys, credentials, tokens, and passwords are outside the allowlist and are never emitted. Allowlisted metadata is rejected as a whole if it is binary, invalid UTF-8, symlinked, or contains a recognized secret-shaped value.
 
 Rejected paths and values are not included in the baseline or error messages. The baseline reports only a generic safety omission and blocks any claim that the inventory is complete. Inspecting an excluded sensitive source requires a separate, explicit human approval.
+
+Size and traversal limits are reported separately as a bounded-inventory P2 gap. They do not imply that sensitive material exists and do not request sensitive-source approval.
 
 This is defensive filtering, not a general secret scanner or security certification.
 

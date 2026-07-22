@@ -102,11 +102,15 @@ def inventory_repository(path: str | Path) -> RepositoryInventory:
 
     documents: list[MetadataDocument] = []
     skipped = 0
+    metadata_bounded = False
     for filename in APPROVED_METADATA_FILES:
         source = root / filename
         if not source.exists():
             continue
         result = read_allowlisted_text(source)
+        if result.status == "bounded":
+            metadata_bounded = True
+            continue
         if result.status != "safe" or result.text is None:
             skipped += 1
             continue
@@ -138,7 +142,7 @@ def inventory_repository(path: str | Path) -> RepositoryInventory:
         ),
         tests=tuple(sorted(tests, key=lambda item: item.root.casefold())),
         skipped_source_count=skipped,
-        traversal_truncated=truncated,
+        traversal_truncated=truncated or metadata_bounded,
     )
 
 

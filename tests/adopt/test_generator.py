@@ -9,6 +9,7 @@ from tempfile import TemporaryDirectory
 from unittest import TestCase, skipUnless
 
 from pipe_venture_builder.adopt import generate_product_baseline
+from pipe_venture_builder.inventory.safety import MAX_METADATA_BYTES
 from pipe_venture_builder.validation import validate_product_baseline
 
 from tests.helpers import load_schema
@@ -53,6 +54,7 @@ class ProductBaselineGeneratorTests(TestCase):
             baseline = generate_product_baseline(repository)
             rendered = json.dumps(baseline, sort_keys=True)
 
+        self.assertEqual(validate_product_baseline(baseline, load_schema()), [])
         self.assertNotIn(sentinel, rendered)
         self.assertNotIn(".env", rendered)
         self.assertNotIn(sensitive_name.name, rendered)
@@ -82,6 +84,7 @@ class ProductBaselineGeneratorTests(TestCase):
 
             baseline = generate_product_baseline(repository)
 
+        self.assertEqual(validate_product_baseline(baseline, load_schema()), [])
         conflict = next(
             statement
             for statement in baseline["statements"]
@@ -95,6 +98,56 @@ class ProductBaselineGeneratorTests(TestCase):
                 for gap in baseline["governanceGaps"]
             )
         )
+
+    def test_bounded_size_limit_is_not_reported_as_sensitive_material(self) -> None:
+        with TemporaryDirectory(prefix="pipe bounded inventory ") as temporary:
+            repository = Path(temporary) / "large-product"
+            shutil.copytree(FIXTURE_ROOT, repository)
+            (repository / "README.md").write_text(
+                "# Oversized metadata\n" + ("a" * MAX_METADATA_BYTES),
+                encoding="utf-8",
+            )
+
+            baseline = generate_product_baseline(repository)
+
+        gap_ids = {gap["gapId"] for gap in baseline["governanceGaps"]}
+        self.assertIn("GAP-inventory-truncated", gap_ids)
+        self.assertNotIn("GAP-safety-omissions", gap_ids)
+        bounded_gap = next(
+            gap
+            for gap in baseline["governanceGaps"]
+            if gap["gapId"] == "GAP-inventory-truncated"
+        )
+        self.assertEqual(
+            (bounded_gap["severity"], bounded_gap["status"]), ("P2", "open")
+        )
+
+    def test_all_generated_references_resolve(self) -> None:
+        baseline = generate_product_baseline(FIXTURE_ROOT)
+        source_ids = {source["sourceId"] for source in baseline["sources"]}
+        statement_ids = {
+            statement["statementId"] for statement in baseline["statements"]
+        }
+        artifact_ids = {artifact["artifactId"] for artifact in baseline["artifacts"]}
+        gap_ids = {gap["gapId"] for gap in baseline["governanceGaps"]}
+
+        for statement in baseline["statements"]:
+            self.assertLessEqual(set(statement["sourceIds"]), source_ids)
+        for artifact in baseline["artifacts"]:
+            self.assertLessEqual(set(artifact["provenanceStatementIds"]), statement_ids)
+        for relationship in baseline["relationships"]:
+            self.assertIn(relationship["fromArtifactId"], artifact_ids)
+            self.assertIn(relationship["toArtifactId"], artifact_ids)
+            self.assertLessEqual(set(relationship["sourceStatementIds"]), statement_ids)
+        for gap in baseline["governanceGaps"]:
+            self.assertLessEqual(set(gap["affectedArtifactIds"]), artifact_ids)
+            self.assertLessEqual(set(gap["evidenceStatementIds"]), statement_ids)
+        for action in baseline["nextActions"]:
+            self.assertLessEqual(set(action["blockedByGapIds"]), gap_ids)
+        self.assertLessEqual(
+            set(baseline["lifecycle"]["stageRationaleStatementIds"]), statement_ids
+        )
+        self.assertLessEqual(set(baseline["evidence"]["statementIds"]), statement_ids)
 
     @skipUnless(shutil.which("git"), "Git is required for repository history inventory")
     def test_git_inventory_is_stable_for_paths_with_spaces(self) -> None:

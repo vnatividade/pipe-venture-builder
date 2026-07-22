@@ -218,7 +218,7 @@ def generate_product_baseline(repository: str | Path) -> dict[str, Any]:
         )
 
     safety_gap_statement_id: str | None = None
-    if inventory.skipped_source_count or inventory.traversal_truncated:
+    if inventory.skipped_source_count:
         safety_gap_statement_id = "ST-safety-omissions"
         statements.append(
             _statement(
@@ -228,6 +228,20 @@ def generate_product_baseline(repository: str | Path) -> dict[str, Any]:
                 [repository_source_id],
                 "high",
                 ["inventory completeness", "sensitive-data boundary"],
+                True,
+                "accepted_for_scope",
+            )
+        )
+
+    if inventory.traversal_truncated:
+        statements.append(
+            _statement(
+                "ST-inventory-truncated",
+                "fact",
+                "The bounded inventory reached a configured size or traversal limit.",
+                [repository_source_id],
+                "high",
+                ["inventory completeness"],
                 True,
                 "accepted_for_scope",
             )
@@ -310,6 +324,18 @@ def generate_product_baseline(repository: str | Path) -> dict[str, Any]:
                 "priority": "P1",
                 "blockedByGapIds": ["GAP-safety-omissions"],
                 "approvalRequired": True,
+                "suggestedCommand": None,
+            }
+        )
+    if inventory.traversal_truncated:
+        next_actions.append(
+            {
+                "actionId": "NEXT-complete-bounded-inventory",
+                "title": "Review whether a narrower follow-up inventory is needed",
+                "ownerRole": "Architecture Agent",
+                "priority": "P2",
+                "blockedByGapIds": ["GAP-inventory-truncated"],
+                "approvalRequired": False,
                 "suggestedCommand": None,
             }
         )
@@ -613,6 +639,21 @@ def _build_gaps(
                 "remediation": "Keep the sources excluded unless a separately approved, purpose-limited sensitive-data review is required.",
                 "owner": "Risk Reviewer",
                 "status": "blocked",
+            }
+        )
+    if inventory.traversal_truncated:
+        gaps.append(
+            {
+                "gapId": "GAP-inventory-truncated",
+                "category": "execution",
+                "severity": "P2",
+                "description": "The repository inventory reached a bounded size or traversal limit.",
+                "affectedArtifactIds": [],
+                "evidenceStatementIds": ["ST-inventory-truncated"],
+                "blocks": ["claiming a complete repository inventory"],
+                "remediation": "Use a narrower approved source boundary or a later configurable inventory adapter when completeness is required.",
+                "owner": "Architecture Agent",
+                "status": "open",
             }
         )
     if not git_present or not git_has_history:
