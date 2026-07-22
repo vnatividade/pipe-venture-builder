@@ -1,0 +1,58 @@
+{
+  "actions": [
+    {
+      "actionId": "RA-53fd753b2b5c",
+      "actionType": "create",
+      "approvalRequired": true,
+      "blockerIds": [],
+      "confidence": "high",
+      "expectedEffect": "Create one missing external record after approval.",
+      "idempotencyKey": "linear:project-pipe:ticket.create.3a63b40c4ca50e23:ART-governance-planner:v1",
+      "matchStrategy": "manual",
+      "reason": "No external record matched the declared create intent.",
+      "reviewRequired": true,
+      "snapshotIds": ["ES-linear-111111111111"],
+      "sourceArtifactIds": ["ART-governance-planner"],
+      "status": "proposed",
+      "targetContainerId": "project-pipe",
+      "targetFingerprint": null,
+      "targetRecordIds": [],
+      "targetSystem": "linear"
+    }
+  ],
+  "baseline": {
+    "baselineId": "PB-example-product-001",
+    "fingerprint": "sha256:8ec04dec5c928d52271d24a04711830997ebbd7771e7529f15ad64a5ee83b940",
+    "generatedAt": "2026-07-21T12:00:00Z"
+  },
+  "blockers": [],
+  "constraints": {
+    "destructiveActionsAllowed": false,
+    "externalMutationPerformed": false,
+    "mutationSurfaceExposed": false,
+    "planOnly": true,
+    "semanticMatchesAutoConfirmed": false
+  },
+  "generatedAt": "2026-07-21T12:00:00Z",
+  "planId": "RP-0436d759cccb",
+  "schemaVersion": "0.1.0",
+  "snapshots": [
+    {
+      "capturedAt": "2026-07-21T11:00:00Z",
+      "fingerprint": "sha256:d84cddaef2b6fd77638a752fc9651fafe663e9761eef38e471465a18ce0d9626",
+      "role": "observed",
+      "snapshotId": "ES-linear-111111111111",
+      "sourceContainerId": "project-pipe",
+      "sourceSystem": "linear",
+      "status": "complete"
+    }
+  ],
+  "status": "ready_for_review",
+  "summary": {
+    "alreadySatisfied": 0,
+    "blocked": 0,
+    "investigate": 0,
+    "proposed": 1,
+    "total": 1
+  }
+}
