@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "0.1.0",
+  "integrationId": "pipe.hermes.runtime",
+  "integrationVersion": "0.1.0",
+  "runtime": "hermes",
+  "minimumRuntimeVersion": "0.17.0",
+  "skill": {
+    "source": "skill/SKILL.md",
+    "installRelativePath": "skills/autonomous-ai-agents/pipe-product-delivery/SKILL.md"
+  },
+  "entrypoint": "python -m pipe_venture_builder.adapters.hermes",
+  "sessionIdentityEnvironment": "HERMES_SESSION_ID",
+  "constraints": {
+    "repositoryCanonical": true,
+    "linearCanonicalForExecution": true,
+    "pipeApprovalRequired": true,
+    "hermesApprovalIsAuthority": false,
+    "externalMutationAllowed": false,
+    "credentialsAllowed": false,
+    "customerDataAllowed": false,
+    "productionDataAllowed": false,
+    "automaticInstallationAllowed": false
+  }
+}
