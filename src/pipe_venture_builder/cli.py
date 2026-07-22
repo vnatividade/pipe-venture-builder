@@ -9,10 +9,13 @@ from typing import Any, Sequence, TextIO
 
 from . import __version__
 from .adopt import generate_product_baseline, write_product_baseline
+from .bootstrap import BootstrapOptions, apply_bootstrap, plan_bootstrap
 from .discovery import discover_project_root, resolve_baseline_schema
+from .doctor import run_doctor
 from .errors import PipeError
-from .exit_codes import INTERNAL_CONTRACT_ERROR, SUCCESS
+from .exit_codes import INTERNAL_CONTRACT_ERROR, READINESS_BLOCKED, SUCCESS
 from .idea import generate_idea_baseline, write_idea_baseline
+from .manifest import resolve_product_root, resolve_toolkit_root
 from .validation import (
     invalid_baseline_error,
     load_json_document,
@@ -45,6 +48,78 @@ def build_parser() -> argparse.ArgumentParser:
     )
     root_parser.add_argument("--json", action="store_true", dest="as_json")
     root_parser.set_defaults(handler=_handle_root)
+
+    bootstrap_parser = commands.add_parser(
+        "bootstrap",
+        help="Plan or apply repository-local portable Pipe configuration.",
+    )
+    bootstrap_parser.add_argument(
+        "target",
+        nargs="?",
+        default=".",
+        help="Product repository root. Defaults to the current directory.",
+    )
+    bootstrap_parser.add_argument("--product-id")
+    bootstrap_parser.add_argument("--entry-mode", choices=("idea", "adopt"))
+    bootstrap_parser.add_argument(
+        "--runtime",
+        choices=("hermes", "codex", "claude-code"),
+    )
+    bootstrap_parser.add_argument(
+        "--fallback-runtime",
+        action="append",
+        dest="fallback_runtimes",
+        choices=("hermes", "codex", "claude-code"),
+    )
+    bootstrap_parser.add_argument(
+        "--capability",
+        action="append",
+        dest="capabilities",
+    )
+    bootstrap_parser.add_argument("--linear-project-id")
+    bootstrap_parser.add_argument("--github-repository")
+    bootstrap_parser.add_argument(
+        "--toolkit-root",
+        help="Versioned Pipe toolkit root. Defaults to local/package resolution.",
+    )
+    bootstrap_action = bootstrap_parser.add_mutually_exclusive_group()
+    bootstrap_action.add_argument(
+        "--plan",
+        "--dry-run",
+        action="store_const",
+        const="plan",
+        dest="bootstrap_action",
+        help="Show the non-mutating plan (default).",
+    )
+    bootstrap_action.add_argument(
+        "--apply",
+        action="store_const",
+        const="apply",
+        dest="bootstrap_action",
+        help="Create the reviewed repository-local manifest.",
+    )
+    bootstrap_parser.set_defaults(
+        handler=_handle_bootstrap,
+        bootstrap_action="plan",
+    )
+    bootstrap_parser.add_argument("--json", action="store_true", dest="as_json")
+
+    doctor_parser = commands.add_parser(
+        "doctor",
+        help="Run read-only, redacted local Pipe readiness checks.",
+    )
+    doctor_parser.add_argument(
+        "target",
+        nargs="?",
+        default=".",
+        help="Product repository root. Defaults to the current directory.",
+    )
+    doctor_parser.add_argument(
+        "--toolkit-root",
+        help="Versioned Pipe toolkit root. Defaults to local/package resolution.",
+    )
+    doctor_parser.add_argument("--json", action="store_true", dest="as_json")
+    doctor_parser.set_defaults(handler=_handle_doctor)
 
     idea_parser = commands.add_parser(
         "idea",
@@ -143,8 +218,9 @@ def main(
         )
         return internal_error.exit_code
 
+    exit_code = int(payload.pop("_exit_code", SUCCESS))
     _render_success(payload, as_json=getattr(args, "as_json", False), stream=out)
-    return SUCCESS
+    return exit_code
 
 
 def _handle_version(_args: argparse.Namespace) -> dict[str, Any]:
@@ -166,8 +242,79 @@ def _handle_root(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def _handle_bootstrap(args: argparse.Namespace) -> dict[str, Any]:
+    product_root = resolve_product_root(args.target)
+    toolkit_root = resolve_toolkit_root(args.toolkit_root, start=product_root)
+    options = BootstrapOptions(
+        product_id=args.product_id,
+        entry_mode=args.entry_mode,
+        runtime=args.runtime,
+        fallback_runtimes=(
+            tuple(args.fallback_runtimes)
+            if args.fallback_runtimes is not None
+            else None
+        ),
+        capabilities=(
+            tuple(args.capabilities) if args.capabilities is not None else None
+        ),
+        linear_project_id=args.linear_project_id,
+        github_repository=args.github_repository,
+    )
+    if args.bootstrap_action == "apply":
+        result = apply_bootstrap(
+            product_root,
+            toolkit_root,
+            pipe_version=__version__,
+            options=options,
+        )
+        report = run_doctor(product_root, toolkit_root)
+        return {
+            "ok": report.is_ready,
+            "command": "bootstrap",
+            "mode": "apply",
+            "manifestSchemaVersion": result.manifest["schemaVersion"],
+            "result": result.as_dict(),
+            "doctor": report.as_dict(),
+            "message": (f"Bootstrap {result.action}. {report.human_summary()}"),
+            "_exit_code": SUCCESS if report.is_ready else READINESS_BLOCKED,
+        }
+
+    result = plan_bootstrap(
+        product_root,
+        toolkit_root,
+        pipe_version=__version__,
+        options=options,
+    )
+    return {
+        "ok": True,
+        "command": "bootstrap",
+        "mode": "plan",
+        "manifestSchemaVersion": result.manifest["schemaVersion"],
+        "result": result.as_dict(),
+        "message": (
+            "Bootstrap plan is unchanged; no files would be written."
+            if result.action == "unchanged"
+            else "Bootstrap plan prepared; no files were written. Review it before --apply."
+        ),
+    }
+
+
+def _handle_doctor(args: argparse.Namespace) -> dict[str, Any]:
+    product_root = resolve_product_root(args.target)
+    toolkit_root = resolve_toolkit_root(args.toolkit_root, start=product_root)
+    report = run_doctor(product_root, toolkit_root)
+    return {
+        "ok": report.is_ready,
+        "command": "doctor",
+        "status": report.status,
+        "report": report.as_dict(),
+        "message": report.human_summary(),
+        "_exit_code": SUCCESS if report.is_ready else READINESS_BLOCKED,
+    }
+
+
 def _handle_idea(args: argparse.Namespace) -> dict[str, Any]:
-    toolkit_root = discover_project_root(args.root)
+    toolkit_root = resolve_toolkit_root(args.root)
     schema_path = resolve_baseline_schema(toolkit_root)
     schema = load_json_document(schema_path, kind="schema")
     baseline = generate_idea_baseline(args.source)
@@ -196,7 +343,7 @@ def _handle_idea(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def _handle_adopt(args: argparse.Namespace) -> dict[str, Any]:
-    toolkit_root = discover_project_root(args.root)
+    toolkit_root = resolve_toolkit_root(args.root)
     schema_path = resolve_baseline_schema(toolkit_root)
     schema = load_json_document(schema_path, kind="schema")
     baseline = generate_product_baseline(args.repository)
@@ -225,6 +372,8 @@ def _handle_adopt(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def _handle_baseline_validate(args: argparse.Namespace) -> dict[str, Any]:
+    # Standalone validation preserves the original minimal-root contract;
+    # idea/adopt consume the full PIP-709 toolkit surface.
     root = discover_project_root(args.root)
     schema_path = resolve_baseline_schema(root, args.schema)
     findings = validate_product_baseline_files(args.baseline, schema_path)

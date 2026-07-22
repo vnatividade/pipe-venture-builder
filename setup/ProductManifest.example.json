@@ -1,0 +1,27 @@
+{
+  "capabilities": {
+    "enabled": [
+      "capability.internal.atelier"
+    ]
+  },
+  "entryMode": "idea",
+  "github": {
+    "repository": null
+  },
+  "linear": {
+    "projectId": null
+  },
+  "pipeVersion": "0.1.0",
+  "productId": "example-product",
+  "repository": {
+    "root": "."
+  },
+  "runtime": {
+    "fallbacks": [
+      "codex",
+      "claude-code"
+    ],
+    "preferred": "hermes"
+  },
+  "schemaVersion": "0.1.0"
+}

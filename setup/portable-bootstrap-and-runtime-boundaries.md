@@ -4,11 +4,11 @@
 
 This specification defines how Pipe Venture Builder should become usable on another computer without depending on one founder's directory layout, chat history, or agent-specific memory.
 
-It implements the portability decision from `architecture/adr/adr-001-dual-entry-product-intake.md` at specification level only.
+It defines the portability decision from `architecture/adr/adr-001-dual-entry-product-intake.md`. PIP-709 implements the initial ProductManifest, repository-local bootstrap, and read-only doctor subset described below.
 
 Origin ticket: PIP-700.
 
-It does not implement an installer, create `.pipe/project.json`, authenticate connectors, copy secrets, install Hermes, configure production, or mutate Linear/GitHub.
+It does not authenticate connectors, copy secrets, install executors or adapters, configure production, or mutate Linear/GitHub.
 
 ## Portability Outcome
 
@@ -64,9 +64,9 @@ Contains:
 
 Machine-local state is recoverable. It must not be the only place holding product decisions, approvals, delivery evidence, or reusable learning.
 
-## Proposed Product Manifest
+## Product Manifest
 
-A future implementation should create `.pipe/project.json` in each product repository. This is a proposed shape, not a canonical schema yet:
+PIP-709 creates `.pipe/project.json` in each product repository using the canonical `schemas/ProductManifest.schema.json` contract. The tracked example is `setup/ProductManifest.example.json`:
 
 ```json
 {
@@ -106,26 +106,26 @@ Rules:
 - Missing or invalid manifest means the product is unbound, not automatically greenfield.
 - `pipe adopt` may propose a manifest, but creating or changing it requires the implementation ticket's write scope.
 
-A dedicated approved ticket must define `ProjectManifest.schema.json` before runtime consumers depend on this shape.
+PIP-709 is the dedicated approved ticket for this contract. Bootstrap validates before creation, never overwrites an existing manifest, and doctor checks compatibility against the installed Pipe version.
 
 ## Command Contracts
 
-These are proposed CLI/control-plane commands. They are not executable today.
+Bootstrap and doctor are executable in the Python CLI. The remaining control-plane commands stay governed follow-up work.
 
 ### `pipe bootstrap`
 
-Purpose: converge the current machine on the selected Pipe version and install only approved local adapters.
+Purpose: plan or create the repository-local ProductManifest and diagnose the selected local runtime without installing executors, adapters, dependencies, or credentials.
 
-Expected steps:
+Implemented steps:
 
-1. Resolve the toolkit root from the executable or package metadata, never a user-specific directory.
-2. Confirm supported operating system and architecture.
-3. Check required base tools.
-4. Register shared skills and executor adapters idempotently.
-5. Materialize pinned external dependencies in a machine-local cache.
-6. Report connector authentication as present, missing, or expired without reading credential values.
-7. Record installed Pipe version and adapter compatibility.
-8. Finish with `pipe doctor`.
+1. Resolve the toolkit from an explicit argument, machine-local environment hint, source checkout, or current ancestry, never a hard-coded user directory.
+2. Validate the proposed ProductManifest against the canonical schema.
+3. Show a deterministic non-mutating plan by default.
+4. With explicit `--apply`, create only `.pipe/` when needed and `.pipe/project.json` with non-overwriting semantics.
+5. Preserve `.pipe/mode.json` as human-only and report when it is absent or invalid.
+6. Finish apply with `pipe doctor`.
+
+Executor/adapter installation, dependency caches, connector authentication, and reversible adapter registration remain PIP-713/PIP-714 work.
 
 Stop when:
 
@@ -163,6 +163,8 @@ blocked
 not_configured
 not_applicable
 ```
+
+Individual checks additionally distinguish `configured`, `unavailable`, `unauthorized`, `incompatible`, `blocked`, and `not_applicable`. The overall report keeps the readiness statuses above.
 
 The report must redact tokens, usernames when unnecessary, private repository URLs when sensitive, and local paths that reveal private context in shared logs.
 
@@ -323,9 +325,9 @@ Use `ready_with_warnings` for optional runtime or capability gaps with a valid f
 
 Recommended ticket order:
 
-1. Define `ProjectManifest.schema.json` and compatibility policy.
-2. Implement read-only `pipe doctor` with redacted output.
-3. Implement a local, idempotent bootstrap for one supported platform.
+1. Define `ProductManifest.schema.json` and compatibility policy. **Implemented by PIP-709.**
+2. Implement read-only `pipe doctor` with redacted output. **Implemented by PIP-709.**
+3. Implement local, idempotent, plan-first ProductManifest bootstrap. **Implemented by PIP-709.**
 4. Add Codex/Claude adapter discovery and fixture installs.
 5. Remove Atelier's fixed path and add installer tests.
 6. Define the Hermes adapter and threat model.
