@@ -1,0 +1,86 @@
+{
+  "schemaVersion": "0.1.0",
+  "recordId": "LR-0005",
+  "title": "Fase 2 AuraSite: contrato de honestidade verificado no código, porte de direção estática para React com CSS escopado, e export de artifact a partir de SPA renderizada",
+  "learningType": "capability_usage",
+  "source": {
+    "originType": "manual_observation",
+    "linearId": "PIP-668",
+    "pullRequestUrl": "https://github.com/vnatividade/aurasite/pull/31",
+    "artifactPathOrUrl": "design/atelier/ (branch atelier/landing-v2)",
+    "observedAt": "2026-07-18",
+    "sourceSummary": "Fase 2 do concierge na AuraSite: direção A (Receituário) integrada ao app React como hub + 4 páginas de segmento por ICP (médicos, dentistas, psicólogos, lojas), copy reescrita para a jornada self-service com toda claim verificada contra o código, gate de auditoria com 2 fixes P1 (zoom, contraste AA) e entrega remota via 2 artifacts font-embedded."
+  },
+  "scope": {
+    "domains": ["capability", "execution"],
+    "appliesToAgents": ["claude-code", "any-agent"],
+    "ticketTypes": ["skill", "product"],
+    "horizon": "now",
+    "limits": "Aprendizados da fase 2 (build+integração+entrega). Deploy e merge fora (modo restricted). E-mails transacionais com copy antiga ficaram como pendência do fundador."
+  },
+  "agent": {
+    "recordedBy": "claude-code (Atelier, Fable 5)",
+    "agentRole": "executor",
+    "intendedConsumers": ["atelier skill (knowledge/patterns)", "futuras execucoes Atelier", "founder"]
+  },
+  "capability": {
+    "name": "atelier",
+    "type": "skill",
+    "maturity": "pilot",
+    "notes": "Terceira ocorrência do harness playwright-core + Chrome (LR-0001, LR-0003, agora com Vite dev server + SPA) — padrão maduro para promoção. Extensão do padrão LR-0004 de entrega remota."
+  },
+  "confidence": {
+    "level": "high",
+    "score": 4,
+    "rationale": "Cada achado verificado com evidência: tabela de claims com fonte em arquivo/linha do repo; screenshots 5 páginas x 2 viewports + reduced-motion; artifacts validados offline com bloqueio de rede (route.abort) provando zero refs externas; 170/170 testes."
+  },
+  "importance": {
+    "level": "high",
+    "score": 4,
+    "rationale": "Quatro padrões reutilizáveis: (1) contrato de honestidade — mapear jornada real no código ANTES de escrever copy; (2) porte de direção estática para React com CSS escopado sob classe raiz; (3) export de artifact serializando a SPA renderizada (charset obrigatório); (4) fallback de verificação quando o Browser pane dessincroniza."
+  },
+  "tags": ["atelier", "landing", "self-service", "icp", "claims", "worktree", "artifacts", "charset", "aurasite", "react", "verificacao-visual"],
+  "summary": "Fase 2 do concierge AuraSite: a direção A estática virou sistema React (hub + /para/*) sem tocar as rotas do app, com copy self-service 100% rastreável ao código e segmentação por ICP em que saúde mantém a papelaria clínica (CFM/CFO/CFP, sem promessa de resultado) e lojas vira etiqueta de vitrine (direct/WhatsApp, nunca pacientes). Entrega remota via artifacts exportados da própria SPA renderizada.",
+  "insight": "1) CONTRATO DE HONESTIDADE: antes de reescrever copy, mapear a jornada real com um agente Explore devolvendo tabela claim->arquivo:linha->veredito (pode/não pode afirmar). Na AuraSite isso derrubou claims herdadas da fase 1 que o código não sustenta ('sempre sincronizada' — não há re-sync agendado; '3 dias úteis' — geração é em minutos; garantia de 7 dias — a curadoria que a justificava não existe mais) e rendeu um FAQ que responde a limitação na cara ('Atualiza sozinho? Hoje, não.'). A tabela vira seção do design-brief.md e critério do gate de auditoria. 2) PORTE ESTÁTICO->REACT: escopar todo o sistema da direção sob uma classe raiz (.rc) com zero seletores globais permite conviver com Tailwind/shadcn do app sem interferência; elementos que carregam dado real (form, contador) continuam os componentes tRPC existentes — nunca replicar. 3) EXPORT DE ARTIFACT DE SPA: serializar o DOM renderizado (os <style> injetados pelo Vite dev contêm o CSS compilado), remover <script>, forçar reveals, embutir fontes latin como data URI E SEMPRE prepender <meta charset=utf-8> — sem ele o arquivo UTF-8 renderiza mojibake; validar offline com route.abort em todo https? provando autossuficiência. 4) BROWSER PANE PODE DESSINCRONIZAR: screenshots do pane podem mostrar frames antigas com o DOM correto (compositor stale) — checar o DOM via javascript_tool antes de 'consertar' um bug visual fantasma, e cair para o harness playwright+Chrome. 5) Capturas fullPage com reveals forçados precisam esperar >= duração da transição (650ms para fade de 500ms) ou os blocos saem semi-transparentes. 6) Worktree de repo pnpm com packageManager pinado: instalar com npx pnpm@<versao-pinada> (o pnpm global pode recusar o lockfile).",
+  "evidence": [
+    {
+      "type": "pull_request",
+      "pathOrUrl": "https://github.com/vnatividade/aurasite/pull/31",
+      "summary": "PR da fase 2 com racional de integração, tabela de auditoria P0-P3 e pendências; 34 arquivos, 5 páginas, 21 screenshots de evidência.",
+      "confidence": "high"
+    },
+    {
+      "type": "repository_file",
+      "pathOrUrl": "design/atelier/design-brief.md (branch atelier/landing-v2)",
+      "summary": "Brief final com o contrato de honestidade (tabela claim->fonte no código) e racional dos ICPs.",
+      "confidence": "high"
+    },
+    {
+      "type": "artifact",
+      "pathOrUrl": "https://claude.ai/code/artifact/f786284b-601f-41f8-93be-f72150ffd006 + https://claude.ai/code/artifact/1bab4f5f-f8ce-4ee3-9330-5f27cce3e726",
+      "summary": "Hub e /para/medicos exportados da SPA renderizada, 7 faces latin embutidas, zero refs externas (validado offline).",
+      "confidence": "high"
+    }
+  ],
+  "recommendation": {
+    "action": "record_only",
+    "owner": "founder (curadoria do skill atelier)",
+    "timing": "batch-review",
+    "rationale": "Harness de captura tem 3 ocorrências (promover a knowledge/patterns); o export de artifact de SPA + charset merece virar script canônico do skill (scripts/export-artifact.mjs); o contrato de honestidade merece virar seção padrão do design-brief.md."
+  },
+  "promotion": {
+    "state": "candidate",
+    "humanReviewRequiredForPromotion": true,
+    "humanReviewStatus": "not_requested",
+    "automaticPromotionAllowed": false,
+    "targetCanonicalArtifact": ".agents/skills/atelier/references/design-brief.md",
+    "promotionRationale": "Contrato de honestidade e export de artifact são passos de processo que mudam o contrato do concierge; revisão humana na consolidação semanal."
+  },
+  "sensitivity": {
+    "containsSensitiveData": false,
+    "containsCustomerEvidence": false,
+    "redactionRequired": false,
+    "humanReviewStatus": "not_required",
+    "notes": "Somente artefatos de design e processo; nenhum segredo, dado de cliente ou métrica inventada."
+  }
+}

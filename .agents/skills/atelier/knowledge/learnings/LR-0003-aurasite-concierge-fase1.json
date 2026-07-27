@@ -1,0 +1,92 @@
+{
+  "schemaVersion": "0.1.0",
+  "recordId": "LR-0003",
+  "title": "Segundo piloto concierge do Atelier (AuraSite): worktree contra WIP do fundador, pauta com unidade lh, e fullPage cega para reveals de IntersectionObserver",
+  "learningType": "capability_usage",
+  "source": {
+    "originType": "manual_observation",
+    "linearId": null,
+    "pullRequestUrl": null,
+    "artifactPathOrUrl": "design/atelier/",
+    "observedAt": "2026-07-17",
+    "sourceSummary": "Piloto N1 do skill atelier (concierge fase 1) na venture AuraSite: brief inferido do repo (index.css, todo.md, Home.tsx, aurasite.ts), 3 direcoes renderizadas em HTML self-contained, verificadas com screenshots 1280/375 + caminho reduced-motion antes da entrega. Motor de geracao de sites de clientes intocado (gate do fundador)."
+  },
+  "scope": {
+    "domains": ["capability", "execution"],
+    "appliesToAgents": ["claude-code", "any-agent"],
+    "ticketTypes": ["skill", "product"],
+    "horizon": "now",
+    "limits": "Aprendizados de front-end vanilla e do fluxo concierge fase 1; decisao de direcao pendente do fundador; integracao ao app React (fase 2) fora deste registro."
+  },
+  "agent": {
+    "recordedBy": "claude-code (Atelier, Fable 5)",
+    "agentRole": "executor",
+    "intendedConsumers": ["atelier skill (knowledge/patterns)", "futuras execucoes Atelier", "founder"]
+  },
+  "capability": {
+    "name": "atelier",
+    "type": "skill",
+    "maturity": "pilot",
+    "notes": "Segunda execucao concierge completa. Referencias usadas: design-brief, design-philosophy, typography. Harness de LR-0001 reutilizado (2a ocorrencia do padrao playwright-core + Chrome + reducedMotion explicito) e estendido."
+  },
+  "confidence": {
+    "level": "high",
+    "score": 4,
+    "rationale": "Cada achado foi verificado com evidencia visual (screenshots antes/depois do fix da pauta; captura scroll-mid provando anel/montagem dirigidos por posicao de scroll; captura reduced-motion provando fallback estatico)."
+  },
+  "importance": {
+    "level": "medium",
+    "score": 3,
+    "rationale": "Tres achados reutilizaveis: harness fullPage precisa revelar elementos de scroll-reveal; unidade lh para dispositivos de pauta alinhados ao texto; git worktree para nao tocar em WIP staged do fundador."
+  },
+  "tags": ["atelier", "concierge", "landing", "worktree", "scroll-motion", "verificacao-visual", "vanilla", "aurasite"],
+  "summary": "Fase 1 do concierge na AuraSite: brief inferido 100% do repo (paleta em custom properties no index.css, claims reais em todo.md/aurasite.ts) e 3 direcoes distintas (Receituario serif editorial claro; Aura noturna com anel de luz desenhado pelo scroll; Vitrine estrutural com demo do produto montada pelo scroll). Dois bugs de processo encontrados pela verificacao visual: camada decorativa de pauta full-bleed atravessava texto e CTAs lendo como strikethrough; e screenshots fullPage nao disparam IntersectionObserver abaixo da dobra, entregando paginas aparentemente vazias.",
+  "insight": "1) fullPage screenshot nao rola a pagina: qualquer elemento com reveal por IntersectionObserver sai invisivel — o harness deve forcar o estado revelado antes da captura fullPage (as capturas de viewport continuam validando o motion real). 2) Pauta/linhas de caderno alinhadas ao texto: repeating-linear-gradient com a unidade lh como passo (calc(1lh - 1px)) no background do proprio heading; camada decorativa full-bleed por tras de blocos de texto sempre acaba atravessando algo. 3) Repo com WIP staged do fundador em outra branch: git worktree add <dir> -b <branch> main da uma arvore limpa sem stash/reset e sem tocar no index dele; commit e push saem do worktree. 4) Quando o produto gerado pela venture (SiteV2, editorial+cinematico) e melhor que a propria landing, esse contraste e argumento central do brief: a vitrine precisa estar no nivel do produto. 5) Direcoes com claims: contador e metricas reais nao se simulam em mock — placeholders rotulados (seus servicos, seus depoimentos) evitam persona ficticia.",
+  "evidence": [
+    {
+      "type": "repository_file",
+      "pathOrUrl": "design/atelier/direction-a.html",
+      "summary": "Pauta com unidade lh no background do h1 (fix do strikethrough); fades com fallback reduced-motion.",
+      "confidence": "high"
+    },
+    {
+      "type": "repository_file",
+      "pathOrUrl": "design/atelier/direction-b.html",
+      "summary": "Anel de luz SVG com stroke-dashoffset funcao da posicao do scroll (reversivel); reduced-motion = anel completo estatico.",
+      "confidence": "high"
+    },
+    {
+      "type": "repository_file",
+      "pathOrUrl": "design/atelier/direction-c.html",
+      "summary": "Demo feed->site montada por progresso de scroll com toggle reversivel; grade suica aparente.",
+      "confidence": "high"
+    },
+    {
+      "type": "repository_file",
+      "pathOrUrl": "design/atelier/screenshots/",
+      "summary": "17 capturas: 3 direcoes x (desktop hero/full, mobile hero/full, reduced-motion) + scroll-mid de B e C provando motion dirigido por posicao.",
+      "confidence": "high"
+    }
+  ],
+  "recommendation": {
+    "action": "record_only",
+    "owner": "founder (curadoria do skill atelier)",
+    "timing": "batch-review",
+    "rationale": "Segunda ocorrencia do harness playwright-core valida promocao do padrao de captura para knowledge/patterns (com a extensao de forcar reveals no fullPage). Escolha de direcao e checkpoint do fundador."
+  },
+  "promotion": {
+    "state": "candidate",
+    "humanReviewRequiredForPromotion": true,
+    "humanReviewStatus": "not_requested",
+    "automaticPromotionAllowed": false,
+    "targetCanonicalArtifact": null,
+    "promotionRationale": "Harness de verificacao visual agora tem duas ocorrencias (md-audio LR-0001 + aurasite LR-0003); candidato a pattern canonico do skill apos revisao humana."
+  },
+  "sensitivity": {
+    "containsSensitiveData": false,
+    "containsCustomerEvidence": false,
+    "redactionRequired": false,
+    "humanReviewStatus": "not_required",
+    "notes": "Somente artefatos de design; nenhum dado de cliente, segredo ou metrica inventada. Mockups usam placeholders rotulados, sem personas."
+  }
+}

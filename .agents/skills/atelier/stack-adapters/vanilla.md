@@ -2,6 +2,8 @@
 
 The reference stack for animated brand sites and landings (the validated video workflow runs on it). Zero build step, instant preview, maximum control.
 
+Also the actual stack of **md-audio** (`md-audio-proxy`: Flask serving a single inline `INDEX_HTML` string, vanilla JS, no build step, no framework — confirmed in `design/atelier/design-brief.md`'s `stack: vanilla`). Its app card is a form-driven utility, not a landing — the Hero recipe and Motion sections below don't apply there; only the single-file `Structure` and `JS discipline` principles do.
+
 ## Structure
 
 - **Single self-contained `index.html`** for landings/prototypes: CSS and JS inlined. Survives any preview context (sandboxed file preview, dev server, artifact) and eliminates "my edit isn't showing" split-file confusion. Extract files only when the page grows past ~1.5k lines or gains real routing.

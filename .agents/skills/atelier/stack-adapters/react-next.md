@@ -1,6 +1,8 @@
 # Stack Adapter — React / Next.js
 
-The web-app stack of the house ventures (Lumia, Cofre, md-audio). App Router assumed.
+The web-app stack of **Cofre** (confirmed: Next.js 15 + React 19 + Prisma, `~/Developer/cofre/package.json`). App Router assumed.
+
+Not applicable to **md-audio** (Flask + inline vanilla HTML/JS, no build step, no React — use `vanilla.md`) or **Lumia** (`palavra-da-semana`: Vite + React Router 7 SPA frontend, Express/Postgres backend — no `next` dependency anywhere in the repo, no Next.js adapter exists yet for this shape). Both were previously listed here on the strength of "React" alone, without checking for Next.js specifically; verify the actual stack per venture before trusting this list, per PIP-724.
 
 ## Foundations
 
