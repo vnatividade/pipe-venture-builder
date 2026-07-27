@@ -12,7 +12,8 @@
 
 ```txt
 <root>/<slug>/
-├── project.json            # contrato Project (estado, versão, refs)
+├── project.json            # contrato Project (estado, versão, refs, baseline_ref)
+├── baseline/baseline-vN.json  # ProductBaseline canônico (v1 importado, v2+ emitidos)
 ├── state-history.jsonl     # transições (evento, from, to, guard, gate) — append-only
 ├── events.jsonl            # eventos (envelope com correlation/causation) — append-only
 ├── sources/                # idea-v1.md + clarification-v*.md (imutáveis)

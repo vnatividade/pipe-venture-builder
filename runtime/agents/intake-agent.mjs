@@ -85,7 +85,8 @@ export function runIntakeAgent({ sources, agentDef }) {
 
   for (const seg of allSegments) {
     const section = classify(seg);
-    const kind = HEDGE.test(seg.text) ? 'hipotese' : 'fato';
+    // Rótulo "premissas" força hipótese: premissa é hipótese por definição de seção.
+    const kind = section === 'premissas' || HEDGE.test(seg.text) ? 'hipotese' : 'fato';
     if (kind === 'hipotese') {
       assumptions.push({ text: seg.text, source: seg.source, rationale: 'frase com marcador de incerteza na fonte' });
     }

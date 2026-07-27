@@ -31,10 +31,23 @@ Dependências de execução: Python ≥3.11 + `jsonschema` + `rfc3339-validator`
 Precedência: em divergência, o **baseline canônico vence** o brief operacional (mesma regra
 autoridade-canônica > operacional do repo).
 
-## Próxima fatia (recomendada)
+## Fatia 2 — ENTREGUE (PIP-726)
 
-`pipe-os` passa a **consumir e emitir** o baseline: (1) `pipe-os create-project --from-baseline
-<arquivo>` semeia o projeto a partir dos statements; (2) ao aprovar o intake, `pipe-os` atualiza
-`lifecycle`/`nextActions` do baseline (supersessão por identidade estável, regra do dual-entry);
-(3) o contrato `Project` da fatia vira índice operacional, não fonte de verdade. Sem mudanças no
-runtime Python.
+A ponte agora é executável nas duas direções:
+
+1. **Consumo:** `pipe-os create-project --from-baseline <arquivo.json>` valida o baseline contra o
+   schema canônico (validador Node com `$ref`/`allOf`/`oneOf`/`pattern` — paridade com `jsonschema`
+   verificada em teste), semeia nome/slug de `product`, converte `statements` em fonte rotulada
+   **verbatim** (`ST-problem` → problema, `ST-target-user` → público, `ST-assumption` → premissas
+   com kind hipótese; `missing` vira lacuna por ausência) e guarda o baseline como
+   `baseline/baseline-v1.json` do projeto.
+2. **Emissão:** ao aprovar o intake, o engine emite `baseline-v2.json` — **mesma identidade estável**
+   (`baselineId`), `lifecycle.currentStage → founder_focus`, `nextAllowedStage → controle_evaluation`,
+   brief registrado em `artifacts[]` (`product_context`), gate e decisões humanas resolvidas em
+   `approvals[]`. A emissão é validada contra o schema canônico **antes** de gravar (inválida = não
+   emite, com motivo registrado) e é idempotente (re-run não gera v3).
+3. `project.baseline_ref` rastreia identidade, hash de importação e versão corrente — o contrato
+   `Project` virou índice operacional; a fonte de verdade é o baseline.
+
+Round-trip coberto por 8 testes em `runtime/tests/slice2.test.mjs` (fixture: baseline real gerado
+pelo `pipe idea` na fatia 1). Sem mudanças no runtime Python.
