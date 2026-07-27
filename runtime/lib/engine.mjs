@@ -16,6 +16,7 @@ import { DecisionQueue } from './decisions.mjs';
 import { runIntakeAgent } from '../agents/intake-agent.mjs';
 import { runIntakeReviewer } from '../reviewers/intake-reviewer.mjs';
 import { runIntakeCompletenessGate } from '../gates/intake-completeness-gate.mjs';
+import { loadBaselineFile, seedMarkdownFromBaseline, writeBaselineVersion, latestBaselineVersion, emitUpdatedBaseline } from './baseline-bridge.mjs';
 
 const RUNTIME_DIR = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -54,6 +55,39 @@ export function createProject({ store, name, description = '', ideaText, correla
   const emit = makeEmitter(store, { projectId: project.id, slug, correlationId });
   emit('ProjectCreated', { name, slug, idea_chars: ideaText.length });
   info('project.created', { project_id: project.id, slug, correlation_id: correlationId });
+  return project;
+}
+
+// ---------- criação de projeto a partir de ProductBaseline canônico (fatia 2) ----------
+export function createProjectFromBaseline({ store, baselinePath, correlationId = newId('cor'), env = process.env }) {
+  assertEnabled(env);
+  const { baseline, hash } = loadBaselineFile(baselinePath);
+  const slug = /^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$/.test(baseline.product.productId)
+    ? baseline.product.productId
+    : slugify(baseline.product.name);
+  if (store.projectExists(slug)) {
+    const err = new Error(`projeto "${slug}" já existe (idempotência: baseline não re-importado; use show/run)`);
+    err.code = 'DUPLICATE_PROJECT';
+    throw err;
+  }
+  const ts = nowIso();
+  const project = {
+    id: newId('prj'), name: baseline.product.name, slug,
+    description: baseline.product.summary ?? '',
+    current_state: 'CREATED', current_phase: 'intake', status: 'active',
+    state_version: 1,
+    next_action: { action: 'executar workflow idea-to-intake', command: `run --project ${slug}` },
+    blockers: [], artifact_refs: [], decision_refs: [], run_refs: [],
+    previous_state: null, created_at: ts, updated_at: ts,
+    baseline_ref: { baseline_id: baseline.baselineId, imported_from: baselinePath, import_hash: hash, current_version: 1 },
+  };
+  assertContract('Project', project);
+  store.initProject(project);
+  store.writeSource(slug, 'baseline-import.md', seedMarkdownFromBaseline(baseline));
+  writeBaselineVersion(store, slug, baseline);
+  const emit = makeEmitter(store, { projectId: project.id, slug, correlationId });
+  emit('ProjectCreated', { name: project.name, slug, from_baseline: baseline.baselineId, import_hash: hash });
+  info('project.created_from_baseline', { project_id: project.id, slug, baseline_id: baseline.baselineId, correlation_id: correlationId });
   return project;
 }
 
@@ -213,13 +247,28 @@ export function executeWorkflow({ store, slug, workflowId = 'idea-to-intake', co
         transition(store, project, 'PREPARE_NEXT_PHASE', { blockingDecisionsPending: 0 }, { emit, runId: run.id });
         track(emit('PhaseCompleted', { phase: 'intake', next: project.next_action }, { runId: run.id }));
 
+        // Fatia 2: se o projeto foi semeado de um baseline canônico, emite a
+        // atualização (lifecycle → founder_focus, brief em artifacts, aprovações).
+        let baselineUpdate = null;
+        if (latestBaselineVersion(store, slug) > 0) {
+          const resolved = store.listDecisions(slug);
+          baselineUpdate = emitUpdatedBaseline({ store, slug, artifact, gateResult, decisions: resolved });
+          if (baselineUpdate.emitted) {
+            project.baseline_ref = { ...(project.baseline_ref ?? {}), current_version: baselineUpdate.version };
+            store.saveProject(project, project.state_version);
+            track(emit('ArtifactCreated', { kind: 'product-baseline', baseline_id: baselineUpdate.baselineId, baseline_version: baselineUpdate.version, path: baselineUpdate.path }, { runId: run.id }));
+          } else {
+            warn('baseline.emit_skipped', { run_id: run.id, reason: baselineUpdate.reason });
+          }
+        }
+
         run.status = 'completed';
         run.completed_at = nowIso();
         run.current_step = null;
         run.costs.latency_ms = Date.now() - startedAt;
-        run.result = { artifact_id: artifact.id, gate: summarizeGate(gateResult), next_action: project.next_action };
+        run.result = { artifact_id: artifact.id, gate: summarizeGate(gateResult), next_action: project.next_action, baseline_update: baselineUpdate };
         store.saveRun(slug, run);
-        return { project, run, artifact, gateResult };
+        return { project, run, artifact, gateResult, baselineUpdate };
       }
 
       // ---- gate falhou ----

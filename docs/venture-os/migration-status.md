@@ -12,7 +12,12 @@ Plano de referência: `~/Developer/analises/pipe-venture-builder-venture-os/docs
 | 5 — Identidade de agentes | **iniciada** | intake-agent tem definição máquina-legível; demais contratos do manual pendentes |
 | 6 — Fluxo completo + connectors | **pendente** | — |
 
-## Convergência com o ProductBaseline (dívida deliberada)
+## Convergência com o ProductBaseline — ENTREGUE na fatia 2 (PIP-726)
+
+`--from-baseline` + emissão pós-intake implementados (ver `baseline-bridge.md` §Fatia 2). A tabela
+abaixo permanece como referência do mapeamento conceitual original.
+
+## Convergência com o ProductBaseline (mapeamento original da fatia 1)
 
 A fatia usa o contrato `Project` (enxuto, do prompt de implementação) em vez de instanciar o
 `ProductBaseline.schema.json` (1.009 linhas). Mapeamento previsto para a próxima fatia:

@@ -8,7 +8,7 @@ import { Store, defaultProjectsRoot } from '../lib/store.mjs';
 import { ventureOsEnabled } from '../lib/flag.mjs';
 import { newId } from '../lib/ids.mjs';
 import {
-  createProject, executeWorkflow, respondDecision, pauseProject, resumeProject, cancelProject,
+  createProject, createProjectFromBaseline, executeWorkflow, respondDecision, pauseProject, resumeProject, cancelProject,
 } from '../lib/engine.mjs';
 import { DecisionQueue } from '../lib/decisions.mjs';
 
@@ -29,6 +29,7 @@ const HELP = `pipe-os — fatia vertical do Venture-to-Execution OS (feature fla
 
 Comandos mutantes (exigem VENTURE_OS_ENABLED=true):
   create-project --name <nome> (--idea "<texto>" | --idea-file <caminho>) [--description "<...>"]
+  create-project --from-baseline <baseline.json>   semeia projeto de um ProductBaseline canônico (pipe idea/adopt)
   run            --project <slug>
   resume         --project <slug>
   pause          --project <slug>
@@ -64,6 +65,11 @@ export function main(argv = process.argv.slice(2), env = process.env) {
   const slug = opts.project;
   switch (cmd) {
     case 'create-project': {
+      if (typeof opts['from-baseline'] === 'string') {
+        const project = createProjectFromBaseline({ store, baselinePath: opts['from-baseline'], correlationId, env });
+        out({ ok: true, project: { id: project.id, slug: project.slug, state: project.current_state, baseline: project.baseline_ref, next_action: project.next_action } });
+        return 0;
+      }
       const ideaText = opts['idea-file'] ? readFileSync(opts['idea-file'], 'utf8') : (typeof opts.idea === 'string' ? opts.idea : '');
       const project = createProject({ store, name: String(opts.name ?? ''), description: String(opts.description ?? ''), ideaText, correlationId, env });
       out({ ok: true, project: { id: project.id, slug: project.slug, state: project.current_state, next_action: project.next_action } });
