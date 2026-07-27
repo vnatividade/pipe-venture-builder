@@ -94,9 +94,11 @@ The transform reorganizes and formats; it never rewrites, summarizes, or reorder
 
 | Risk | Severity | Mitigation |
 |---|---|---|
-| Transform double-processes markdown the Mac worker already handles | High | MD-INTAKE-01 maps the worker's normalization before the transform is specified |
+| Transform double-processes markdown the Mac worker already handles | Resolved | PIP-719 read the worker: **nothing** the profile specifies is redundant, and the worker inserts no omission marker for anything. The opposite risk turned out to be the real one — see below |
+| Worker silently discards content with no marker | High | The worker deletes every fenced code block unconditionally, collapses empty-alt images to nothing, and removes horizontal rules — all silently, no placeholder. The transform must emit every `[… omitido]` marker itself as plain spoken text, never inside a fence, because there is no server-side safety net |
 | Pasted content is personal | Medium | Nothing new is persisted; content follows the same path as today's uploads. The known caveat stays honest: text passes through the Railway queue before reaching the Mac Studio, so "total privacy" must not be claimed |
 | Silent content loss in the transform | Medium | Preview shows the exact spoken text; every omission is an explicit visible marker; fixtures assert preservation |
+| Un-punctuated lines run together in the audio | Medium | The worker does no sentence splitting at all — it only breaks on pause commands. The transform must guarantee terminal punctuation on every emitted line |
 | `app.py` grows unwieldy (already 843 lines with the UI inline) | Low | Keep the transform as one clearly-bounded JS block; if it exceeds ~200 lines, split the UI into a served static file under its own ticket |
 | 2 MB limit surprises a large paste | Low | Client-side length check with a clear message before submit |
 
@@ -120,13 +122,13 @@ One ticket, branch, and PR each.
 
 | Slice | Linear | Scope | Depends on |
 |---|---|---|---|
-| MD-INTAKE-01 | PIP-719 | Map the Mac Studio worker's Markdown normalization and pause-command parsing; write it down as the transform's contract | — |
+| MD-INTAKE-01 | PIP-719 | ~~Map the Mac Studio worker's Markdown normalization and pause-command parsing~~ — **done**, findings in the profile doc | — |
 | MD-INTAKE-02 | PIP-720 | Paste area UI in `INDEX_HTML`: textarea, mode toggle, size check, Lampião tokens; paste and file share one submit | — |
 | MD-INTAKE-03 | PIP-721 | Deterministic transform + speakable-markdown profile, including pause-based section breaks and title inference | 01 |
 | MD-INTAKE-04 | PIP-722 | Golden fixtures + minimal test surface (repo has no tests today) | 03 |
 | MD-INTAKE-05 | PIP-723 | Preview of the spoken text, estimated duration, inline editing before generating | 02, 03 |
 
-**MD-INTAKE-01 is the keystone and it is a human/local task**: the Mac Studio worker is not in any repository, so no cloud agent can inspect it. Until its normalization is written down, the transform would be guessing, and the most likely failure is doing work the worker already does — stripping syntax twice, or fighting its sentence splitting. MD-INTAKE-02 is genuinely independent and can start in parallel.
+**MD-INTAKE-01 was the keystone, and it is now resolved** (PIP-719, executed by an agent on the founder's machine — the worker turned out to live in `~/Developer/md-audio-site`, reachable locally but from no remote repository). It answered the question the plan was blocked on, and it inverted the risk: the worry was that the transform would duplicate the worker's work, but the worker does far less than assumed and marks nothing it drops. PIP-721 can now implement against a complete contract; PIP-720 remains independent.
 
 ## Governance Notes
 

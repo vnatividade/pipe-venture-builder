@@ -17,7 +17,7 @@ Read directly from the md-audio-proxy repository at `main` (clone of 2026-07-27)
 
 Also read: Linear PIP-661 (Atelier pilot on md-audio) and its comments.
 
-**Not inspectable:** the Mac Studio worker that performs the Kokoro TTS. It lives on the founder's machine, not in any repository reachable from here. Everything about how it normalizes Markdown before speaking is therefore unknown — and that gap is the keystone dependency of the intake feature.
+**Not inspectable from a cloud session, but now read:** the Mac Studio worker that performs the Kokoro TTS lives in `~/Developer/md-audio-site` (`main` @ `2c2d09f`) — reachable on the founder's machine, from no remote repository. PIP-719 read it locally and recorded its full Markdown handling in `audiobook-markdown-profile-draft.md`, which closed the keystone gap of the intake feature.
 
 ## Product Truth
 
@@ -50,7 +50,7 @@ An earlier draft of this plan (2026-07-27, before repository access) assumed md-
 |---|---|
 | React / Next.js App Router | Flask serving a single inline HTML string; vanilla JS, no build step |
 | Server-side library model | IndexedDB on the device; server memory is a 30-minute queue |
-| Player keys on H1/H2 chapter structure | Unknown — Markdown handling lives in the unreachable Mac worker |
+| Player keys on H1/H2 chapter structure | No — the worker strips the `#` and speaks the heading inline. It contributes zero structural audio behavior; every pause must come from the transform (PIP-719) |
 | LLM structuring pass as MVP core | No AI dependency exists; adding one needs an API key, which is an absolute approval gate |
 | File upload out of scope, paste is the input | File upload is the *only* input today; paste is the new thing |
 
