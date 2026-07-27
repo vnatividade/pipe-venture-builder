@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pipe-venture-builder.local/runtime/schemas/ArtifactManifestEntry.schema.json",
+  "x-pipe-schema-version": "0.1.0",
+  "title": "Artifact Manifest Entry (Venture OS slice contract)",
+  "type": "object",
+  "required": ["id","project_id","run_id","type","version","path","status","hash","created_by","agent_id","model","prompt_version","source_refs","created_at"],
+  "properties": {
+    "id": {"type":"string"},
+    "project_id": {"type":"string"},
+    "run_id": {"type":"string"},
+    "phase": {"type":"string"},
+    "type": {"type":"string"},
+    "version": {"type":"integer"},
+    "path": {"type":"string"},
+    "status": {"enum":["present","superseded","invalid"]},
+    "hash": {"type":"string","minLength":64},
+    "created_by": {"type":"string"},
+    "agent_id": {"type":"string"},
+    "model": {"type":"string"},
+    "prompt_version": {"type":"string"},
+    "source_refs": {"type":"array","items":{"type":"string"}},
+    "render_path": {"type":["string","null"]},
+    "superseded_by": {"type":["string","null"]},
+    "validation": {"type":["object","null"]},
+    "created_at": {"type":"string"}
+  }
+}

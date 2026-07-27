@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pipe-venture-builder.local/runtime/schemas/AgentDefinition.schema.json",
+  "x-pipe-schema-version": "0.1.0",
+  "title": "Agent Definition (Venture OS slice contract)",
+  "type": "object",
+  "required": ["id","version","mission","allowed_tools","required_context","allowed_outputs","forbidden_actions","autonomy_level","completion_criteria"],
+  "properties": {
+    "id": {"type":"string"},
+    "version": {"type":"string"},
+    "mission": {"type":"string","minLength":10},
+    "implementation": {"type":"string"},
+    "implementation_note": {"type":"string"},
+    "allowed_tools": {"type":"array","items":{"type":"string"}},
+    "required_context": {"type":"array","items":{"type":"string"}},
+    "allowed_outputs": {"type":"array","items":{"type":"string"}},
+    "allowed_write_paths": {"type":"array","items":{"type":"string"}},
+    "forbidden_actions": {"type":"array","items":{"type":"string"}},
+    "autonomy_level": {"type":"integer"},
+    "autonomy_note": {"type":"string"},
+    "completion_criteria": {"type":"array","items":{"type":"string"}}
+  }
+}

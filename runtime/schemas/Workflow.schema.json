@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pipe-venture-builder.local/runtime/schemas/Workflow.schema.json",
+  "x-pipe-schema-version": "0.1.0",
+  "title": "Workflow Definition (Venture OS slice contract)",
+  "type": "object",
+  "required": ["id","version","name","entry_state","steps","transitions","gates","allowed_agents","outputs"],
+  "properties": {
+    "id": {"type":"string"},
+    "version": {"type":"string"},
+    "name": {"type":"string"},
+    "entry_state": {"type":"string"},
+    "steps": {"type":"array","items":{"type":"object","required":["id","description"]}},
+    "transitions": {"type":"array","items":{"type":"string"}},
+    "gates": {"type":"array","items":{"type":"string"}},
+    "allowed_agents": {"type":"array","items":{"type":"string"}},
+    "outputs": {"type":"array","items":{"type":"string"}},
+    "max_attempts": {"type":"integer"},
+    "next_phase_on_success": {"type":"object"}
+  }
+}

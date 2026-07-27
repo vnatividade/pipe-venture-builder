@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pipe-venture-builder.local/runtime/schemas/HumanDecisionRequest.schema.json",
+  "x-pipe-schema-version": "0.1.0",
+  "title": "Human Decision Request (Venture OS slice contract)",
+  "type": "object",
+  "required": ["id","project_id","run_id","phase","status","priority","category","reason_code","context","reason","impact","options","recommendation","safe_default","expected_response","blocked_scope","created_at"],
+  "properties": {
+    "id": {"type":"string"},
+    "project_id": {"type":"string"},
+    "run_id": {"type":"string"},
+    "phase": {"type":"string"},
+    "status": {"enum":["pending","resolved"]},
+    "priority": {"enum":["P0","P1","P2","P3"]},
+    "category": {"type":"string"},
+    "reason_code": {"type":"string"},
+    "context": {"type":"string"},
+    "reason": {"type":"string"},
+    "impact": {"type":"string"},
+    "options": {"type":"array","items":{"type":"object","required":["id","label"]}},
+    "recommendation": {"type":"object","required":["option_id","rationale"]},
+    "safe_default": {"type":"string"},
+    "expected_response": {"type":"object"},
+    "blocked_scope": {"type":"object"},
+    "created_at": {"type":"string"},
+    "resolved_at": {"type":["string","null"]},
+    "resolution": {"type":["object","null"]}
+  }
+}
