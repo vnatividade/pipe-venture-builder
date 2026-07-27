@@ -16,7 +16,11 @@ import { DecisionQueue } from './decisions.mjs';
 import { runIntakeAgent } from '../agents/intake-agent.mjs';
 import { runIntakeReviewer } from '../reviewers/intake-reviewer.mjs';
 import { runIntakeCompletenessGate } from '../gates/intake-completeness-gate.mjs';
-import { loadBaselineFile, seedMarkdownFromBaseline, writeBaselineVersion, latestBaselineVersion, emitUpdatedBaseline } from './baseline-bridge.mjs';
+import { loadBaselineFile, seedMarkdownFromBaseline, writeBaselineVersion, latestBaselineVersion, emitUpdatedBaseline, loadProjectBaseline, validateBaseline } from './baseline-bridge.mjs';
+import { compilePromptPackage, COMPILER_VERSION } from './prompt-compiler.mjs';
+import { runStrategyReviewer } from '../reviewers/strategy-reviewer.mjs';
+import { runStrategyCompletenessGate } from '../gates/strategy-completeness-gate.mjs';
+import { basename } from 'node:path';
 
 const RUNTIME_DIR = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -127,7 +131,17 @@ export function executeWorkflow({ store, slug, workflowId = 'idea-to-intake', co
     throw err;
   }
   if (project.current_state === 'PRODUCT_STRATEGY_READY') {
-    const err = new Error('intake já concluído; próxima fase: product_strategy (fora do escopo desta fatia)');
+    const err = new Error(`intake já concluído; inicie a estratégia com: run-phase --project ${slug}`);
+    err.code = 'ALREADY_DONE';
+    throw err;
+  }
+  if (['PRODUCT_STRATEGY_IN_PROGRESS', 'PRODUCT_STRATEGY_REVIEW', 'PRODUCT_STRATEGY_APPROVED'].includes(project.current_state)) {
+    const err = new Error('fase de estratégia em andamento; use run-phase/submit');
+    err.code = 'USE_RUN_PHASE';
+    throw err;
+  }
+  if (project.current_state === 'MVP_REFINEMENT_READY') {
+    const err = new Error('estratégia concluída; próxima fase: mvp_refinement (fora do escopo desta fatia)');
     err.code = 'ALREADY_DONE';
     throw err;
   }
@@ -364,14 +378,19 @@ export function respondDecision({ store, slug, decisionId, optionId, freeText = 
     return { project, decision, run };
   }
 
-  // provide-info: o texto vira nova fonte e a execução volta a INTAKE_IN_PROGRESS.
+  // provide-info: o texto vira nova fonte e a execução volta ao estado de execução da fase ($resume).
   const n = store.listSources(slug).filter((s) => s.name.startsWith('clarification-')).length + 2;
   store.writeSource(slug, `clarification-v${n}.md`, (freeText ?? '').trim() + '\n');
   transition(store, project, 'HUMAN_DECISION_RECEIVED', { decisionResolved: true }, { emit, runId: decision.run_id });
   emit('WorkflowResumed', { decision_id: decision.id, new_source: `clarification-v${n}.md` }, { runId: decision.run_id });
-  run.status = 'resuming';
+  if (project.current_state === 'PRODUCT_STRATEGY_IN_PROGRESS') {
+    run.status = 'awaiting_executor';
+    project.next_action = { action: 'executor corrige e reenvia os artefatos de estratégia considerando a clarificação', command: `submit --project ${slug} --files <arquivos corrigidos>` };
+  } else {
+    run.status = 'resuming';
+    project.next_action = { action: 'retomar workflow idea-to-intake', command: `resume --project ${slug}` };
+  }
   store.saveRun(slug, run);
-  project.next_action = { action: 'retomar workflow idea-to-intake', command: `resume --project ${slug}` };
   store.saveProject(project, project.state_version);
   return { project, decision, run };
 }
@@ -406,4 +425,228 @@ export function cancelProject({ store, slug, correlationId = newId('cor'), env =
   const emit = makeEmitter(store, { projectId: project.id, slug, correlationId });
   transition(store, project, 'CANCEL', {}, { emit });
   return project;
+}
+
+// ---------- fase product-strategy (padrão genérico de fase, fatia 3) ----------
+export function startPhase({ store, slug, workflowId = 'product-strategy', correlationId = newId('cor'), env = process.env }) {
+  assertEnabled(env);
+  let project = store.loadProject(slug);
+  const workflowDef = loadWorkflowDef(workflowId);
+  const agentDef = loadAgentDef(workflowDef.allowed_agents[0]);
+  const artifacts = new ArtifactManager(store);
+  const emit = makeEmitter(store, { projectId: project.id, slug, correlationId });
+
+  // Idempotência: fase já em andamento → devolve o pacote e a run existentes.
+  if (project.current_state === 'PRODUCT_STRATEGY_IN_PROGRESS') {
+    const pkg = artifacts.current(slug, `prompt-package-${workflowId}`);
+    const run = store.listRuns(slug).find((r) => r.workflow_id === workflowId && ['awaiting_executor', 'running'].includes(r.status));
+    return { project, run, packageArtifact: pkg, idempotent: true };
+  }
+  if (project.current_state !== workflowDef.entry_state) {
+    const err = new Error(`fase ${workflowId} exige estado ${workflowDef.entry_state}; atual: ${project.current_state}`);
+    err.code = 'INVALID_PHASE_START';
+    throw err;
+  }
+
+  const pkg = compilePromptPackage({ store, slug, project, workflowDef, agentDef, artifacts });
+  const { artifact: packageArtifact } = artifacts.register({
+    slug, projectId: project.id, runId: null, phase: 'product_strategy',
+    type: `prompt-package-${workflowId}`, filename: 'prompt-package.md', content: pkg.markdown,
+    createdBy: 'prompt-compiler', agentId: agentDef.id, model: `prompt-compiler@${COMPILER_VERSION}`,
+    promptVersion: agentDef.version, sourceRefs: pkg.metadata.refs.map((r) => r.name),
+  });
+
+  const run = {
+    id: newId('run'), project_id: project.id, workflow_id: workflowId, phase: 'product_strategy',
+    status: 'awaiting_executor', agent_id: agentDef.id, current_step: 'await_executor', attempt: 1,
+    started_at: nowIso(), completed_at: null, error: null, result: null,
+    costs: { tokens: null, cost: null, model: agentDef.executor ?? 'claude-code', latency_ms: null, tool_calls: null },
+    events: [], context_log: { documents: pkg.metadata.refs, omitted: [], used_chars: pkg.metadata.chars, limit_chars: null },
+  };
+  assertContract('Run', run);
+  project.run_refs.push(run.id);
+  if (!project.artifact_refs.includes(packageArtifact.id)) project.artifact_refs.push(packageArtifact.id);
+  const track = (evt) => run.events.push(evt.id);
+  track(emit('RunCreated', { workflow_id: workflowId, run_id: run.id }, { runId: run.id }));
+  track(emit('PhaseStarted', { phase: 'product_strategy' }, { runId: run.id }));
+  track(emit('AgentAssigned', { agent_id: agentDef.id, agent_version: agentDef.version, executor: agentDef.executor }, { runId: run.id }));
+  track(emit('ContextLoaded', run.context_log, { runId: run.id }));
+  track(emit('ArtifactCreated', { artifact_id: packageArtifact.id, type: packageArtifact.type, version: packageArtifact.version, hash: packageArtifact.hash }, { runId: run.id }));
+  track(emit('StepStarted', { step: 'await_executor', attempt: 1 }, { runId: run.id }));
+  store.saveRun(slug, run);
+
+  project.next_action = {
+    action: `executor ${agentDef.executor ?? 'claude-code'} produz ${workflowDef.outputs.map((o) => o + '.md').join(' e ')} conforme o pacote`,
+    command: `submit --project ${slug} --files <caminhos>`,
+    package: packageArtifact.path,
+  };
+  transition(store, project, 'START_PHASE', { promptPackageReady: true }, { emit, runId: run.id });
+  return { project, run, packageArtifact, packageMarkdown: pkg.markdown };
+}
+
+function advanceBaselineAfterStrategy({ store, slug, registered, gateResult }) {
+  const current = loadProjectBaseline(store, slug);
+  if (!current) return { emitted: false, reason: 'projeto sem baseline importado' };
+  const b = structuredClone(current.baseline);
+  b.generatedAt = nowIso();
+  b.lifecycle.currentStage = 'controle_evaluation';
+  b.lifecycle.nextAllowedStage = 'validation_planning';
+  for (const art of registered) {
+    const artifactId = `ART-${art.type}-v${art.version}`;
+    if (!b.artifacts.some((a) => a.artifactId === artifactId)) {
+      b.artifacts.push({
+        artifactId, artifactType: 'product_context',
+        title: `${art.type} v${art.version} (venture-os strategy loop)`,
+        status: 'present', sourceRef: art.path, externalRef: null, provenanceStatementIds: [],
+      });
+    }
+  }
+  b.approvals.push({
+    action: `strategy-completeness-gate ${gateResult.status} (venture-os loop, score ${gateResult.score})`,
+    required: true, status: 'granted', sourceRef: gateResult.id,
+  });
+  b.nextActions = [{
+    actionId: 'NEXT-controle-evaluation',
+    title: 'Run C.O.N.T.R.O.L.E. evaluation on the strategy draft',
+    ownerRole: 'Product Strategist', priority: 'P2', blockedByGapIds: [],
+    approvalRequired: true, suggestedCommand: null,
+  }];
+  const validation = validateBaseline(b);
+  if (!validation.valid) return { emitted: false, reason: `baseline atualizado inválido: ${validation.errors?.slice(0, 2).join('; ')}` };
+  const { version, path } = writeBaselineVersion(store, slug, b);
+  return { emitted: true, version, path };
+}
+
+export function submitPhaseArtifacts({ store, slug, files, workflowId = 'product-strategy', correlationId = newId('cor'), env = process.env }) {
+  assertEnabled(env);
+  let project = store.loadProject(slug);
+  if (project.current_state !== 'PRODUCT_STRATEGY_IN_PROGRESS') {
+    const err = new Error(`submissão exige PRODUCT_STRATEGY_IN_PROGRESS; atual: ${project.current_state}`);
+    err.code = 'INVALID_PHASE_STATE';
+    throw err;
+  }
+  const workflowDef = loadWorkflowDef(workflowId);
+  const agentDef = loadAgentDef(workflowDef.allowed_agents[0]);
+  const artifacts = new ArtifactManager(store);
+  const decisions = new DecisionQueue(store);
+  const emit = makeEmitter(store, { projectId: project.id, slug, correlationId });
+  const run = store.listRuns(slug).find((r) => r.workflow_id === workflowId && ['awaiting_executor', 'running'].includes(r.status));
+  if (!run) throw Object.assign(new Error('nenhuma run aguardando executor para esta fase'), { code: 'NO_ACTIVE_RUN' });
+  const track = (evt) => run.events.push(evt.id);
+  run.status = 'running';
+  run.current_step = 'register_artifacts';
+  track(emit('StepStarted', { step: 'register_artifacts', attempt: run.attempt }, { runId: run.id }));
+
+  const contents = {};
+  const registered = [];
+  for (const filePath of files) {
+    const type = basename(filePath).replace(/\.md$/i, '');
+    if (!workflowDef.outputs.includes(type)) {
+      throw Object.assign(new Error(`saída "${type}" não permitida; esperadas: ${workflowDef.outputs.join(', ')}`), { code: 'INVALID_INPUT' });
+    }
+    const content = readFileSync(filePath, 'utf8');
+    contents[type] = content;
+    const { artifact } = artifacts.register({
+      slug, projectId: project.id, runId: run.id, phase: 'product_strategy',
+      type, filename: `${type}.md`, content,
+      createdBy: agentDef.executor ?? 'claude-code', agentId: agentDef.id,
+      model: `${agentDef.executor ?? 'claude-code'}/interactive`, promptVersion: agentDef.version,
+      sourceRefs: [artifacts.current(slug, `prompt-package-${workflowId}`)?.path].filter(Boolean),
+    });
+    registered.push(artifact);
+    if (!project.artifact_refs.includes(artifact.id)) project.artifact_refs.push(artifact.id);
+    track(emit('ArtifactCreated', { artifact_id: artifact.id, type, version: artifact.version }, { runId: run.id }));
+  }
+  const complete = workflowDef.outputs.every((o) => contents[o]);
+  transition(store, project, 'PHASE_ARTIFACTS_SUBMITTED', { phaseArtifactsValid: complete }, { emit, runId: run.id });
+
+  run.current_step = 'review';
+  const sourceText = [
+    store.listSources(slug).map((s) => s.content).join('\n'),
+    artifacts.current(slug, 'initial-brief') ? store.readArtifactFile(slug, artifacts.current(slug, 'initial-brief').path.replace(/^artifacts\//, '')) : '',
+    JSON.stringify(loadProjectBaseline(store, slug)?.baseline ?? {}),
+  ].join('\n');
+  const review = runStrategyReviewer({ files: contents, sourceText });
+
+  run.current_step = 'gate';
+  track(emit('StepStarted', { step: 'gate', attempt: run.attempt }, { runId: run.id }));
+  const gateResult = runStrategyCompletenessGate({
+    files: contents, nextActionPlanned: workflowDef.next_phase_on_success,
+    reviewerFindings: review.findings, projectId: project.id, runId: run.id,
+  });
+  assertContract('GateResult', gateResult);
+  for (const art of registered) {
+    artifacts.attachValidation(slug, art.id, {
+      gate_result_id: gateResult.id, gate_id: gateResult.gate_id, status: gateResult.status,
+      score: gateResult.score, failures: gateResult.failures.length, warnings: gateResult.warnings.length,
+      reviewer: { id: review.reviewer_id, findings: review.findings.length },
+    });
+    track(emit('ArtifactValidated', { artifact_id: art.id, gate_result_id: gateResult.id, status: gateResult.status }, { runId: run.id }));
+  }
+
+  if (gateResult.status !== 'fail') {
+    track(emit('GatePassed', { gate_result_id: gateResult.id, score: gateResult.score }, { runId: run.id }));
+    transition(store, project, 'GATE_PASSED', { gateStatus: gateResult.status }, { emit, runId: run.id, gateResultId: gateResult.id });
+    run.current_step = 'prepare_next';
+    const baselineUpdate = advanceBaselineAfterStrategy({ store, slug, registered, gateResult });
+    project.next_action = {
+      ...workflowDef.next_phase_on_success,
+      dependencies: registered.map((a) => `${a.type} v${a.version} aprovado (${a.id})`),
+      blockers: [], human_intervention_required: false,
+    };
+    transition(store, project, 'PREPARE_NEXT_PHASE', { blockingDecisionsPending: 0 }, { emit, runId: run.id });
+    track(emit('PhaseCompleted', { phase: 'product_strategy', next: project.next_action, baseline: baselineUpdate }, { runId: run.id }));
+    run.status = 'completed';
+    run.completed_at = nowIso();
+    run.current_step = null;
+    run.result = { artifacts: registered.map((a) => a.id), gate: { gate_result_id: gateResult.id, status: gateResult.status, score: gateResult.score }, baseline: baselineUpdate, next_action: project.next_action };
+    store.saveRun(slug, run);
+    return { project, run, registered, gateResult, baselineUpdate };
+  }
+
+  track(emit('GateFailed', { gate_result_id: gateResult.id, failures: gateResult.failures.map((f) => f.check) }, { runId: run.id }));
+  const inputGaps = gateResult.failures.filter((f) => ['input_gap', 'unsupported_claims'].includes(f.category));
+  if (inputGaps.length > 0 && run.attempt >= (workflowDef.max_attempts ?? 2)) {
+    // Correção pelo executor esgotada: escala para decisão humana.
+    const { decision } = decisions.request({
+      slug, projectId: project.id, runId: run.id, phase: 'product_strategy',
+      priority: 'P1', category: 'input_gap',
+      reasonCode: `strategy_gaps:${inputGaps.map((f) => f.check).sort().join(',')}`,
+      context: `O gate de estratégia reprovou após ${run.attempt} tentativa(s) do executor. Falhas: ${inputGaps.map((f) => f.message).join(' ')}`,
+      reason: 'O executor não pode inventar o insumo faltante; correção exige orientação ou conteúdo do fundador.',
+      impact: 'A fase de estratégia deste projeto fica pausada; nada mais é afetado.',
+      options: [
+        { id: 'provide-info', label: 'Fornecer orientação/insumo em texto livre', consequences: 'Vira clarification-vN.md; o executor corrige e reenvia.' },
+        { id: 'cancel-project', label: 'Cancelar o projeto', consequences: 'Projeto vai para CANCELLED; nada é apagado.' },
+      ],
+      recommendation: { option_id: 'provide-info', rationale: 'As falhas apontam exatamente o que falta.' },
+      safeDefault: 'Permanecer em WAITING_HUMAN. Silêncio ou timeout NUNCA aprovam.',
+      expectedResponse: { type: 'option', requires_free_text: true },
+      blockedScope: { blocked: [`fase product-strategy de ${slug}`], not_blocked: ['outros projetos', 'leitura'] },
+    });
+    assertContract('HumanDecisionRequest', decision);
+    if (!project.decision_refs.includes(decision.id)) project.decision_refs.push(decision.id);
+    if (!project.blockers.includes(decision.id)) project.blockers.push(decision.id);
+    track(emit('HumanDecisionRequested', { decision_id: decision.id, reason_code: decision.reason_code }, { runId: run.id }));
+    transition(store, project, 'HUMAN_DECISION_REQUESTED', { blockingDecisionsPending: 1 }, { emit, runId: run.id, gateResultId: gateResult.id });
+    track(emit('WorkflowPaused', { reason: 'aguardando decisão humana', decision_id: decision.id }, { runId: run.id }));
+    run.status = 'waiting_human';
+    run.current_step = null;
+    run.result = { gate: { gate_result_id: gateResult.id, status: 'fail' }, pending_decision: decision.id };
+    store.saveRun(slug, run);
+    return { project, run, registered, gateResult, decision };
+  }
+
+  // Reprovou mas ainda há tentativa: devolve ao executor com as correções recomendadas.
+  transition(store, project, 'GATE_FAILED_RETRY', { gateStatus: 'fail' }, { emit, runId: run.id, gateResultId: gateResult.id });
+  run.attempt += 1;
+  run.status = 'awaiting_executor';
+  run.current_step = 'await_executor';
+  store.saveRun(slug, run);
+  project.next_action = {
+    action: `executor corrige (${gateResult.recommended_actions.join('; ')}) e reenvia`,
+    command: `submit --project ${slug} --files <arquivos corrigidos>`,
+  };
+  store.saveProject(project, project.state_version);
+  return { project, run, registered, gateResult, retry: true };
 }

@@ -72,7 +72,7 @@ test('toda transição declarada referencia estados e guards válidos', () => {
   for (const t of TRANSITIONS) {
     const froms = Array.isArray(t.from) ? t.from : [t.from];
     for (const f of froms) assert.ok(STATES.includes(f), `from inválido: ${f}`);
-    if (t.to !== '$previous') assert.ok(STATES.includes(t.to), `to inválido: ${t.to}`);
+    if (!['$previous', '$resume'].includes(t.to)) assert.ok(STATES.includes(t.to), `to inválido: ${t.to}`);
   }
   assert.ok(findTransition('START_INTAKE', 'CREATED'));
   assert.equal(findTransition('START_INTAKE', 'FAILED'), undefined);

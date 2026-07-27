@@ -9,6 +9,7 @@ import { ventureOsEnabled } from '../lib/flag.mjs';
 import { newId } from '../lib/ids.mjs';
 import {
   createProject, createProjectFromBaseline, executeWorkflow, respondDecision, pauseProject, resumeProject, cancelProject,
+  startPhase, submitPhaseArtifacts,
 } from '../lib/engine.mjs';
 import { DecisionQueue } from '../lib/decisions.mjs';
 
@@ -35,6 +36,8 @@ Comandos mutantes (exigem VENTURE_OS_ENABLED=true):
   pause          --project <slug>
   cancel         --project <slug>
   respond        --project <slug> --decision <id> --option <id> [--text "<...>"] --by <nome>
+  run-phase      --project <slug> [--workflow product-strategy]   compila o pacote e aguarda executor
+  submit         --project <slug> --files <a.md,b.md>             registra artefatos do executor e roda o gate
 
 Comandos de leitura:
   show           --project <slug>       estado do projeto
@@ -83,6 +86,27 @@ export function main(argv = process.argv.slice(2), env = process.env) {
     case 'resume': {
       const result = resumeProject({ store, slug, correlationId, env });
       out(result.run ? renderRunResult(result) : { ok: true, project_state: result.project.current_state });
+      return 0;
+    }
+    case 'run-phase': {
+      const result = startPhase({ store, slug, workflowId: typeof opts.workflow === 'string' ? opts.workflow : 'product-strategy', correlationId, env });
+      out({ ok: true, project_state: result.project.current_state, run: { id: result.run?.id, status: result.run?.status },
+        package: { id: result.packageArtifact?.id, path: result.packageArtifact?.path, version: result.packageArtifact?.version },
+        idempotent: Boolean(result.idempotent), next_action: result.project.next_action });
+      return 0;
+    }
+    case 'submit': {
+      const files = String(opts.files ?? '').split(',').map((f) => f.trim()).filter(Boolean);
+      const result = submitPhaseArtifacts({ store, slug, files, correlationId, env });
+      const base = { ok: !result.decision, project_state: result.project.current_state,
+        run: { id: result.run.id, status: result.run.status, attempt: result.run.attempt },
+        artifacts: result.registered.map((a) => ({ type: a.type, version: a.version, id: a.id })),
+        gate: { id: result.gateResult.id, status: result.gateResult.status, score: result.gateResult.score, failures: result.gateResult.failures.map((f) => f.check), warnings: result.gateResult.warnings.length } };
+      if (result.baselineUpdate) base.baseline = result.baselineUpdate;
+      if (result.decision) base.pending_decision = { id: result.decision.id, options: result.decision.options.map((o) => o.id), recommendation: result.decision.recommendation, safe_default: result.decision.safe_default };
+      if (result.retry) base.retry = { attempt: result.run.attempt, recommended: result.gateResult.recommended_actions };
+      if (result.project.next_action) base.next_action = result.project.next_action;
+      out(base);
       return 0;
     }
     case 'pause': out({ ok: true, project_state: pauseProject({ store, slug, correlationId, env }).current_state }); return 0;

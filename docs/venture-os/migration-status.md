@@ -9,6 +9,7 @@ Plano de referência: `~/Developer/analises/pipe-venture-builder-venture-os/docs
 | 2 — Artefatos e contexto | **parcial (esta fatia)** | Artifact manifest com hash/proveniência/supersessão + context loader determinístico; frontmatter de contratos de agente do manual: pendente |
 | 3 — Gates e runner /pipe:check | **iniciada** | Gate da fatia usa o vocabulário do /pipe:check; o runner do contrato completo continua pendente |
 | 4 — HITL estruturado | **parcial (esta fatia)** | Fila com contrato, idempotência e retomada; serialização DEC-XXX p/ Linear/Slack pendente |
+| 3b — Fase product-strategy (fatia 3) | **entregue (PIP-727)** | padrão genérico de fase + Prompt Compiler v0 + strategy gate/reviewer + executor Claude Code (ADR-VOS-007); Claude Design = claude.ai/design manual-first |
 | 5 — Identidade de agentes | **iniciada** | intake-agent tem definição máquina-legível; demais contratos do manual pendentes |
 | 6 — Fluxo completo + connectors | **pendente** | — |
 
