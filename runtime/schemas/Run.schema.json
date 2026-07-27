@@ -10,7 +10,7 @@
     "project_id": {"type":"string"},
     "workflow_id": {"type":"string"},
     "phase": {"type":"string"},
-    "status": {"enum":["running","waiting_human","resuming","paused","completed","failed","cancelled"]},
+    "status": {"enum":["running","awaiting_executor","waiting_human","resuming","paused","completed","failed","cancelled"]},
     "agent_id": {"type":"string"},
     "current_step": {"type":["string","null"]},
     "attempt": {"type":"integer"},

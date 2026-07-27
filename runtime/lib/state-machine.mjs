@@ -6,11 +6,19 @@ import { nowIso } from './ids.mjs';
 
 export const STATES = [
   'CREATED', 'INTAKE_IN_PROGRESS', 'INTAKE_REVIEW', 'INTAKE_APPROVED', 'PRODUCT_STRATEGY_READY',
+  'PRODUCT_STRATEGY_IN_PROGRESS', 'PRODUCT_STRATEGY_REVIEW', 'PRODUCT_STRATEGY_APPROVED', 'MVP_REFINEMENT_READY',
   'PAUSED', 'BLOCKED', 'WAITING_HUMAN', 'FAILED', 'CANCELLED',
 ];
 
-const ACTIVE_STATES = ['CREATED', 'INTAKE_IN_PROGRESS', 'INTAKE_REVIEW', 'INTAKE_APPROVED'];
+const ACTIVE_STATES = ['CREATED', 'INTAKE_IN_PROGRESS', 'INTAKE_REVIEW', 'INTAKE_APPROVED',
+  'PRODUCT_STRATEGY_READY', 'PRODUCT_STRATEGY_IN_PROGRESS', 'PRODUCT_STRATEGY_REVIEW', 'PRODUCT_STRATEGY_APPROVED'];
 const TERMINAL_STATES = ['CANCELLED', 'FAILED'];
+
+// Retomada pós-decisão humana: a fase volta ao seu estado de execução.
+const RESUME_MAP = {
+  INTAKE_REVIEW: 'INTAKE_IN_PROGRESS',
+  PRODUCT_STRATEGY_REVIEW: 'PRODUCT_STRATEGY_IN_PROGRESS',
+};
 
 // Guards nomeados (funções puras sobre {project, ctx}); o nome vai para o histórico.
 const GUARDS = {
@@ -24,6 +32,8 @@ const GUARDS = {
   humanRequested: ({ ctx }) => Boolean(ctx?.humanRequested),
   decisionResolved: ({ ctx }) => Boolean(ctx?.decisionResolved),
   retryExhausted: ({ ctx }) => Boolean(ctx?.retryExhausted),
+  promptPackageReady: ({ ctx }) => Boolean(ctx?.promptPackageReady),
+  phaseArtifactsValid: ({ ctx }) => Boolean(ctx?.phaseArtifactsValid),
 };
 
 export const TRANSITIONS = [
@@ -32,8 +42,15 @@ export const TRANSITIONS = [
   { event: 'GATE_PASSED',             from: 'INTAKE_REVIEW',      to: 'INTAKE_APPROVED',    guard: 'gatePassed',                 gate: 'intake-completeness-gate',  onError: 'reject' },
   { event: 'GATE_FAILED_RETRY',       from: 'INTAKE_REVIEW',      to: 'INTAKE_IN_PROGRESS', guard: 'gateFailed',                 gate: 'intake-completeness-gate',  onError: 'reject' },
   { event: 'HUMAN_DECISION_REQUESTED',from: 'INTAKE_REVIEW',      to: 'WAITING_HUMAN',      guard: 'hasBlockingDecision',        gate: null,                        onError: 'reject' },
-  { event: 'HUMAN_DECISION_RECEIVED', from: 'WAITING_HUMAN',      to: 'INTAKE_IN_PROGRESS', guard: 'decisionResolved',           gate: null,                        onError: 'reject' },
+  { event: 'HUMAN_DECISION_RECEIVED', from: 'WAITING_HUMAN',      to: '$resume',            guard: 'decisionResolved',           gate: null,                        onError: 'reject' },
   { event: 'PREPARE_NEXT_PHASE',      from: 'INTAKE_APPROVED',    to: 'PRODUCT_STRATEGY_READY', guard: 'noBlockingDecisionsPending', gate: null,                    onError: 'reject' },
+  // Fase product-strategy (padrão genérico de fase: READY → IN_PROGRESS → REVIEW → APPROVED → próxima READY)
+  { event: 'START_PHASE',             from: 'PRODUCT_STRATEGY_READY', to: 'PRODUCT_STRATEGY_IN_PROGRESS', guard: 'promptPackageReady', gate: null,                  onError: 'reject' },
+  { event: 'PHASE_ARTIFACTS_SUBMITTED', from: 'PRODUCT_STRATEGY_IN_PROGRESS', to: 'PRODUCT_STRATEGY_REVIEW', guard: 'phaseArtifactsValid', gate: null,              onError: 'retry' },
+  { event: 'GATE_PASSED',             from: 'PRODUCT_STRATEGY_REVIEW', to: 'PRODUCT_STRATEGY_APPROVED', guard: 'gatePassed',        gate: 'strategy-completeness-gate', onError: 'reject' },
+  { event: 'GATE_FAILED_RETRY',       from: 'PRODUCT_STRATEGY_REVIEW', to: 'PRODUCT_STRATEGY_IN_PROGRESS', guard: 'gateFailed',     gate: 'strategy-completeness-gate', onError: 'reject' },
+  { event: 'HUMAN_DECISION_REQUESTED',from: 'PRODUCT_STRATEGY_REVIEW', to: 'WAITING_HUMAN',  guard: 'hasBlockingDecision',        gate: null,                        onError: 'reject' },
+  { event: 'PREPARE_NEXT_PHASE',      from: 'PRODUCT_STRATEGY_APPROVED', to: 'MVP_REFINEMENT_READY', guard: 'noBlockingDecisionsPending', gate: null,               onError: 'reject' },
   { event: 'PAUSE',                   from: ACTIVE_STATES,        to: 'PAUSED',             guard: 'always',                     gate: null,                        onError: 'reject' },
   { event: 'RESUME',                  from: 'PAUSED',             to: '$previous',          guard: 'always',                     gate: null,                        onError: 'reject' },
   { event: 'FAIL',                    from: [...ACTIVE_STATES, 'WAITING_HUMAN'], to: 'FAILED', guard: 'retryExhausted',          gate: null,                        onError: 'reject' },
@@ -70,6 +87,10 @@ export function applyTransition(project, event, ctx = {}) {
     to = project.previous_state;
     if (!to || !STATES.includes(to)) throw new InvalidTransitionError(event, from, 'sem estado anterior para retomar');
   }
+  if (to === '$resume') {
+    to = RESUME_MAP[project.previous_state];
+    if (!to) throw new InvalidTransitionError(event, from, `sem mapeamento de retomada para "${project.previous_state}"`);
+  }
   if (['PAUSED', 'WAITING_HUMAN'].includes(to)) project.previous_state = from === 'WAITING_HUMAN' ? project.previous_state : from;
 
   project.current_state = to;
@@ -86,7 +107,7 @@ function stateToStatus(state) {
   if (state === 'PAUSED') return 'paused';
   if (state === 'WAITING_HUMAN') return 'waiting_human';
   if (state === 'BLOCKED') return 'blocked';
-  if (state === 'PRODUCT_STRATEGY_READY') return 'ready_for_next_phase';
+  if (state === 'PRODUCT_STRATEGY_READY' || state === 'MVP_REFINEMENT_READY') return 'ready_for_next_phase';
   return 'active';
 }
 
