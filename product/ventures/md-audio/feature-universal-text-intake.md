@@ -1,185 +1,136 @@
-# md-audio Feature Plan — Universal Text Intake (Paste-to-Audiobook)
+# md-audio Feature Plan — Colar e Ouvir (Universal Text Intake)
 
-- Status: draft plan, approved for planning under `exploration` mode (`.pipe/mode.json`)
+- Status: refined plan, ready for slicing. Written against the real md-audio-proxy code at `main` (2026-07-27)
 - Origin: founder request, 2026-07-27
-- Venture: md-audio (implementation repository: `md-audio-proxy`, outside this repo)
+- Venture: md-audio · repository: [`vnatividade/md-audio-proxy`](https://github.com/vnatividade/md-audio-proxy) (`exploration` mode)
 - Owner: founder (Vitor Natividade); planning agent: Claude Code
-- Linear: ticket creation pending — Linear MCP was not authenticated in the planning session; see Governance Notes
+- Linear: project [md-audio](https://linear.app/pipe-venture-builder/project/md-audio-951677fb7620) · epic [PIP-718](https://linear.app/pipe-venture-builder/issue/PIP-718) · slices PIP-719 … PIP-723
 
 ## Problem
 
-md-audio turns markdown documents into audiobooks, but the content people most want to listen to rarely starts as well-formed markdown. It starts as:
+md-audio only accepts a **file**. To listen to anything today the user must first get their content into a `.md` file on the device they are holding — which is exactly the step that does not happen on a phone. The content people most want to hear arrives as something you copy, not something you save:
 
-- answers copied from an AI agent conversation
+- answers from an AI agent conversation
 - personal notes and drafts
 - collections of quotes and highlights
 - fragments of articles or transcripts
-- markdown that is technically valid but messy: no title, broken heading hierarchy, code blocks, tables, links, and other artifacts that do not speak well
+- markdown that is valid but unspeakable as-is: code fences, tables, link URLs, broken heading order
 
-Today the user must hand-convert that material into the markdown structure md-audio expects before they can listen to it. That conversion is the friction between "I have something worth hearing" and "I am listening to it."
+The file requirement is the friction between "this is worth hearing" and "I am hearing it."
 
-## Solution Overview
+## Solution
 
-Add an **Intake** surface to md-audio: a dedicated paste area that accepts raw content, understands it, and transforms it into audiobook-ready markdown that md-audio can play.
+Add a **paste area** to the app card: the user pastes content, the app turns it into speakable markdown, and generates audio through the pipeline that already exists.
 
-Two input modes share one paste area:
+Two input modes share one paste area, auto-detected from markdown syntax density with a manual override:
 
-| Mode | Accepts | Typical sources |
+| Mode | Accepts | Typical source |
 |---|---|---|
-| Raw text | Free-form unstructured text | AI agent answers, personal notes, quotes, transcripts |
-| Raw markdown | Markdown pasted as-is, however messy | Exported notes, README fragments, AI answers already in markdown |
+| Texto cru | free-form unstructured text | AI answers, notes, quotes, transcripts |
+| Markdown cru | markdown as-is, however messy | exported notes, README fragments, AI answers already in markdown |
 
-Mode is auto-detected from markdown syntax density (headings, lists, fences, emphasis markers) with a manual override toggle, so the user never has to know or care which parser runs.
+### The Architectural Insight
 
-### Pipeline
+**This feature needs no server change at all.** `doPreview()` in `app.py` already synthesizes audio from a string built in the browser:
+
+```js
+fd.append('file', new File([txt], 'previa.md', { type:'text/markdown' }));
+```
+
+A paste area does exactly the same thing with the transformed text. So `/synthesize`, the job queue, the worker protocol, and the Mac Studio worker are all untouched. The whole feature is client-side, inside the `INDEX_HTML` string — which also means:
+
+- no new Python dependency (`requirements.txt` stays at flask + gunicorn)
+- no API key, so **no secrets gate is triggered**
+- no build step, honoring the repo's stated constraint
+- rollback is a git revert plus `railway up`
+
+### Pipeline (all in the browser)
 
 ```txt
 paste
-  -> capture & sanitize        (size limit, strip raw HTML/scripts, normalize encoding)
-  -> detect                    (input mode, language, content type)
-  -> understand                (infer title, segment into chapters/sections, classify blocks)
-  -> transform                 (emit audiobook-ready markdown per the profile)
-  -> validate                  (profile validator; fail closed to deterministic output)
-  -> preview & edit            (rendered result + estimated listening time; user can edit)
-  -> save to library           (nothing is persisted before this step)
+  -> detect        (markdown vs plain text; syntax-density heuristic + manual override)
+  -> structure     (title inference, section detection, block classification)
+  -> transform     (emit speakable markdown per the profile)
+  -> preview       (show exactly what will be spoken + estimated duration; user can edit)
+  -> generate      (File -> existing /synthesize -> existing queue -> Mac worker)
 ```
 
-- **Understand** combines a deterministic pass (remark/unified parsing for markdown mode; paragraph/heading heuristics for text mode) with an LLM structuring pass (Claude API) that returns a strict, schema-validated structure.
-- **Transform** emits markdown conforming to `audiobook-markdown-profile-draft.md`: frontmatter (title, language, source type), H1 title, H2 chapters, speakable handling of quotes, lists, links, code, and tables.
-- **Degraded path:** if the LLM step is unavailable or its output fails validation, the deterministic pass alone produces a valid (if plainer) result. Intake never hard-fails because the model is down.
+### Deterministic, Not Model-Driven
 
-### Content-Preservation Principle
+The transform is plain vanilla JS — no LLM. This is a deliberate reversal of the first draft of this plan, for three reasons:
 
-The system reorganizes and formats; it does not rewrite. The transform must not summarize, paraphrase, add, or drop the user's content beyond the profile's defined handling of non-speakable artifacts. The preview shows what was moved or marked (for example `[code omitted]`), so the user can verify nothing was lost. An optional "clean up wording" mode is explicitly a future feature, not part of this one.
+1. **The gate.** An LLM needs an API key on the server. Handling secrets is an absolute approval gate in every operating mode, and it would be the only secret in a repo whose entire dependency list is two lines.
+2. **The risk.** The one thing this feature must never do is change the user's words. A deterministic transform cannot hallucinate; a model can.
+3. **It is not needed.** What "understanding the content" actually requires here is structural, not semantic: find the title, find the section boundaries, decide which blocks are speakable, and linearize the rest. Punctuation and paragraph shape are enough. If golden fixtures later prove a real gap, an LLM pass becomes its own ticket with its own gate.
+
+### Using The Pause Command That Already Exists
+
+The single best thing the current product already does for this feature: writing `pausa de 5 segundos` inserts real silence, interpreted by the Mac worker. So structure can be expressed **as audio**, not just as text — the transform emits a short pause between sections and a longer one between chapters. Section breaks stop being invisible in a linear narration.
+
+### Content Preservation
+
+The transform reorganizes and formats; it never rewrites, summarizes, or reorders the user's words. Non-speakable artifacts are replaced by explicit markers (`[código omitido]`) and every marker is visible in the preview, so the user can see precisely what will not be narrated. A "clean up the wording" mode is out of scope and would be a separate, clearly-labeled feature.
 
 ## MVP Scope
 
-- Paste area with auto-detected raw-text / raw-markdown modes and manual override
-- Deterministic normalization pipeline for both modes
-- LLM understanding pass with schema-validated output and content-preservation guardrails
-- Audiobook markdown profile v0 and validator
-- Preview with estimated listening time and inline editing before save
-- Save into the md-audio library behind a feature flag
+- Paste area in the app card, alongside the existing file input, sharing the same submit
+- Mode auto-detection with manual override
+- Deterministic transform to speakable markdown, including pause-command section breaks
+- Title inference prefilling the existing "Título (opcional)" field
+- Preview of the exact text to be spoken, with estimated duration and inline editing
+- Golden fixtures and the minimal test surface to run them (the repo has none today)
 
 ## Excluded Scope
 
-- File upload, URL fetching, or document import (paste only)
-- Any change to the TTS/player engine itself
+- Any change to `/synthesize`, the queue, the worker protocol, or the Mac worker
+- URL fetching, file import beyond today's upload, multi-document merge
 - Rewriting, summarizing, or translating content
-- Multi-document merge or batch intake
-- Billing, pricing, or usage limits tied to payment (absolute gate; not touched)
-- Voice cloning or per-block voice assignment beyond what the profile already encodes
+- Any LLM or new server dependency
+- Server-side persistence of pasted content (nothing is stored server-side beyond the existing 30-minute job)
+- Analytics or telemetry (none exists; adding it is not justified by this feature)
+- Auth changes — the shared-token model is untouched
 
-## Architecture Sketch (assumptions flagged)
+## Risks
 
-Assuming md-audio's Next.js App Router stack (fact) and an existing library model (assumption):
+| Risk | Severity | Mitigation |
+|---|---|---|
+| Transform double-processes markdown the Mac worker already handles | High | MD-INTAKE-01 maps the worker's normalization before the transform is specified |
+| Pasted content is personal | Medium | Nothing new is persisted; content follows the same path as today's uploads. The known caveat stays honest: text passes through the Railway queue before reaching the Mac Studio, so "total privacy" must not be claimed |
+| Silent content loss in the transform | Medium | Preview shows the exact spoken text; every omission is an explicit visible marker; fixtures assert preservation |
+| `app.py` grows unwieldy (already 843 lines with the UI inline) | Low | Keep the transform as one clearly-bounded JS block; if it exceeds ~200 lines, split the UI into a served static file under its own ticket |
+| 2 MB limit surprises a large paste | Low | Client-side length check with a clear message before submit |
 
-- Client: intake route with paste area, mode toggle, preview pane. No raw content leaves the page except to the transform endpoint.
-- Server: one server action / route handler `transform` — stateless, idempotent, returns the candidate markdown plus a block-level provenance map for the preview diff. No persistence until an explicit `save`.
-- LLM call: Claude API with a fixed output JSON schema (title, chapters[], blocks[] with type + verbatim text spans). Temperature low; verbatim spans are copied from input by offset, not re-generated, to enforce preservation.
-- Validator: shared package that both the transform endpoint and the player can use to accept/reject a document against the profile.
+## Success Measures
 
-Raw pasted content may contain personal or sensitive material. It must not be logged, retained server-side pre-save, or used for anything beyond the transform call. This constraint is part of acceptance criteria, not an afterthought.
+Honest constraint: **the app has no analytics**, so conversion-style metrics are not measurable, and instrumenting a single-user personal tool is not worth it. The success measures are therefore direct and qualitative:
 
-## Risks and Mitigations
-
-| Risk | Mitigation |
-|---|---|
-| LLM alters or invents content | Verbatim-span architecture, validator diff check (input tokens ⊆ output tokens above threshold), preview diff, deterministic fallback |
-| Sensitive data in pastes | No pre-save persistence, no raw-content logging, LLM call scoped to transform only |
-| Huge pastes | Hard size limit with clear messaging; chunked understanding pass later if evidence demands it |
-| Mixed/ambiguous language | Language detected and recorded in frontmatter; no translation attempted |
-| md-audio format assumptions wrong | Definition of Ready requires reconciling the profile draft against the md-audio repository before implementation |
-
-## KPI Impact
-
-- Primary KPI: intake conversion — % of paste sessions that end in a saved audiobook
-- Secondary KPI: time from paste to first playback
-- Adoption: share of new library items created via intake vs. pre-existing paths
-- Retention signal: repeat intake use within 14 days
-- Baseline: none yet (feature does not exist); first two weeks post-flag define the baseline
-
-## Validation Plan
-
-- Golden fixture suite: representative pastes (AI answer, notes, quote list, messy markdown, table/code-heavy markdown) with expected profile-valid outputs, run in CI
-- Property check: content-preservation threshold on every fixture (no verbatim span lost)
-- Validator unit tests against the profile spec
-- Manual mood test: founder pastes three real inputs and rates the listening result
-- Unavailable in planning repo: no md-audio code or CI is reachable from pipe-venture-builder; execution-time validation happens in the md-audio repository
+- The founder pastes real content (an AI answer, a page of notes, a set of quotes) and the resulting audio is pleasant to listen to end to end — judged by listening, recorded in the ticket
+- The spoken text contains no code fences, raw URLs, or table syntax read aloud
+- Section breaks are audible as pauses
+- Fixtures pass: no verbatim content lost across all representative inputs
+- Not measured, deliberately: adoption, retention, conversion. Stated so nobody later mistakes their absence for failure
 
 ## Rollback
 
-Feature flag `intake_paste`. Rollback = flag off; no schema migrations required in MVP (documents saved through intake are ordinary library items). Rollback signal: intake conversion below an agreed floor or any report of content alteration.
+Revert the commit and `railway up`. No migrations, no schema, no server contract change. The existing file-upload path is untouched throughout, so the worst case leaves today's product exactly as it is. A feature flag would be over-engineering: the repo has no flag mechanism and the change is additive UI.
 
-## Slice Breakdown (one ticket, branch, and PR each)
+## Slice Breakdown
 
-| Slice | Scope | Depends on |
-|---|---|---|
-| MD-INTAKE-01 | Audiobook markdown profile v0 reconciled against the md-audio player + shared validator | — |
-| MD-INTAKE-02 | Deterministic normalization pipeline (both modes) + golden fixtures | 01 |
-| MD-INTAKE-03 | Intake UI: paste area, mode auto-detect/override, size limits | 01 |
-| MD-INTAKE-04 | LLM understanding pass with verbatim-span schema + degraded path | 02 |
-| MD-INTAKE-05 | Preview/edit, listening-time estimate, save-to-library behind flag | 02, 03, 04 |
+One ticket, branch, and PR each.
 
-MD-INTAKE-01 is the keystone: it converts the ledger's assumptions about md-audio's expected format into facts before anything else is built.
+| Slice | Linear | Scope | Depends on |
+|---|---|---|---|
+| MD-INTAKE-01 | PIP-719 | Map the Mac Studio worker's Markdown normalization and pause-command parsing; write it down as the transform's contract | — |
+| MD-INTAKE-02 | PIP-720 | Paste area UI in `INDEX_HTML`: textarea, mode toggle, size check, Lampião tokens; paste and file share one submit | — |
+| MD-INTAKE-03 | PIP-721 | Deterministic transform + speakable-markdown profile, including pause-based section breaks and title inference | 01 |
+| MD-INTAKE-04 | PIP-722 | Golden fixtures + minimal test surface (repo has no tests today) | 03 |
+| MD-INTAKE-05 | PIP-723 | Preview of the spoken text, estimated duration, inline editing before generating | 02, 03 |
 
-## Draft Epic Ticket (Linear Ticket Template V2, condensed)
-
-```md
-# [md-audio] Universal text intake: paste raw text or markdown, get an audiobook
-
-## Objective
-Let a user paste raw text or raw markdown and receive a profile-valid,
-audiobook-ready markdown document in the md-audio library.
-
-## Why This Matters
-Removes the manual-conversion friction between having content and listening
-to it; widens md-audio's usable input from "well-formed markdown" to
-"anything textual the user can paste."
-
-## Type
-- product
-
-## Included Scope / Excluded Scope / Deliverables / Acceptance Criteria
-See feature plan sections above; acceptance criteria highlights:
-- both input modes produce profile-valid output on the golden fixtures
-- content-preservation check passes on every fixture
-- LLM-down path still yields a valid document
-- no raw paste content is persisted or logged before save
-- feature is fully disabled by its flag
-
-## GO Conditions
-- MD-INTAKE-01 reconciliation confirms or corrects the profile draft
-
-## NO-GO Conditions
-- md-audio player format cannot be confirmed
-- preservation check cannot be enforced
-
-## Dependencies
-- md-audio repository access; Claude API availability for the LLM pass
-
-## Approval Requirement
-- Exploration mode: ticket creation, PR opening, and merge run autonomously
-  with Linear logging; production deploy and any billing/claims remain
-  human-gated (absolute gates)
-
-## Executor Tool
-- Claude Code
-
-## Risk Level
-- Medium: LLM in the write path of user content, mitigated by verbatim-span
-  design and deterministic fallback
-
-## Expected Write Set
-- md-audio repository: intake route, transform endpoint, profile validator
-  package, fixtures; pipe-venture-builder: this folder only
-
-## Rollback or Mitigation
-- Flag off; rollback signal per feature plan
-```
+**MD-INTAKE-01 is the keystone and it is a human/local task**: the Mac Studio worker is not in any repository, so no cloud agent can inspect it. Until its normalization is written down, the transform would be guessing, and the most likely failure is doing work the worker already does — stripping syntax twice, or fighting its sentence splitting. MD-INTAKE-02 is genuinely independent and can start in parallel.
 
 ## Governance Notes
 
-- Planned under `exploration` mode; absolute gates untouched (no billing, no production deploy, no customer contact, no sensitive claims — all metrics above are targets, not evidence).
-- Linear MCP was not authenticated in the planning session, so the epic and slice tickets could not be created there yet. Creating them (or authorizing Linear for an agent session) is the next action; until then this document and its PR are the audit trail.
-- Implementation happens in the md-audio repository, not in pipe-venture-builder. This plan is the handoff artifact for that work.
+- Both repositories declare `exploration` mode, so ticket creation, PR opening, and merge run autonomously with Linear logging. Production deploy (`railway up`) remains founder-only in every mode.
+- No absolute gate is touched: no secrets, no billing, no customer data, no external communication, no sensitive claims. The deliberate avoidance of an API key is what keeps it that way.
+- Implementation happens in md-audio-proxy. This document is the durable handoff artifact; the repository is the source of truth for strategy, Linear for execution state.
+- Follow-up outside this feature's scope, filed as **PIP-724**: `.agents/skills/atelier/stack-adapters/react-next.md` lists md-audio as a React/Next venture, which the code contradicts. That line is what misled the first draft of this plan; correcting it stops the next agent from repeating the mistake.

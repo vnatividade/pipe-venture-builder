@@ -1,35 +1,62 @@
 # md-audio — Venture Product Artifacts
 
-This folder holds Pipe-governed product artifacts for the house venture **md-audio**, a product that plays markdown documents as audiobooks.
+Pipe-governed product artifacts for the house venture **md-audio** (app name "Meus Áudios"): a personal tool that turns Markdown documents into pt-BR mp3 audio.
 
-The md-audio implementation lives in its own repository (referenced as `md-audio-proxy` in `.agents/skills/atelier/scripts/consolidate.md`). That repository is not inspectable from this one, so every statement here about the current implementation is labeled as fact, inference, or assumption per `execution/dual-entry-product-intake-workflow.md`.
+Implementation repository: [`vnatividade/md-audio-proxy`](https://github.com/vnatividade/md-audio-proxy) (public). It declares `exploration` mode in its own `.pipe/mode.json` (activated 2026-07-16, PIP-661), so the autonomous execution loop applies there too — production deploy stays founder-gated.
+
+Linear project: [md-audio](https://linear.app/pipe-venture-builder/project/md-audio-951677fb7620).
 
 ## Source Boundary
 
-Inspectable sources inside this repository:
+Read directly from the md-audio-proxy repository at `main` (clone of 2026-07-27):
 
-- `.agents/skills/atelier/stack-adapters/react-next.md` — names md-audio as a house venture on the React/Next.js App Router stack.
-- `.agents/skills/atelier/scripts/consolidate.md` — names the `md-audio-proxy` repository in the Atelier working set.
-- `capabilities/entries/capability.internal.atelier.json` — records md-audio as the first Atelier design pilot (founder decision of 2026-07-16).
-- Founder request of 2026-07-27 (this planning session) describing the desired intake feature.
+- `app.py` (843 lines) — the entire Railway app: Flask façade, job queue, PWA, and the app UI as an inline HTML string
+- `requirements.txt`, `Dockerfile`, `.pipe/mode.json`
+- `design/atelier/design-brief.md` — Atelier design brief, closed by founder decisions of 2026-07-16
+- `landing.html` — public landing (direction B "Lampião")
 
-Not inspectable from here:
+Also read: Linear PIP-661 (Atelier pilot on md-audio) and its comments.
 
-- The md-audio codebase, its current markdown input format, its player/TTS behavior, and its library model.
+**Not inspectable:** the Mac Studio worker that performs the Kokoro TTS. It lives on the founder's machine, not in any repository reachable from here. Everything about how it normalizes Markdown before speaking is therefore unknown — and that gap is the keystone dependency of the intake feature.
 
-## Fact vs Assumption Ledger
+## Product Truth
 
-| Statement | Class | Source |
-|---|---|---|
-| md-audio is a house venture on the React/Next.js App Router stack. | fact | Atelier stack adapter |
-| md-audio's code lives in a separate repository (`md-audio-proxy`). | fact | Atelier consolidate script |
-| md-audio consumes markdown documents and plays them as audiobooks. | inference | venture name + founder request framing |
-| md-audio has a defined markdown structure its player expects (chapters, headings). | assumption | must be confirmed against the md-audio repository |
-| md-audio has a library/collection concept where converted documents land. | assumption | must be confirmed against the md-audio repository |
+Architecture, from `app.py` docstring and routes:
 
-Assumptions above are Definition-of-Ready blockers for implementation tickets: they must be confirmed (or corrected) against the md-audio repository before code is written.
+```txt
+browser  --POST /synthesize-->      creates job (pending), returns job_id
+Mac worker --GET  /jobs/next -->    claims a pending job (becomes processing)
+Mac worker --POST /jobs/<id>/result --> delivers mp3 (becomes done)
+browser  --GET  /result/<id>  -->   downloads the mp3 when ready
+```
+
+- **The Railway app performs no TTS and never parses Markdown.** `/synthesize` reads the uploaded bytes, decodes UTF-8, and stores the string in an in-memory job dict; the worker fetches it verbatim via `/jobs/next`. All Markdown handling happens on the Mac Studio worker.
+- Stack: Flask 3.0.3 + gunicorn only (`requirements.txt` is two lines). One worker, eight threads, in-memory queue under a lock. Docker → Railway. **No build step, no framework, no database, no AI dependency.**
+- Auth: a single shared `APP_TOKEN` via `X-App-Token` header, form field, `?token=`, or the `md_auth` cookie. Personal tool, one token — not multi-user accounts.
+- Input today: **file upload only** — `<input type="file" accept=".md,.markdown,text/markdown,text/plain">`, max 2 MB (`MAX_MD_BYTES`).
+- Voices: `pm_santa`, `pm_alex` (male), `pf_dora` (female); speech speed 0.8×–1.3×; voice preview before generating.
+- Playback: 1×/1.25×/1.5×/2×, ±15s skip, resume from last position (localStorage per item).
+- History: **IndexedDB on the device**, storing the mp3 blobs (pin, rename, search, delete). There is no server-side library — jobs expire from memory after `JOB_TTL` (30 min).
+- **A pause command already exists**: writing `pausa de 5 segundos` or `pausa de 1 minuto` in the text inserts silence. It is surfaced as a tip in the UI and interpreted by the Mac worker.
+- Routes: `/` serves the app to tokened visitors and `landing.html` to everyone else; `/app` always serves the app.
+- Design tokens (Lampião theme): ground `#14110E` dark / `#F5EFE4` light, accent `#E8A33D` / `#B4741A`, display serif Iowan Old Style in the app, Fraunces + Instrument Sans on the landing.
+- No analytics, telemetry, or event tracking of any kind — only `/health` (worker online, pending count).
+
+## Corrections To Earlier Assumptions
+
+An earlier draft of this plan (2026-07-27, before repository access) assumed md-audio was a Next.js App Router product with server actions and a server-side library, and put a Claude API structuring call in the critical path. All of that was wrong:
+
+| Earlier assumption | Actual |
+|---|---|
+| React / Next.js App Router | Flask serving a single inline HTML string; vanilla JS, no build step |
+| Server-side library model | IndexedDB on the device; server memory is a 30-minute queue |
+| Player keys on H1/H2 chapter structure | Unknown — Markdown handling lives in the unreachable Mac worker |
+| LLM structuring pass as MVP core | No AI dependency exists; adding one needs an API key, which is an absolute approval gate |
+| File upload out of scope, paste is the input | File upload is the *only* input today; paste is the new thing |
+
+The Next.js assumption came from `.agents/skills/atelier/stack-adapters/react-next.md`, which lists md-audio among React ventures. That listing is inaccurate for this repository; the Atelier design brief itself records `stack: vanilla`. Filed for correction as **PIP-724**.
 
 ## Artifacts
 
-- `feature-universal-text-intake.md` — feature plan: paste raw text or raw markdown, understand it, transform it into audiobook-ready markdown.
-- `audiobook-markdown-profile-draft.md` — draft v0 of the output contract the intake pipeline must produce.
+- `feature-universal-text-intake.md` — feature plan: paste raw text or raw markdown, transform it into speakable markdown, generate audio.
+- `audiobook-markdown-profile-draft.md` — the speakable-markdown contract the transform emits.
