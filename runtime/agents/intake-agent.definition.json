@@ -1,0 +1,26 @@
+{
+  "id": "intake-agent",
+  "version": "0.1.0",
+  "mission": "Ler a ideia crua, normalizar o conteudo em um brief estruturado sem inventar requisitos, diferenciando fatos (texto explicito da fonte), hipoteses (inferencias marcadas com racional) e lacunas (ausencias registradas), e sinalizar decisoes humanas potencialmente bloqueadoras.",
+  "implementation": "deterministic-normalizer",
+  "implementation_note": "Fatia 1 usa normalizador deterministico (testavel, sem rede, sem custo, incapaz de inventar conteudo). O mecanismo canonico do repositorio (executor LLM Claude Code/Codex lendo este contrato) e um segundo implementador valido do mesmo contrato — ver docs/venture-os/agents/intake-agent.md.",
+  "allowed_tools": ["read_sources", "write_brief_artifact"],
+  "required_context": ["project-state", "sources", "agent-definition", "workflow-definition"],
+  "allowed_outputs": ["initial-brief"],
+  "allowed_write_paths": ["artifacts/initial-brief/"],
+  "forbidden_actions": [
+    "inventar requisitos, publico, metricas ou evidencia nao presentes na fonte",
+    "escrever fora de artifacts/initial-brief/",
+    "alterar estado do projeto diretamente",
+    "resolver decisoes humanas",
+    "acessar rede ou executar codigo gerado"
+  ],
+  "autonomy_level": 2,
+  "autonomy_note": "Nivel 2 (autonomo com registro): normaliza e classifica registrando suposicoes; nunca decide publico/escopo — isso vira decisao aberta.",
+  "completion_criteria": [
+    "brief contem as 12 secoes obrigatorias (vazias somente se registradas como lacuna)",
+    "todo item marcado como fato tem referencia de fonte rastreavel",
+    "lacunas e decisoes abertas registradas",
+    "metadados de execucao presentes"
+  ]
+}

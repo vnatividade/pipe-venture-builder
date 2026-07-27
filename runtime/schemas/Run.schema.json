@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pipe-venture-builder.local/runtime/schemas/Run.schema.json",
+  "x-pipe-schema-version": "0.1.0",
+  "title": "Run (Venture OS slice contract)",
+  "type": "object",
+  "required": ["id","project_id","workflow_id","phase","status","agent_id","current_step","attempt","started_at"],
+  "properties": {
+    "id": {"type":"string"},
+    "project_id": {"type":"string"},
+    "workflow_id": {"type":"string"},
+    "phase": {"type":"string"},
+    "status": {"enum":["running","waiting_human","resuming","paused","completed","failed","cancelled"]},
+    "agent_id": {"type":"string"},
+    "current_step": {"type":["string","null"]},
+    "attempt": {"type":"integer"},
+    "started_at": {"type":"string"},
+    "completed_at": {"type":["string","null"]},
+    "error": {"type":["object","string","null"]},
+    "result": {"type":["object","null"]},
+    "costs": {"type":["object","null"]},
+    "events": {"type":"array","items":{"type":"string"}},
+    "context_log": {"type":["object","null"]}
+  }
+}

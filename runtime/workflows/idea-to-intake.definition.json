@@ -1,0 +1,28 @@
+{
+  "id": "idea-to-intake",
+  "version": "0.1.0",
+  "name": "Ideia livre para brief estruturado (Fase 0 - Intake e normalizacao)",
+  "entry_state": "CREATED",
+  "steps": [
+    { "id": "load_context",   "description": "Carregar contexto minimo deterministico (estado, fontes, contratos)" },
+    { "id": "run_agent",      "description": "Executar intake-agent sobre as fontes" },
+    { "id": "create_artifact","description": "Registrar initial-brief versionado com hash e proveniencia" },
+    { "id": "review",         "description": "Revisao adversarial advisory (intake-reviewer)" },
+    { "id": "gate",           "description": "intake-completeness-gate deterministico" },
+    { "id": "prepare_next",   "description": "Determinar proxima fase/workflow/agente e atualizar estado" }
+  ],
+  "transitions": [
+    "START_INTAKE", "BRIEF_PRODUCED", "GATE_PASSED", "GATE_FAILED_RETRY",
+    "HUMAN_DECISION_REQUESTED", "HUMAN_DECISION_RECEIVED", "PREPARE_NEXT_PHASE"
+  ],
+  "gates": ["intake-completeness-gate"],
+  "allowed_agents": ["intake-agent"],
+  "outputs": ["initial-brief"],
+  "max_attempts": 2,
+  "next_phase_on_success": {
+    "phase": "product_strategy",
+    "pipe_pipeline_stage": "founder_focus",
+    "workflow": "strategy-draft (nao implementado nesta fatia)",
+    "agent": "product-strategist (contrato em .codex/agents/core-agent-contracts.md)"
+  }
+}

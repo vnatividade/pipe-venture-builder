@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pipe-venture-builder.local/runtime/schemas/GateResult.schema.json",
+  "x-pipe-schema-version": "0.1.0",
+  "title": "Gate Result (Venture OS slice contract)",
+  "type": "object",
+  "required": ["id","gate_id","project_id","run_id","status","score","failures","warnings","evidence","recommended_actions","created_at"],
+  "properties": {
+    "id": {"type":"string"},
+    "gate_id": {"type":"string"},
+    "gate_version": {"type":"string"},
+    "project_id": {"type":"string"},
+    "run_id": {"type":"string"},
+    "status": {"enum":["pass","pass_with_warnings","fail"]},
+    "score": {"type":"number"},
+    "failures": {"type":"array","items":{"type":"object","required":["check","severity","category","message"]}},
+    "warnings": {"type":"array","items":{"type":"object","required":["check","severity","message"]}},
+    "evidence": {"type":"array"},
+    "recommended_actions": {"type":"array","items":{"type":"string"}},
+    "next_action": {"type":"string"},
+    "created_at": {"type":"string"}
+  }
+}
