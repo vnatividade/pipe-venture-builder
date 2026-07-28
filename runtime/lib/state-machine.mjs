@@ -8,12 +8,14 @@ export const STATES = [
   'CREATED', 'INTAKE_IN_PROGRESS', 'INTAKE_REVIEW', 'INTAKE_APPROVED', 'PRODUCT_STRATEGY_READY',
   'PRODUCT_STRATEGY_IN_PROGRESS', 'PRODUCT_STRATEGY_REVIEW', 'PRODUCT_STRATEGY_APPROVED', 'MVP_REFINEMENT_READY',
   'MVP_REFINEMENT_IN_PROGRESS', 'MVP_REFINEMENT_REVIEW', 'MVP_REFINEMENT_APPROVED', 'UX_ARCHITECTURE_READY',
+  'UX_ARCHITECTURE_IN_PROGRESS', 'UX_ARCHITECTURE_REVIEW', 'UX_ARCHITECTURE_APPROVED', 'DESIGN_CONTEXT_READY', 'CLAUDE_DESIGN_PROMPT_READY',
   'PAUSED', 'BLOCKED', 'WAITING_HUMAN', 'FAILED', 'CANCELLED',
 ];
 
 const ACTIVE_STATES = ['CREATED', 'INTAKE_IN_PROGRESS', 'INTAKE_REVIEW', 'INTAKE_APPROVED',
   'PRODUCT_STRATEGY_READY', 'PRODUCT_STRATEGY_IN_PROGRESS', 'PRODUCT_STRATEGY_REVIEW', 'PRODUCT_STRATEGY_APPROVED',
-  'MVP_REFINEMENT_READY', 'MVP_REFINEMENT_IN_PROGRESS', 'MVP_REFINEMENT_REVIEW', 'MVP_REFINEMENT_APPROVED'];
+  'MVP_REFINEMENT_READY', 'MVP_REFINEMENT_IN_PROGRESS', 'MVP_REFINEMENT_REVIEW', 'MVP_REFINEMENT_APPROVED',
+  'UX_ARCHITECTURE_READY', 'UX_ARCHITECTURE_IN_PROGRESS', 'UX_ARCHITECTURE_REVIEW', 'UX_ARCHITECTURE_APPROVED', 'DESIGN_CONTEXT_READY'];
 const TERMINAL_STATES = ['CANCELLED', 'FAILED'];
 
 // Retomada pós-decisão humana: a fase volta ao seu estado de execução.
@@ -21,6 +23,7 @@ const RESUME_MAP = {
   INTAKE_REVIEW: 'INTAKE_IN_PROGRESS',
   PRODUCT_STRATEGY_REVIEW: 'PRODUCT_STRATEGY_IN_PROGRESS',
   MVP_REFINEMENT_REVIEW: 'MVP_REFINEMENT_IN_PROGRESS',
+  UX_ARCHITECTURE_REVIEW: 'UX_ARCHITECTURE_IN_PROGRESS',
 };
 
 // Guards nomeados (funções puras sobre {project, ctx}); o nome vai para o histórico.
@@ -37,6 +40,7 @@ const GUARDS = {
   retryExhausted: ({ ctx }) => Boolean(ctx?.retryExhausted),
   promptPackageReady: ({ ctx }) => Boolean(ctx?.promptPackageReady),
   phaseArtifactsValid: ({ ctx }) => Boolean(ctx?.phaseArtifactsValid),
+  designPackageReady: ({ ctx }) => Boolean(ctx?.designPackageReady),
 };
 
 export const TRANSITIONS = [
@@ -61,6 +65,14 @@ export const TRANSITIONS = [
   { event: 'GATE_FAILED_RETRY',       from: 'MVP_REFINEMENT_REVIEW', to: 'MVP_REFINEMENT_IN_PROGRESS', guard: 'gateFailed',         gate: 'mvp-completeness-gate',  onError: 'reject' },
   { event: 'HUMAN_DECISION_REQUESTED',from: 'MVP_REFINEMENT_REVIEW', to: 'WAITING_HUMAN',  guard: 'hasBlockingDecision',            gate: null,                     onError: 'reject' },
   { event: 'PREPARE_NEXT_PHASE',      from: 'MVP_REFINEMENT_APPROVED', to: 'UX_ARCHITECTURE_READY', guard: 'noBlockingDecisionsPending', gate: null,                onError: 'reject' },
+  // Fase ux-architecture (mesmo padrão) + compilação do pacote de design
+  { event: 'START_PHASE',             from: 'UX_ARCHITECTURE_READY', to: 'UX_ARCHITECTURE_IN_PROGRESS', guard: 'promptPackageReady', gate: null,                    onError: 'reject' },
+  { event: 'PHASE_ARTIFACTS_SUBMITTED', from: 'UX_ARCHITECTURE_IN_PROGRESS', to: 'UX_ARCHITECTURE_REVIEW', guard: 'phaseArtifactsValid', gate: null,                onError: 'retry' },
+  { event: 'GATE_PASSED',             from: 'UX_ARCHITECTURE_REVIEW', to: 'UX_ARCHITECTURE_APPROVED', guard: 'gatePassed',          gate: 'ux-completeness-gate',   onError: 'reject' },
+  { event: 'GATE_FAILED_RETRY',       from: 'UX_ARCHITECTURE_REVIEW', to: 'UX_ARCHITECTURE_IN_PROGRESS', guard: 'gateFailed',       gate: 'ux-completeness-gate',   onError: 'reject' },
+  { event: 'HUMAN_DECISION_REQUESTED',from: 'UX_ARCHITECTURE_REVIEW', to: 'WAITING_HUMAN',  guard: 'hasBlockingDecision',          gate: null,                     onError: 'reject' },
+  { event: 'PREPARE_NEXT_PHASE',      from: 'UX_ARCHITECTURE_APPROVED', to: 'DESIGN_CONTEXT_READY', guard: 'noBlockingDecisionsPending', gate: null,                onError: 'reject' },
+  { event: 'DESIGN_PACKAGE_COMPILED', from: 'DESIGN_CONTEXT_READY', to: 'CLAUDE_DESIGN_PROMPT_READY', guard: 'designPackageReady', gate: 'design-context-gate',    onError: 'reject' },
   { event: 'PAUSE',                   from: ACTIVE_STATES,        to: 'PAUSED',             guard: 'always',                     gate: null,                        onError: 'reject' },
   { event: 'RESUME',                  from: 'PAUSED',             to: '$previous',          guard: 'always',                     gate: null,                        onError: 'reject' },
   { event: 'FAIL',                    from: [...ACTIVE_STATES, 'WAITING_HUMAN'], to: 'FAILED', guard: 'retryExhausted',          gate: null,                        onError: 'reject' },

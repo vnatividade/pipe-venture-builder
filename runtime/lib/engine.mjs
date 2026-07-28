@@ -21,8 +21,9 @@ import { compilePromptPackage, COMPILER_VERSION } from './prompt-compiler.mjs';
 import { runStrategyReviewer } from '../reviewers/strategy-reviewer.mjs';
 import { runStrategyCompletenessGate } from '../gates/strategy-completeness-gate.mjs';
 import { runMvpCompletenessGate } from '../gates/mvp-completeness-gate.mjs';
+import { runUxCompletenessGate } from '../gates/ux-completeness-gate.mjs';
 
-const PHASE_GATES = { 'strategy-completeness-gate': runStrategyCompletenessGate, 'mvp-completeness-gate': runMvpCompletenessGate };
+const PHASE_GATES = { 'strategy-completeness-gate': runStrategyCompletenessGate, 'mvp-completeness-gate': runMvpCompletenessGate, 'ux-completeness-gate': runUxCompletenessGate };
 import { basename } from 'node:path';
 
 const RUNTIME_DIR = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -143,7 +144,7 @@ export function executeWorkflow({ store, slug, workflowId = 'idea-to-intake', co
     err.code = 'USE_RUN_PHASE';
     throw err;
   }
-  if (['MVP_REFINEMENT_READY', 'UX_ARCHITECTURE_READY'].includes(project.current_state)) {
+  if (['MVP_REFINEMENT_READY', 'UX_ARCHITECTURE_READY', 'DESIGN_CONTEXT_READY', 'CLAUDE_DESIGN_PROMPT_READY'].includes(project.current_state)) {
     const err = new Error(`fase anterior concluída; use run-phase --project ${slug} --workflow <workflow>`);
     err.code = 'ALREADY_DONE';
     throw err;
@@ -573,8 +574,10 @@ export function submitPhaseArtifacts({ store, slug, files, workflowId = 'product
 
   run.current_step = 'gate';
   track(emit('StepStarted', { step: 'gate', attempt: run.attempt }, { runId: run.id }));
+  const featsArt = artifacts.current(slug, 'features-rules');
   const gateResult = (PHASE_GATES[workflowDef.gates[0]] ?? runStrategyCompletenessGate)({
-    files: contents, nextActionPlanned: workflowDef.next_phase_on_success,
+    files: contents, mvpFeaturesText: featsArt ? store.readArtifactFile(slug, featsArt.path.replace(/^artifacts\//, '')) : '',
+    nextActionPlanned: workflowDef.next_phase_on_success,
     reviewerFindings: review.findings, projectId: project.id, runId: run.id,
   });
   assertContract('GateResult', gateResult);
@@ -652,4 +655,71 @@ export function submitPhaseArtifacts({ store, slug, files, workflowId = 'product
   };
   store.saveProject(project, project.state_version);
   return { project, run, registered, gateResult, retry: true };
+}
+
+// ---------- Design Context Compiler + pacote claude.ai/design (F3, ADR-VOS-007 manual-first) ----------
+export function compileDesignPackage({ store, slug, correlationId = newId('cor'), env = process.env }) {
+  assertEnabled(env);
+  let project = store.loadProject(slug);
+  const artifacts = new ArtifactManager(store);
+  const emit = makeEmitter(store, { projectId: project.id, slug, correlationId });
+  if (project.current_state === 'CLAUDE_DESIGN_PROMPT_READY') {
+    return { project, packageArtifact: artifacts.current(slug, 'claude-design-prompt'), idempotent: true };
+  }
+  if (project.current_state !== 'DESIGN_CONTEXT_READY') {
+    throw Object.assign(new Error(`design-package exige DESIGN_CONTEXT_READY; atual: ${project.current_state}`), { code: 'INVALID_PHASE_STATE' });
+  }
+  const read = (type) => {
+    const a = artifacts.current(slug, type);
+    if (!a) throw Object.assign(new Error(`artefato aprovado ausente: ${type}`), { code: 'MISSING_ARTIFACT' });
+    return { a, text: store.readArtifactFile(slug, a.path.replace(/^artifacts\//, '')) };
+  };
+  const vision = read('product-vision'); const mvp = read('mvp-scope');
+  const feats = read('features-rules'); const flows = read('user-flows'); const states = read('states-exceptions');
+
+  const context = ['# Design Context — ' + project.name, '',
+    'Documento autossuficiente para a etapa de design (claude.ai/design). Fontes oficiais consolidadas; nada além do MVP.',
+    '', '## Produto e proposta de valor', vision.text, '## Escopo do MVP', mvp.text,
+    '## Funcionalidades e regras', feats.text, '## Fluxos', flows.text, '## Estados e exceções', states.text].join('\n\n');
+
+  const prompt = ['# Prompt para claude.ai/design — ' + project.name, '',
+    'Você vai criar o protótipo navegável do MVP abaixo. Use SOMENTE o contexto deste pacote.',
+    '', '## Regras', '- Não invente funcionalidades: tudo que estiver fora de "Escopo do MVP" está proibido.',
+    '- Represente todo fluxo e todo estado/exceção listados; mobile-first; acessibilidade mínima.',
+    '- Use dados fictícios plausíveis (nunca dados reais).',
+    '- Entregáveis: protótipo navegável + inventário de telas + estados por tela.',
+    '', '## Contexto oficial', context].join('\n');
+
+  const reg = (type, content, filename) => artifacts.register({ slug, projectId: project.id, runId: null, phase: 'design_context',
+    type, filename, content, createdBy: 'design-context-compiler', agentId: 'design-context-compiler',
+    model: 'deterministic/compiler@0.1.0', promptVersion: '0.1.0',
+    sourceRefs: [vision.a.path, mvp.a.path, feats.a.path, flows.a.path, states.a.path] }).artifact;
+  const ctxArt = reg('design-context', context, 'design-context.md');
+  const pkgArt = reg('claude-design-prompt', prompt, 'claude-design-prompt.md');
+  const manifest = { schemaVersion: '0.1.0', project: slug, generated_by: 'design-context-compiler@0.1.0',
+    files: [ctxArt, pkgArt].map((a) => ({ type: a.type, path: a.path, hash: a.hash, version: a.version })),
+    sources: [vision.a, mvp.a, feats.a, flows.a, states.a].map((a) => ({ type: a.type, version: a.version, hash: a.hash })) };
+  const manArt = reg('design-prompt-manifest', JSON.stringify(manifest, null, 2) + '\n', 'design-prompt-manifest.json');
+
+  // Gate determinístico de autossuficiência/escopo
+  const feadBullets = (feats.text.match(/^- .+$/gm) ?? []).length;
+  const failures = [];
+  if (!/## Fluxos/.test(context) || !/## Estados e exceções/.test(context)) failures.push({ check: 'secoes_presentes', severity: 'P1', category: 'structural', message: 'Contexto sem fluxos/estados.' });
+  if (feadBullets === 0) failures.push({ check: 'funcionalidades_no_contexto', severity: 'P1', category: 'structural', message: 'Nenhuma funcionalidade no contexto.' });
+  if (/conversa original|chat anterior/i.test(context)) failures.push({ check: 'sem_dependencia_de_conversa', severity: 'P1', category: 'structural', message: 'Contexto referencia conversa.' });
+  const gateResult = { id: newId('gate'), gate_id: 'design-context-gate', gate_version: '0.1.0', project_id: project.id, run_id: null,
+    status: failures.length ? 'fail' : 'pass', score: failures.length ? 0 : 1, failures, warnings: [],
+    evidence: [{ check: 'consolidacao', result: failures.length ? 'fail' : 'pass', detail: manifest.files.map((f) => f.type) }],
+    recommended_actions: failures.map((f) => f.message), next_action: failures.length ? 'corrigir_artefatos_ux' : 'input_manual_no_claude_design', created_at: nowIso() };
+  assertContract('GateResult', gateResult);
+  artifacts.attachValidation(slug, pkgArt.id, { gate_result_id: gateResult.id, gate_id: gateResult.gate_id, status: gateResult.status, score: gateResult.score, failures: failures.length, warnings: 0 });
+  emit('ArtifactCreated', { artifact_id: pkgArt.id, type: pkgArt.type, version: pkgArt.version }, {});
+  emit('ArtifactValidated', { artifact_id: pkgArt.id, gate_result_id: gateResult.id, status: gateResult.status }, {});
+  if (gateResult.status === 'fail') { emit('GateFailed', { gate_result_id: gateResult.id }, {}); return { project, gateResult, failures }; }
+  emit('GatePassed', { gate_result_id: gateResult.id }, {});
+  project.next_action = { action: 'INPUT MANUAL: colar o conteúdo de claude-design-prompt.md no claude.ai/design; ao receber o protótipo, importar na fase F4 (prototype import — próxima fatia)',
+    package: pkgArt.path, manifest: manArt.path, human_intervention_required: true };
+  transition(store, project, 'DESIGN_PACKAGE_COMPILED', { designPackageReady: true }, { emit, gateResultId: gateResult.id });
+  emit('PhaseCompleted', { phase: 'design_context', next: project.next_action }, {});
+  return { project, packageArtifact: pkgArt, contextArtifact: ctxArt, manifestArtifact: manArt, gateResult };
 }

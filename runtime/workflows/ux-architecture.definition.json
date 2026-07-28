@@ -1,0 +1,74 @@
+{
+  "id": "ux-architecture",
+  "version": "0.1.0",
+  "name": "Arquitetura da experiencia (fluxos, estados, excecoes, dados)",
+  "entry_state": "UX_ARCHITECTURE_READY",
+  "phase_key": "ux_architecture",
+  "in_progress_state": "UX_ARCHITECTURE_IN_PROGRESS",
+  "steps": [
+    {
+      "id": "compile_prompt",
+      "description": "Pacote do ux-architecture-agent"
+    },
+    {
+      "id": "await_executor",
+      "description": "Executor produz user-flows e states-exceptions"
+    },
+    {
+      "id": "register_artifacts",
+      "description": "submit"
+    },
+    {
+      "id": "review",
+      "description": "reviewer advisory"
+    },
+    {
+      "id": "gate",
+      "description": "ux-completeness-gate"
+    },
+    {
+      "id": "prepare_next",
+      "description": "DESIGN_CONTEXT_READY"
+    }
+  ],
+  "transitions": [
+    "START_PHASE",
+    "PHASE_ARTIFACTS_SUBMITTED",
+    "GATE_PASSED",
+    "GATE_FAILED_RETRY",
+    "HUMAN_DECISION_REQUESTED",
+    "HUMAN_DECISION_RECEIVED",
+    "PREPARE_NEXT_PHASE"
+  ],
+  "gates": [
+    "ux-completeness-gate"
+  ],
+  "allowed_agents": [
+    "ux-architecture-agent"
+  ],
+  "outputs": [
+    "user-flows",
+    "states-exceptions"
+  ],
+  "max_attempts": 2,
+  "scope": [
+    "Jornada e fluxo principal + alternativos do MVP, estados, excecoes e dados visiveis por passo",
+    "Somente o que esta no MVP aprovado"
+  ],
+  "out_of_scope": [
+    "Telas, layout, design system (fase de design)",
+    "Funcionalidades fora do MVP"
+  ],
+  "baseline_advance": {
+    "currentStage": "risk_review",
+    "nextAllowedStage": "architecture",
+    "nextActionId": "NEXT-design-context",
+    "nextActionTitle": "Compile design context package for claude.ai/design"
+  },
+  "next_phase_on_success": {
+    "phase": "design_context",
+    "pipe_pipeline_stage": "architecture",
+    "workflow": "design-package (comando deterministico)",
+    "agent": "design-context-compiler"
+  }
+}

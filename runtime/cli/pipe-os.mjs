@@ -9,7 +9,7 @@ import { ventureOsEnabled } from '../lib/flag.mjs';
 import { newId } from '../lib/ids.mjs';
 import {
   createProject, createProjectFromBaseline, executeWorkflow, respondDecision, pauseProject, resumeProject, cancelProject,
-  startPhase, submitPhaseArtifacts,
+  startPhase, submitPhaseArtifacts, compileDesignPackage,
 } from '../lib/engine.mjs';
 import { DecisionQueue } from '../lib/decisions.mjs';
 
@@ -37,7 +37,7 @@ Comandos mutantes (exigem VENTURE_OS_ENABLED=true):
   cancel         --project <slug>
   respond        --project <slug> --decision <id> --option <id> [--text "<...>"] --by <nome>
   run-phase      --project <slug> [--workflow product-strategy]   compila o pacote e aguarda executor
-  submit         --project <slug> --files <a.md,b.md>             registra artefatos do executor e roda o gate
+  submit         --project <slug> [--workflow <id>] --files <a,b>   registra artefatos do executor e roda o gate\n  design-package --project <slug>                                  compila design-context + prompt claude.ai/design
 
 Comandos de leitura:
   show           --project <slug>       estado do projeto
@@ -107,6 +107,13 @@ export function main(argv = process.argv.slice(2), env = process.env) {
       if (result.retry) base.retry = { attempt: result.run.attempt, recommended: result.gateResult.recommended_actions };
       if (result.project.next_action) base.next_action = result.project.next_action;
       out(base);
+      return 0;
+    }
+    case 'design-package': {
+      const r = compileDesignPackage({ store, slug, correlationId, env });
+      out({ ok: r.gateResult?.status !== 'fail', project_state: r.project.current_state,
+        package: r.packageArtifact ? { path: r.packageArtifact.path, version: r.packageArtifact.version, hash: r.packageArtifact.hash } : null,
+        gate: r.gateResult ? { status: r.gateResult.status } : null, idempotent: Boolean(r.idempotent), next_action: r.project.next_action });
       return 0;
     }
     case 'pause': out({ ok: true, project_state: pauseProject({ store, slug, correlationId, env }).current_state }); return 0;

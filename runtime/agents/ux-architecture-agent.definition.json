@@ -1,0 +1,39 @@
+{
+  "id": "ux-architecture-agent",
+  "version": "0.1.0",
+  "mission": "Mapear a experiencia do MVP fechado: fluxo principal passo a passo, fluxos alternativos, estados por passo, excecoes e dados necessarios/visiveis — sem criar telas nem funcionalidades novas; toda afirmacao rastreavel ao MVP aprovado.",
+  "implementation": "llm-executor",
+  "executor": "claude-code",
+  "allowed_tools": [
+    "read_referenced_sources",
+    "write_ux_artifacts"
+  ],
+  "required_context": [
+    "prompt-package",
+    "mvp-scope",
+    "features-rules",
+    "product-vision"
+  ],
+  "allowed_outputs": [
+    "user-flows",
+    "states-exceptions"
+  ],
+  "allowed_write_paths": [
+    "artifacts/user-flows/",
+    "artifacts/states-exceptions/"
+  ],
+  "forbidden_actions": [
+    "inventar funcionalidades ou passos sem base no MVP",
+    "afirmar sem '(fonte: ...)'",
+    "definir layout/telas/design system",
+    "alterar estado/baseline diretamente",
+    "acessar rede"
+  ],
+  "autonomy_level": 2,
+  "autonomy_note": "Nivel 2; qualquer passo que exigiria funcionalidade nova vira lacuna/decisao aberta.",
+  "completion_criteria": [
+    "user-flows.md com Fluxo principal e Fluxos alternativos",
+    "states-exceptions.md com Estados por passo, Excecoes e Dados necessarios",
+    "todo item com fonte"
+  ]
+}
