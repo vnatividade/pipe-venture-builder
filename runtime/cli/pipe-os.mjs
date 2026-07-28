@@ -97,7 +97,7 @@ export function main(argv = process.argv.slice(2), env = process.env) {
     }
     case 'submit': {
       const files = String(opts.files ?? '').split(',').map((f) => f.trim()).filter(Boolean);
-      const result = submitPhaseArtifacts({ store, slug, files, correlationId, env });
+      const result = submitPhaseArtifacts({ store, slug, files, workflowId: typeof opts.workflow === 'string' ? opts.workflow : 'product-strategy', correlationId, env });
       const base = { ok: !result.decision, project_state: result.project.current_state,
         run: { id: result.run.id, status: result.run.status, attempt: result.run.attempt },
         artifacts: result.registered.map((a) => ({ type: a.type, version: a.version, id: a.id })),

@@ -1,0 +1,75 @@
+{
+  "id": "mvp-refinement",
+  "version": "0.1.0",
+  "name": "Refinamento e fechamento do MVP a partir da estrategia aprovada",
+  "entry_state": "MVP_REFINEMENT_READY",
+  "phase_key": "mvp_refinement",
+  "in_progress_state": "MVP_REFINEMENT_IN_PROGRESS",
+  "steps": [
+    {
+      "id": "compile_prompt",
+      "description": "Pacote do mvp-refinement-agent"
+    },
+    {
+      "id": "await_executor",
+      "description": "Executor LLM produz mvp-scope e features-rules"
+    },
+    {
+      "id": "register_artifacts",
+      "description": "submit registra artefatos"
+    },
+    {
+      "id": "review",
+      "description": "reviewer advisory"
+    },
+    {
+      "id": "gate",
+      "description": "mvp-completeness-gate"
+    },
+    {
+      "id": "prepare_next",
+      "description": "Avanca baseline e determina proxima fase"
+    }
+  ],
+  "transitions": [
+    "START_PHASE",
+    "PHASE_ARTIFACTS_SUBMITTED",
+    "GATE_PASSED",
+    "GATE_FAILED_RETRY",
+    "HUMAN_DECISION_REQUESTED",
+    "HUMAN_DECISION_RECEIVED",
+    "PREPARE_NEXT_PHASE"
+  ],
+  "gates": [
+    "mvp-completeness-gate"
+  ],
+  "allowed_agents": [
+    "mvp-refinement-agent"
+  ],
+  "outputs": [
+    "mvp-scope",
+    "features-rules"
+  ],
+  "max_attempts": 2,
+  "scope": [
+    "Fechar o MVP: 1 publico prioritario, 1 caso de uso principal, funcionalidades obrigatorias, regras, fora do escopo, criterios de sucesso",
+    "Somente conteudo rastreavel a visao/hipoteses aprovadas, brief, baseline e decisoes"
+  ],
+  "out_of_scope": [
+    "UX/design (fase seguinte)",
+    "Monetizacao, pricing, growth (gates absolutos)",
+    "Backlog detalhado e implementacao"
+  ],
+  "baseline_advance": {
+    "currentStage": "mvp_scope_review",
+    "nextAllowedStage": "risk_review",
+    "nextActionId": "NEXT-risk-review",
+    "nextActionTitle": "Run risk review on the closed MVP scope"
+  },
+  "next_phase_on_success": {
+    "phase": "ux_architecture",
+    "pipe_pipeline_stage": "risk_review",
+    "workflow": "ux-architecture (nao implementado nesta fatia)",
+    "agent": "ux-architecture-agent (a definir)"
+  }
+}
