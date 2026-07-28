@@ -67,7 +67,7 @@ test('máquina: transições da fase de estratégia + retomada mapeada', () => {
   assert.equal(p.current_state, 'MVP_REFINEMENT_READY');
   applyTransition(p, 'START_PHASE', { promptPackageReady: true });
   assert.equal(p.current_state, 'MVP_REFINEMENT_IN_PROGRESS', 'fase MVP entra pelo mesmo padrão');
-  assert.throws(() => applyTransition({ current_state: 'UX_ARCHITECTURE_READY', previous_state: null }, 'START_PHASE', { promptPackageReady: true }), InvalidTransitionError, 'fase sem workflow ainda não inicia');
+  assert.throws(() => applyTransition({ current_state: 'CLAUDE_DESIGN_PROMPT_READY', previous_state: null }, 'START_PHASE', { promptPackageReady: true }), InvalidTransitionError, 'fase sem workflow ainda não inicia');
 });
 
 test('máquina: START_PHASE recusado sem pacote e fora do estado de entrada', () => {

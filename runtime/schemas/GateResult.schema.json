@@ -10,7 +10,7 @@
     "gate_id": {"type":"string"},
     "gate_version": {"type":"string"},
     "project_id": {"type":"string"},
-    "run_id": {"type":"string"},
+    "run_id": {"type":["string","null"]},
     "status": {"enum":["pass","pass_with_warnings","fail"]},
     "score": {"type":"number"},
     "failures": {"type":"array","items":{"type":"object","required":["check","severity","category","message"]}},
