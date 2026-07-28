@@ -181,3 +181,13 @@ Create a follow-up ticket only when repeated readiness failures show that the te
 ## Relationship To Execution Handoff
 
 This validator happens before execution. It does not replace PR review, final Linear handoff, or the done criteria in `execution/ticket-pr-handoff-system.md`.
+
+
+## Operating Modes Alignment (PIP-731)
+
+This document predates `execution/operating-modes.md` (PIP-659). Where it says human approval is
+required for Linear project/ticket creation, PR opening, PR merge, or non-production deploys, that
+requirement is **mode-sensitive**: per-action approval in `restricted` (and whenever
+`.pipe/mode.json` is absent or invalid), standing founder pre-approval with mandatory logging and
+the exploration review path in `exploration`. Absolute gates are unchanged. See
+`execution/operating-modes.md` and `execution/executor-grants.md`.
