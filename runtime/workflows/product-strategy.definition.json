@@ -4,20 +4,50 @@
   "name": "Estrategia do produto (visao + hipoteses) a partir do brief e do baseline",
   "entry_state": "PRODUCT_STRATEGY_READY",
   "steps": [
-    { "id": "compile_prompt",     "description": "Prompt Compiler gera o pacote referenciado do product-strategy-agent" },
-    { "id": "await_executor",     "description": "Executor LLM (Claude Code, DEC-AP-002) produz os artefatos fora do processo" },
-    { "id": "register_artifacts", "description": "submit registra product-vision e hypotheses com hash/proveniencia" },
-    { "id": "review",             "description": "strategy-reviewer adversarial advisory" },
-    { "id": "gate",               "description": "strategy-completeness-gate deterministico" },
-    { "id": "prepare_next",       "description": "Avanca baseline (controle_evaluation) e determina proxima fase" }
+    {
+      "id": "compile_prompt",
+      "description": "Prompt Compiler gera o pacote referenciado do product-strategy-agent"
+    },
+    {
+      "id": "await_executor",
+      "description": "Executor LLM (Claude Code, DEC-AP-002) produz os artefatos fora do processo"
+    },
+    {
+      "id": "register_artifacts",
+      "description": "submit registra product-vision e hypotheses com hash/proveniencia"
+    },
+    {
+      "id": "review",
+      "description": "strategy-reviewer adversarial advisory"
+    },
+    {
+      "id": "gate",
+      "description": "strategy-completeness-gate deterministico"
+    },
+    {
+      "id": "prepare_next",
+      "description": "Avanca baseline (controle_evaluation) e determina proxima fase"
+    }
   ],
   "transitions": [
-    "START_PHASE", "PHASE_ARTIFACTS_SUBMITTED", "GATE_PASSED", "GATE_FAILED_RETRY",
-    "HUMAN_DECISION_REQUESTED", "HUMAN_DECISION_RECEIVED", "PREPARE_NEXT_PHASE"
+    "START_PHASE",
+    "PHASE_ARTIFACTS_SUBMITTED",
+    "GATE_PASSED",
+    "GATE_FAILED_RETRY",
+    "HUMAN_DECISION_REQUESTED",
+    "HUMAN_DECISION_RECEIVED",
+    "PREPARE_NEXT_PHASE"
   ],
-  "gates": ["strategy-completeness-gate"],
-  "allowed_agents": ["product-strategy-agent"],
-  "outputs": ["product-vision", "hypotheses"],
+  "gates": [
+    "strategy-completeness-gate"
+  ],
+  "allowed_agents": [
+    "product-strategy-agent"
+  ],
+  "outputs": [
+    "product-vision",
+    "hypotheses"
+  ],
   "max_attempts": 2,
   "scope": [
     "Visao, problema, proposta de valor, publico (como hipotese), diferenciais, hipoteses e riscos",
@@ -33,5 +63,13 @@
     "pipe_pipeline_stage": "controle_evaluation",
     "workflow": "mvp-refinement (nao implementado nesta fatia)",
     "agent": "mvp-scope-reviewer (contrato em .codex/agents/core-agent-contracts.md)"
+  },
+  "phase_key": "product_strategy",
+  "in_progress_state": "PRODUCT_STRATEGY_IN_PROGRESS",
+  "baseline_advance": {
+    "currentStage": "controle_evaluation",
+    "nextAllowedStage": "validation_planning",
+    "nextActionId": "NEXT-controle-evaluation",
+    "nextActionTitle": "Run C.O.N.T.R.O.L.E. evaluation on the strategy draft"
   }
 }

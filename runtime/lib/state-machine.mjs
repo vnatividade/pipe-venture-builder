@@ -7,17 +7,20 @@ import { nowIso } from './ids.mjs';
 export const STATES = [
   'CREATED', 'INTAKE_IN_PROGRESS', 'INTAKE_REVIEW', 'INTAKE_APPROVED', 'PRODUCT_STRATEGY_READY',
   'PRODUCT_STRATEGY_IN_PROGRESS', 'PRODUCT_STRATEGY_REVIEW', 'PRODUCT_STRATEGY_APPROVED', 'MVP_REFINEMENT_READY',
+  'MVP_REFINEMENT_IN_PROGRESS', 'MVP_REFINEMENT_REVIEW', 'MVP_REFINEMENT_APPROVED', 'UX_ARCHITECTURE_READY',
   'PAUSED', 'BLOCKED', 'WAITING_HUMAN', 'FAILED', 'CANCELLED',
 ];
 
 const ACTIVE_STATES = ['CREATED', 'INTAKE_IN_PROGRESS', 'INTAKE_REVIEW', 'INTAKE_APPROVED',
-  'PRODUCT_STRATEGY_READY', 'PRODUCT_STRATEGY_IN_PROGRESS', 'PRODUCT_STRATEGY_REVIEW', 'PRODUCT_STRATEGY_APPROVED'];
+  'PRODUCT_STRATEGY_READY', 'PRODUCT_STRATEGY_IN_PROGRESS', 'PRODUCT_STRATEGY_REVIEW', 'PRODUCT_STRATEGY_APPROVED',
+  'MVP_REFINEMENT_READY', 'MVP_REFINEMENT_IN_PROGRESS', 'MVP_REFINEMENT_REVIEW', 'MVP_REFINEMENT_APPROVED'];
 const TERMINAL_STATES = ['CANCELLED', 'FAILED'];
 
 // Retomada pós-decisão humana: a fase volta ao seu estado de execução.
 const RESUME_MAP = {
   INTAKE_REVIEW: 'INTAKE_IN_PROGRESS',
   PRODUCT_STRATEGY_REVIEW: 'PRODUCT_STRATEGY_IN_PROGRESS',
+  MVP_REFINEMENT_REVIEW: 'MVP_REFINEMENT_IN_PROGRESS',
 };
 
 // Guards nomeados (funções puras sobre {project, ctx}); o nome vai para o histórico.
@@ -51,6 +54,13 @@ export const TRANSITIONS = [
   { event: 'GATE_FAILED_RETRY',       from: 'PRODUCT_STRATEGY_REVIEW', to: 'PRODUCT_STRATEGY_IN_PROGRESS', guard: 'gateFailed',     gate: 'strategy-completeness-gate', onError: 'reject' },
   { event: 'HUMAN_DECISION_REQUESTED',from: 'PRODUCT_STRATEGY_REVIEW', to: 'WAITING_HUMAN',  guard: 'hasBlockingDecision',        gate: null,                        onError: 'reject' },
   { event: 'PREPARE_NEXT_PHASE',      from: 'PRODUCT_STRATEGY_APPROVED', to: 'MVP_REFINEMENT_READY', guard: 'noBlockingDecisionsPending', gate: null,               onError: 'reject' },
+  // Fase mvp-refinement (mesmo padrão)
+  { event: 'START_PHASE',             from: 'MVP_REFINEMENT_READY', to: 'MVP_REFINEMENT_IN_PROGRESS', guard: 'promptPackageReady', gate: null,                      onError: 'reject' },
+  { event: 'PHASE_ARTIFACTS_SUBMITTED', from: 'MVP_REFINEMENT_IN_PROGRESS', to: 'MVP_REFINEMENT_REVIEW', guard: 'phaseArtifactsValid', gate: null,                  onError: 'retry' },
+  { event: 'GATE_PASSED',             from: 'MVP_REFINEMENT_REVIEW', to: 'MVP_REFINEMENT_APPROVED', guard: 'gatePassed',            gate: 'mvp-completeness-gate',  onError: 'reject' },
+  { event: 'GATE_FAILED_RETRY',       from: 'MVP_REFINEMENT_REVIEW', to: 'MVP_REFINEMENT_IN_PROGRESS', guard: 'gateFailed',         gate: 'mvp-completeness-gate',  onError: 'reject' },
+  { event: 'HUMAN_DECISION_REQUESTED',from: 'MVP_REFINEMENT_REVIEW', to: 'WAITING_HUMAN',  guard: 'hasBlockingDecision',            gate: null,                     onError: 'reject' },
+  { event: 'PREPARE_NEXT_PHASE',      from: 'MVP_REFINEMENT_APPROVED', to: 'UX_ARCHITECTURE_READY', guard: 'noBlockingDecisionsPending', gate: null,                onError: 'reject' },
   { event: 'PAUSE',                   from: ACTIVE_STATES,        to: 'PAUSED',             guard: 'always',                     gate: null,                        onError: 'reject' },
   { event: 'RESUME',                  from: 'PAUSED',             to: '$previous',          guard: 'always',                     gate: null,                        onError: 'reject' },
   { event: 'FAIL',                    from: [...ACTIVE_STATES, 'WAITING_HUMAN'], to: 'FAILED', guard: 'retryExhausted',          gate: null,                        onError: 'reject' },
@@ -107,7 +117,7 @@ function stateToStatus(state) {
   if (state === 'PAUSED') return 'paused';
   if (state === 'WAITING_HUMAN') return 'waiting_human';
   if (state === 'BLOCKED') return 'blocked';
-  if (state === 'PRODUCT_STRATEGY_READY' || state === 'MVP_REFINEMENT_READY') return 'ready_for_next_phase';
+  if (state.endsWith('_READY')) return 'ready_for_next_phase';
   return 'active';
 }
 

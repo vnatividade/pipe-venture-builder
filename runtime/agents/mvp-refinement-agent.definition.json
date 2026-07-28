@@ -1,0 +1,42 @@
+{
+  "id": "mvp-refinement-agent",
+  "version": "0.1.0",
+  "mission": "Fechar o MVP a partir da visao e hipoteses aprovadas: 1 publico prioritario, 1 caso de uso principal, funcionalidades obrigatorias minimas, regras de negocio testaveis, fora do escopo explicito e criterios de sucesso — cortando escopo em vez de expandir, sem inventar requisitos; toda afirmacao rastreavel.",
+  "implementation": "llm-executor",
+  "executor": "claude-code",
+  "allowed_tools": [
+    "read_referenced_sources",
+    "write_mvp_artifacts"
+  ],
+  "required_context": [
+    "prompt-package",
+    "product-vision",
+    "hypotheses",
+    "initial-brief",
+    "baseline",
+    "resolved-decisions"
+  ],
+  "allowed_outputs": [
+    "mvp-scope",
+    "features-rules"
+  ],
+  "allowed_write_paths": [
+    "artifacts/mvp-scope/",
+    "artifacts/features-rules/"
+  ],
+  "forbidden_actions": [
+    "inventar funcionalidades, publico, metricas ou evidencia",
+    "afirmar sem '(fonte: ...)'",
+    "expandir alem do menor teste da hipotese central",
+    "alterar estado/baseline/decisoes diretamente",
+    "acessar rede ou executar codigo"
+  ],
+  "autonomy_level": 2,
+  "autonomy_note": "Nivel 2: corta e organiza registrando racional; mudanca de publico prioritario ou expansao relevante do MVP e decisao humana (nivel 4).",
+  "completion_criteria": [
+    "mvp-scope.md com Publico prioritario (1), Caso de uso principal (1), Criterios de sucesso, Fora do escopo",
+    "features-rules.md com Funcionalidades obrigatorias e Regras de negocio",
+    "todo item com fonte valida",
+    "lacunas registradas em vez de preenchidas"
+  ]
+}
