@@ -264,3 +264,13 @@ Ticket orchestration is complete when:
 - approval requirements and labels are explicit
 - Now / Next / Later classification is clear
 - no direct Linear write occurs without approval
+
+
+## Operating Modes Alignment (PIP-731)
+
+This document predates `execution/operating-modes.md` (PIP-659). Where it says human approval is
+required for Linear project/ticket creation, PR opening, PR merge, or non-production deploys, that
+requirement is **mode-sensitive**: per-action approval in `restricted` (and whenever
+`.pipe/mode.json` is absent or invalid), standing founder pre-approval with mandatory logging and
+the exploration review path in `exploration`. Absolute gates are unchanged. See
+`execution/operating-modes.md` and `execution/executor-grants.md`.

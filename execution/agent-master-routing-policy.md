@@ -245,3 +245,13 @@ This policy is working when:
 - executor choice uses the capability matrix instead of vague preference
 - future runtime/orchestrator work remains deferred
 - blockers and approvals are recorded where future agents can find them
+
+
+## Operating Modes Alignment (PIP-731)
+
+This document predates `execution/operating-modes.md` (PIP-659). Where it says human approval is
+required for Linear project/ticket creation, PR opening, PR merge, or non-production deploys, that
+requirement is **mode-sensitive**: per-action approval in `restricted` (and whenever
+`.pipe/mode.json` is absent or invalid), standing founder pre-approval with mandatory logging and
+the exploration review path in `exploration`. Absolute gates are unchanged. See
+`execution/operating-modes.md` and `execution/executor-grants.md`.

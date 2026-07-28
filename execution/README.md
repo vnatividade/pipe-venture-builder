@@ -6,13 +6,18 @@ This area should define how work moves from approved product context into Linear
 
 Artifacts:
 
+- [approval gates](approval-gates.md)
+- [operating modes: exploration vs restricted](operating-modes.md)
+- [executor grants (registro canônico)](executor-grants.md)
 - [Linear governance model](linear-governance-model.md)
+- [Linear ticket template v2](linear-ticket-template-v2.md)
+- [ticket type field matrix](ticket-type-field-matrix.md)
+- [agentic operations metrics](agentic-operations-metrics.md)
 - [conversational founder guide](conversational-founder-guide.md)
 - [guided session artifact and handoff](guided-session-artifact.md)
 - [Agent Master routing policy](agent-master-routing-policy.md)
 - [Tactical Execution Plan](tactical-execution-plan.md)
 - [development execution loop](development-execution-loop.md)
-- [operating modes: exploration vs restricted](operating-modes.md)
 - [ticket, PR, and handoff system](ticket-pr-handoff-system.md)
 - [test-oriented delivery rule](test-oriented-delivery-rule.md)
 - [Pipe command catalog](pipe-command-catalog.md)
