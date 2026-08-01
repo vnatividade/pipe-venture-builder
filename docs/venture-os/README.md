@@ -51,9 +51,11 @@ Estado em disco: `~/.pipe/venture-os/projects/<slug>/` (configurável via `VENTU
   explícito, nunca interpreta semanticamente. O mecanismo canônico do repo (executor LLM lendo o
   contrato) é um segundo implementador previsto — ver `agents/intake-agent.md`.
 - Persistência em arquivos JSON atômicos, protegida por interface — não é a solução final (ADR-VOS-001).
-- Uma fase apenas (intake); `product_strategy` em diante permanece manual (por design da fatia).
-- Sem integração Linear/GitHub, sem custo/tokens reais (campos existem, valores `null`).
-- Sem instância de `ProductBaseline` ainda — convergência mapeada em `migration-status.md`.
+- Fases implementadas: intake, product-strategy, mvp-refinement, ux-architecture + design-package
+  (fatias 3–5, PRs #159–#161); protótipo importado do claude.ai/design com gate manual — F4 runtime
+  não implementada (PIP-730 cancelado por decisão do fundador).
+- Sem integração Linear/GitHub no loop Node; custo/tokens reais só quando houver executor via API.
+- ProductBaseline: round-trip implementado (fatia 2) — `--from-baseline` + emissão pós-fase.
 
 ## Relação com o CLI Python `pipe`
 
