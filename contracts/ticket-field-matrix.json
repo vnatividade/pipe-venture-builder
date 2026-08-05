@@ -1,0 +1,131 @@
+{
+  "schemaVersion": "0.1.0",
+  "description": "Fonte de verdade dos campos de ticket do Pipe (PIP-832). A tabela de execution/ticket-type-field-matrix.md passa a ser GERADA deste arquivo; enquanto as duas viviam em Markdown separado, código e documento podiam divergir em silêncio. Editar aqui, rodar `pipe ticket matrix --emit-markdown`.",
+  "legend": {
+    "R": "Required for this ticket type.",
+    "C": "Conditional; include when the scope, risk, implementation surface, or approval state makes it relevant.",
+    "N": "Not normally needed; omit or mark not applicable only when clarity requires it."
+  },
+  "types": [
+    "architecture",
+    "documentation",
+    "prompt",
+    "skill",
+    "workflow",
+    "governance",
+    "code",
+    "infrastructure",
+    "automation",
+    "observability",
+    "product",
+    "orchestration-prep"
+  ],
+  "baselineFields": [
+    { "key": "objective", "heading": "Objective" },
+    { "key": "whyThisMatters", "heading": "Why This Matters", "aliases": ["Why This Matters or Rationale", "Rationale"] },
+    { "key": "sourceRationale", "heading": "Source Rationale" },
+    { "key": "controleDimensions", "heading": "C.O.N.T.R.O.L.E. Dimensions Supported" },
+    { "key": "type", "heading": "Type" },
+    { "key": "includedScope", "heading": "Included Scope" },
+    { "key": "excludedScope", "heading": "Excluded Scope" },
+    { "key": "deliverables", "heading": "Deliverables" },
+    { "key": "acceptanceCriteria", "heading": "Acceptance Criteria" },
+    { "key": "goConditions", "heading": "GO Conditions" },
+    { "key": "noGoConditions", "heading": "NO-GO Conditions" },
+    { "key": "dependencies", "heading": "Dependencies" },
+    { "key": "prerequisites", "heading": "Prerequisites" },
+    { "key": "approvalRequirement", "heading": "Approval Requirement" },
+    { "key": "suggestedOwner", "heading": "Suggested Owner/Agent", "aliases": ["Owner", "Suggested Owner"] },
+    { "key": "executorTool", "heading": "Executor Tool" },
+    { "key": "riskLevel", "heading": "Risk Level" },
+    { "key": "effort", "heading": "Effort" },
+    { "key": "complexity", "heading": "Complexity" },
+    { "key": "parallelizable", "heading": "Parallelizable" },
+    { "key": "parallelizationNotes", "heading": "Parallelization Notes" },
+    { "key": "expectedWriteSet", "heading": "Expected Write Set" },
+    { "key": "restrictedFiles", "heading": "Restricted Files" },
+    { "key": "definitionOfReady", "heading": "Definition of Ready" },
+    { "key": "definitionOfDone", "heading": "Definition of Done" },
+    { "key": "validationPlan", "heading": "Validation Plan" },
+    { "key": "monitoringRequirements", "heading": "Monitoring Requirements" },
+    { "key": "successMetrics", "heading": "Success Metrics" },
+    { "key": "rollback", "heading": "Rollback or Mitigation" },
+    { "key": "notesForImplementation", "heading": "Notes for Implementation", "aliases": ["Handoff Notes"] },
+    { "key": "followUpCriteria", "heading": "Follow-up Ticket Criteria" },
+    { "key": "agentExecutionNotes", "heading": "Agent Execution Notes" }
+  ],
+  "conditionalFields": [
+    {
+      "key": "technicalDependencies",
+      "heading": "Technical Dependencies",
+      "byType": { "architecture": "C", "documentation": "N", "prompt": "C", "skill": "C", "workflow": "C", "governance": "C", "code": "R", "infrastructure": "R", "automation": "R", "observability": "R", "product": "C", "orchestration-prep": "C" }
+    },
+    {
+      "key": "operationalDependencies",
+      "heading": "Operational Dependencies",
+      "byType": { "architecture": "C", "documentation": "C", "prompt": "C", "skill": "C", "workflow": "R", "governance": "R", "code": "C", "infrastructure": "R", "automation": "R", "observability": "R", "product": "R", "orchestration-prep": "R" }
+    },
+    {
+      "key": "humanDecisionRequired",
+      "heading": "Human Decision Required",
+      "byType": { "architecture": "C", "documentation": "C", "prompt": "C", "skill": "C", "workflow": "C", "governance": "C", "code": "C", "infrastructure": "C", "automation": "C", "observability": "C", "product": "C", "orchestration-prep": "C" }
+    },
+    {
+      "key": "observabilityRequirements",
+      "heading": "Observability Requirements",
+      "byType": { "architecture": "C", "documentation": "N", "prompt": "N", "skill": "C", "workflow": "C", "governance": "C", "code": "R", "infrastructure": "R", "automation": "R", "observability": "R", "product": "C", "orchestration-prep": "C" }
+    },
+    {
+      "key": "kpiImpact",
+      "heading": "KPI Impact",
+      "byType": { "architecture": "N", "documentation": "N", "prompt": "N", "skill": "N", "workflow": "N", "governance": "C", "code": "C", "infrastructure": "C", "automation": "C", "observability": "C", "product": "R", "orchestration-prep": "C" }
+    },
+    {
+      "key": "postReleaseFollowUp",
+      "heading": "Post-release Follow-up",
+      "byType": { "architecture": "C", "documentation": "N", "prompt": "C", "skill": "C", "workflow": "C", "governance": "C", "code": "C", "infrastructure": "R", "automation": "R", "observability": "R", "product": "R", "orchestration-prep": "C" }
+    },
+    {
+      "key": "rollbackSignal",
+      "heading": "Rollback Signal",
+      "byType": { "architecture": "C", "documentation": "N", "prompt": "N", "skill": "C", "workflow": "C", "governance": "C", "code": "R", "infrastructure": "R", "automation": "R", "observability": "R", "product": "C", "orchestration-prep": "C" }
+    },
+    {
+      "key": "agentConsumers",
+      "heading": "Agent Consumers",
+      "byType": { "architecture": "R", "documentation": "C", "prompt": "R", "skill": "R", "workflow": "R", "governance": "R", "code": "C", "infrastructure": "C", "automation": "C", "observability": "C", "product": "C", "orchestration-prep": "R" }
+    },
+    {
+      "key": "affectedProtocolOrArtifact",
+      "heading": "Affected Protocol or Artifact",
+      "byType": { "architecture": "R", "documentation": "R", "prompt": "R", "skill": "R", "workflow": "R", "governance": "R", "code": "C", "infrastructure": "C", "automation": "C", "observability": "R", "product": "C", "orchestration-prep": "R" }
+    },
+    {
+      "key": "productKpiBaseline",
+      "heading": "Product KPI Baseline",
+      "byType": { "architecture": "N", "documentation": "N", "prompt": "N", "skill": "N", "workflow": "N", "governance": "N", "code": "C", "infrastructure": "C", "automation": "C", "observability": "C", "product": "R", "orchestration-prep": "N" }
+    },
+    {
+      "key": "runtimeHealthcheck",
+      "heading": "Runtime Healthcheck",
+      "byType": { "architecture": "N", "documentation": "N", "prompt": "N", "skill": "C", "workflow": "C", "governance": "C", "code": "R", "infrastructure": "R", "automation": "R", "observability": "R", "product": "C", "orchestration-prep": "N" }
+    },
+    {
+      "key": "securityOrDataSensitivity",
+      "heading": "Security or Data Sensitivity Notes",
+      "byType": { "architecture": "C", "documentation": "C", "prompt": "C", "skill": "C", "workflow": "C", "governance": "C", "code": "R", "infrastructure": "R", "automation": "R", "observability": "R", "product": "R", "orchestration-prep": "C" }
+    }
+  ],
+  "unassignedFields": [
+    {
+      "key": "tacticalExecutionPlan",
+      "heading": "Tactical Execution Plan",
+      "note": "Listado como condicional em execution/linear-ticket-template-v2.md, mas a tabela de execution/ticket-type-field-matrix.md nunca atribuiu R/C/N por tipo. Tratado como condicional em todos os tipos e NUNCA bloqueia conformidade — atribuir por tipo é mudança de governança e exige ticket próprio."
+    },
+    {
+      "key": "developmentExecutionLoop",
+      "heading": "Development Execution Loop",
+      "note": "Mesma situação de tacticalExecutionPlan: aparece no template v2 e não tem linha na matriz."
+    }
+  ]
+}
