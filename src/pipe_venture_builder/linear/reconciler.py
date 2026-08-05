@@ -33,6 +33,15 @@ CONTRACT_UNAVAILABLE_REASON = (
     "abrir essa exceção num caminho separado, com ADR próprio (decisão D5)."
 )
 
+# Sem baseline aprovado não há com o que comparar o inventário. Devolver zero
+# propostas afirmaria "todo artefato virou ticket" sem ter olhado para artefato
+# nenhum — mesma armadilha da deriva de contrato, mesma resposta (PIP-835).
+COVERAGE_UNAVAILABLE_REASON = (
+    "Nenhum ProductBaseline aprovado foi informado, então não há com o que comparar "
+    "o inventário: a deriva de cobertura não foi calculada. Passe o baseline para "
+    "que artefato sem ticket apareça."
+)
+
 
 @dataclass(frozen=True, slots=True)
 class ReconciliationReport:
@@ -41,20 +50,25 @@ class ReconciliationReport:
     coverage: list[dict[str, Any]] = field(default_factory=list)
     lifecycle: list[dict[str, Any]] = field(default_factory=list)
     contract: dict[str, Any] = field(default_factory=dict)
+    coverage_status: dict[str, Any] = field(default_factory=dict)
     blockers: list[dict[str, Any]] = field(default_factory=list)
     plan_id: str | None = None
 
     @property
     def summary(self) -> dict[str, Any]:
         blocking = sum(1 for f in self.lifecycle if f.get("severity") == "blocking")
+        coverage_ran = self.coverage_status.get("status") == "available"
         return {
             "coverageProposals": len(self.coverage),
             "lifecycleFindings": len(self.lifecycle),
             "lifecycleBlocking": blocking,
             "contractStatus": self.contract.get("status"),
+            "coverageStatus": self.coverage_status.get("status"),
             "blockers": len(self.blockers),
             # Nenhuma deriva encontrada não é o mesmo que nenhuma deriva existente.
-            "clean": not self.coverage and blocking == 0 and not self.blockers,
+            # `clean` exige que a cobertura tenha REALMENTE rodado: dizer "em dia"
+            # com metade da verificação pulada é a mentira que este campo evita.
+            "clean": coverage_ran and not self.coverage and blocking == 0 and not self.blockers,
         }
 
     def as_dict(self) -> dict[str, Any]:
@@ -63,6 +77,7 @@ class ReconciliationReport:
             "planId": self.plan_id,
             "summary": self.summary,
             "coverage": list(self.coverage),
+            "coverageStatus": dict(self.coverage_status),
             "lifecycle": list(self.lifecycle),
             "contract": dict(self.contract),
             "blockers": list(self.blockers),
@@ -70,7 +85,7 @@ class ReconciliationReport:
 
 
 def reconcile(
-    baseline: Mapping[str, Any],
+    baseline: Mapping[str, Any] | None,
     observed: Mapping[str, Any],
     *,
     verification: Mapping[str, Any] | None = None,
@@ -80,25 +95,35 @@ def reconcile(
     `verification` é uma segunda leitura opcional: divergência entre a leitura e a
     verificação bloqueia a proposta afetada, no planner que já existe.
     """
+    lifecycle = [
+        finding.as_dict() for finding in find_lifecycle_drift(observed.get("records", []))
+    ]
+    contract = {"status": "unavailable", "reason": CONTRACT_UNAVAILABLE_REASON}
+
+    if baseline is None:
+        return ReconciliationReport(
+            coverage=[],
+            coverage_status={"status": "unavailable", "reason": COVERAGE_UNAVAILABLE_REASON},
+            lifecycle=lifecycle,
+            contract=contract,
+        )
+
     plan = plan_reconciliation(
         baseline,
         [observed],
         verification_snapshots=(verification,) if verification else (),
     )
-
     coverage = [
         action
         for action in plan.get("actions", [])
         if action.get("targetSystem") == "linear" and action.get("actionType") == "create"
     ]
-    lifecycle = [
-        finding.as_dict() for finding in find_lifecycle_drift(observed.get("records", []))
-    ]
 
     return ReconciliationReport(
         coverage=coverage,
+        coverage_status={"status": "available"},
         lifecycle=lifecycle,
-        contract={"status": "unavailable", "reason": CONTRACT_UNAVAILABLE_REASON},
+        contract=contract,
         blockers=list(plan.get("blockers", [])),
         plan_id=plan.get("planId"),
     )

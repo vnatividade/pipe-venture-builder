@@ -1,0 +1,72 @@
+# Primeira CI do repositório (PIP-835).
+# Antes disto as duas suítes só rodavam quando alguém lembrava — e um check que
+# depende de memória humana não é um check. Roda ANTES de qualquer escrita
+# automatizada existir, de propósito: sem rede de proteção, um renderer ruim
+# produz cinquenta tickets ruins com aparência de conformidade.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  # gitleaks e afins estouram 403 em `pull_request` sem isto; declarar cedo evita
+  # o CI vermelho por permissão que não é vazamento de segredo nenhum.
+  pull-requests: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  node:
+    name: runtime (node)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # Sem `npm ci`: o runtime é .mjs puro com imports node:* apenas, e não existe
+      # package.json no repositório. Isso é propriedade do repo, não acidente.
+      - name: node --test
+        run: node --test runtime/tests/*.test.mjs
+
+  python:
+    name: toolkit (python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: install
+        run: python -m pip install --quiet -e . pytest
+      - name: pytest
+        run: python -m pytest -q
+
+  drift:
+    name: governança gerada em sincronia
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: install
+        run: python -m pip install --quiet -e .
+      # Editar contracts/ticket-field-matrix.json sem regenerar o Markdown é
+      # exatamente a deriva silenciosa que a fatia 2 existe para fechar.
+      - name: regenerar a matriz de campos
+        run: pipe ticket matrix --emit-markdown
+      - name: falhar se o documento estiver fora de sincronia
+        run: |
+          if ! git diff --quiet -- execution/ticket-type-field-matrix.md; then
+            echo "::error::execution/ticket-type-field-matrix.md está fora de sincronia com contracts/ticket-field-matrix.json."
+            echo "Rode: pipe ticket matrix --emit-markdown"
+            git --no-pager diff -- execution/ticket-type-field-matrix.md
+            exit 1
+          fi
+          echo "Matriz em sincronia."

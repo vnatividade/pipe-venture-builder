@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Reconciliação diária do Linear (PIP-835, item 4).
+
+  Ação de risco em AGENTS.md, liberada nomeadamente pelo fundador em 2026-08-05.
+
+  Este arquivo é o TEMPLATE versionado. A cópia efetiva vive em
+  ~/Library/LaunchAgents/, que não é versionado — limitação conhecida do padrão:
+  o check agendado depende de estado machine-local. Instalar:
+
+    cp scripts/launchagent/ai.pipe.linear-reconcile.plist ~/Library/LaunchAgents/
+    launchctl unload ~/Library/LaunchAgents/ai.pipe.linear-reconcile.plist 2>/dev/null
+    launchctl load  ~/Library/LaunchAgents/ai.pipe.linear-reconcile.plist
+
+  NENHUM segredo aqui. O token é lido do Vaultwarden em tempo de execução pelo
+  script, que falha alto e registra quando a sessão do cofre expira.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>ai.pipe.linear-reconcile</string>
+  <key>WorkingDirectory</key>
+  <string>/Users/agents/Developer/pipe-venture-builder</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>-lc</string>
+    <string>/Users/agents/Developer/pipe-venture-builder/scripts/linear-reconcile.sh</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>8</integer>
+    <key>Minute</key>
+    <integer>20</integer>
+  </dict>
+  <key>RunAtLoad</key>
+  <false/>
+  <key>StandardErrorPath</key>
+  <string>/Users/agents/.pipe/linear/launchagent.err.log</string>
+</dict>
+</plist>
