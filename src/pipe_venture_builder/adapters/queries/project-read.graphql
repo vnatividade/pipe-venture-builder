@@ -1,0 +1,18 @@
+# Leitura do container de inventário. Seleção EXPLÍCITA de campos: descrição,
+# corpo e comentários ficam de fora por decisão registrada em
+# docs/connectors/README.md — o snapshot sela rawPayloadPersisted: false.
+# `$id` é String!, não ID! (verificado contra a API em 2026-08-05).
+query PipeProjectRead($id: String!) {
+  project(id: $id) {
+    id
+    slugId
+    name
+    url
+    createdAt
+    updatedAt
+    status {
+      name
+      type
+    }
+  }
+}

@@ -107,7 +107,7 @@ class LinearInventoryTests(TestCase):
 
         def invoke(tool_name: str, arguments: Mapping[str, Any]) -> Mapping[str, Any]:
             calls.append((tool_name, arguments))
-            if tool_name == "linear_get_project":
+            if tool_name == "project.read":
                 return {
                     "id": "project-0001",
                     "slugId": "example-project",
@@ -126,7 +126,7 @@ class LinearInventoryTests(TestCase):
 
         self.assertEqual(
             [name for name, _arguments in calls],
-            ["linear_get_project", "linear_list_issues"],
+            ["project.read", "issues.list"],
         )
         self.assertTrue(all("token" not in arguments for _name, arguments in calls))
         self.assertFalse(

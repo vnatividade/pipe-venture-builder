@@ -1,0 +1,52 @@
+# Página de issues do projeto. `first`/`after` é paginação Relay; o custo de
+# complexidade multiplica os filhos pelo tamanho da página, então quem chama
+# decide o `first` — não existe default generoso aqui.
+query PipeIssuesList($id: String!, $first: Int!, $after: String) {
+  project(id: $id) {
+    issues(first: $first, after: $after) {
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+      nodes {
+        id
+        identifier
+        title
+        url
+        createdAt
+        updatedAt
+        completedAt
+        canceledAt
+        priority
+        state {
+          name
+          type
+        }
+        parent {
+          id
+        }
+        labels {
+          nodes {
+            name
+          }
+        }
+        relations {
+          nodes {
+            type
+            relatedIssue {
+              id
+            }
+          }
+        }
+        inverseRelations {
+          nodes {
+            type
+            issue {
+              id
+            }
+          }
+        }
+      }
+    }
+  }
+}

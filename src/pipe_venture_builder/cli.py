@@ -21,6 +21,11 @@ from .exit_codes import (
     READINESS_BLOCKED,
     SUCCESS,
 )
+from .adapters.binding import load_binding, read_token
+from .adapters.contracts import AdapterReadError
+from .adapters.linear import LinearConnectorSource, LinearInventoryAdapter
+from .adapters.linear_graphql import LinearGraphQLInvoker
+from .manifest import resolve_toolkit_root
 from .tickets import check_conformance, load_registry, parse_ticket, render_ticket
 from .tickets.handoff import HandoffTemplateError, load_handoff_template
 from .tickets.matrix import BEGIN_MARKER, END_MARKER, emit_markdown_block
@@ -236,6 +241,32 @@ def build_parser() -> argparse.ArgumentParser:
     )
     ticket_matrix.add_argument("--json", action="store_true", dest="as_json")
     ticket_matrix.set_defaults(handler=_handle_ticket_matrix)
+
+    # PIP-833 — leitura viva. Só leitura: nenhum subcomando aqui muta o Linear.
+    linear_parser = commands.add_parser(
+        "linear", help="Read-only Linear operations for the declared binding."
+    )
+    linear_commands = linear_parser.add_subparsers(dest="linear_command", required=True)
+
+    linear_snapshot = linear_commands.add_parser(
+        "snapshot",
+        help="Capture a bounded, read-only inventory of the bound Linear project.",
+    )
+    linear_snapshot.add_argument(
+        "--root",
+        help="Product repository root. Defaults to the current directory.",
+    )
+    linear_snapshot.add_argument(
+        "--limit", type=int, default=200, help="Maximum records to capture."
+    )
+    linear_snapshot.add_argument(
+        "--max-pages", type=int, default=10, dest="max_pages", help="Page budget."
+    )
+    linear_snapshot.add_argument(
+        "--out", help="Write the snapshot JSON to this path instead of stdout."
+    )
+    linear_snapshot.add_argument("--json", action="store_true", dest="as_json")
+    linear_snapshot.set_defaults(handler=_handle_linear_snapshot)
 
     handoff_parser = commands.add_parser(
         "handoff", help="Work with the canonical delivery handoff."
@@ -575,6 +606,53 @@ def _handle_ticket_matrix(args: argparse.Namespace) -> dict[str, Any]:
             "Field matrix rewritten from contracts/ticket-field-matrix.json."
             if changed
             else "Field matrix already in sync."
+        ),
+    }
+
+
+def _handle_linear_snapshot(args: argparse.Namespace) -> dict[str, Any]:
+    product_root = resolve_product_root(args.root or ".")
+    toolkit_root = resolve_toolkit_root()
+    binding = load_binding(product_root, toolkit_root)
+    token = read_token()
+
+    invoker = LinearGraphQLInvoker(token_provider=lambda: token)
+    source = LinearConnectorSource(invoker)
+    try:
+        snapshot = LinearInventoryAdapter(source).capture(
+            binding["project"]["id"], limit=args.limit, max_pages=args.max_pages
+        )
+    except AdapterReadError as exc:
+        # A classe de erro é fixa e não carrega material da fonte nem credencial.
+        raise PipeError(
+            code=exc.code.upper(),
+            message=exc.summary,
+            exit_code=READINESS_BLOCKED,
+            details=[
+                {
+                    "path": binding["project"]["id"],
+                    "message": f"category={exc.category} retryable={exc.retryable}",
+                    "rule": "linear-read",
+                }
+            ],
+        ) from exc
+
+    if args.out:
+        Path(args.out).write_text(json.dumps(snapshot, indent=2) + "\n", encoding="utf-8")
+
+    return {
+        "ok": True,
+        "command": "linear.snapshot",
+        "snapshotId": snapshot["snapshotId"],
+        "status": snapshot["status"],
+        "recordCount": len(snapshot["records"]),
+        # Instrumentação obrigatória: a doc da Linear se contradiz sobre a cota
+        # (2.500 vs 5.000 req/h na mesma página). Medir, não acreditar.
+        "quota": invoker.last_quota,
+        "snapshot": None if args.out else snapshot,
+        "message": (
+            f"Captured {len(snapshot['records'])} record(s) from the bound Linear project "
+            f"({snapshot['status']}). Quota: {invoker.last_quota or 'not reported'}."
         ),
     }
 
