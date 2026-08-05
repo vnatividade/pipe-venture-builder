@@ -13,6 +13,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
 
+from pipe_venture_builder.manifest import resolve_toolkit_root
+
 HANDOFF_DOC = "execution/ticket-pr-handoff-system.md"
 HANDOFF_ANCHOR = "## Final execution handoff"
 FENCE = "```"
@@ -22,8 +24,10 @@ class HandoffTemplateError(RuntimeError):
     """O documento canônico não contém o bloco de handoff esperado."""
 
 
-def _repository_root() -> Path:
-    return Path(__file__).resolve().parents[3]
+def _toolkit_root() -> Path:
+    """Mesmo motivo de matrix.py: o documento canônico vive no toolkit, e achar o
+    toolkit é responsabilidade de resolve_toolkit_root, não de aritmética de path."""
+    return resolve_toolkit_root()
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,7 +68,7 @@ class HandoffTemplate:
 
 
 def load_handoff_template(root: Path | None = None) -> HandoffTemplate:
-    path = (root or _repository_root()) / HANDOFF_DOC
+    path = (root or _toolkit_root()) / HANDOFF_DOC
     text = path.read_text(encoding="utf-8")
 
     anchor = text.find(HANDOFF_ANCHOR)

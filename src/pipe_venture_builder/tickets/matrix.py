@@ -13,13 +13,19 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Iterator, Literal, Mapping
 
+from pipe_venture_builder.manifest import resolve_toolkit_root
+
 Requirement = Literal["R", "C", "N"]
 
 MATRIX_RELATIVE_PATH = "contracts/ticket-field-matrix.json"
 
 
-def _repository_root() -> Path:
-    return Path(__file__).resolve().parents[3]
+def _toolkit_root() -> Path:
+    """Usa o resolvedor estabelecido do toolkit (explícito → PIPE_TOOLKIT_ROOT →
+    clone → subida a partir do cwd). Resolver por `__file__` sozinho funciona
+    dentro do clone e quebra quando uma venture instala o pipe de outro lugar —
+    que é exatamente o caso de uso de um manual portátil."""
+    return resolve_toolkit_root()
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,7 +89,7 @@ def _field_from(raw: Mapping[str, Any]) -> TicketField:
 
 @lru_cache(maxsize=1)
 def load_registry(path: Path | None = None) -> FieldRegistry:
-    source = path or (_repository_root() / MATRIX_RELATIVE_PATH)
+    source = path or (_toolkit_root() / MATRIX_RELATIVE_PATH)
     raw = json.loads(source.read_text(encoding="utf-8"))
     return FieldRegistry(
         types=tuple(raw["types"]),
