@@ -359,59 +359,13 @@ Required:
 
 ## Delivery Update Comment Template
 
-Use this final Linear comment after merge or documentary completion.
+O template de handoff é canônico em `execution/ticket-pr-handoff-system.md` (seção
+"Final execution handoff"). Ele vivia duplicado aqui e em
+`.codex/agents/agent-handoff-protocol.md`; três cópias do mesmo formato derivam em
+silêncio, e a divergência só aparece quando um agente segue a cópia errada (PIP-832).
 
-```md
-## Final execution handoff
+Para renderizar o bloco a partir do contrato, use:
 
-Branch:
-PR:
-Merge:
-Merge commit:
-
-## Summary
-
-## Acceptance criteria result
-- Criterion 1:
-- Criterion 2:
-- Criterion 3:
-
-## Validation
-- Command/check:
-- Command/check:
-
-## Review
-- Review source:
-- P0:
-- P1:
-- P2:
-- P3:
-- Fixed in this PR:
-- Not fixed:
-
-## Monitoring
-- Required follow-up monitoring:
-- Owner or agent:
-- Trigger or cadence:
-
-## Metrics
-- Success metric:
-- Current status:
-- Follow-up needed:
-
-## Follow-ups
-- Link:
-- Reason:
-
-## Knowledge updates
-- Repository artifact updated:
-- Decision or learning recorded:
-
-## Residual risks
-
-## Next recommended action
-- Ticket:
-- Reason:
+```sh
+pipe handoff render
 ```
-
-If no follow-up, monitoring action, knowledge update, or residual risk exists, say that directly.

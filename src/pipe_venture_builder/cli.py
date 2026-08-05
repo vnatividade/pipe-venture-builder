@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from pathlib import Path
 from typing import Any, Sequence, TextIO
 
 from . import __version__
@@ -13,7 +14,16 @@ from .bootstrap import BootstrapOptions, apply_bootstrap, plan_bootstrap
 from .discovery import discover_project_root, resolve_baseline_schema
 from .doctor import run_doctor
 from .errors import PipeError
-from .exit_codes import INTERNAL_CONTRACT_ERROR, READINESS_BLOCKED, SUCCESS
+from .exit_codes import (
+    INPUT_INVALID_JSON,
+    INPUT_UNAVAILABLE,
+    INTERNAL_CONTRACT_ERROR,
+    READINESS_BLOCKED,
+    SUCCESS,
+)
+from .tickets import check_conformance, load_registry, parse_ticket, render_ticket
+from .tickets.handoff import HandoffTemplateError, load_handoff_template
+from .tickets.matrix import BEGIN_MARKER, END_MARKER, emit_markdown_block
 from .idea import generate_idea_baseline, write_idea_baseline
 from .manifest import resolve_product_root, resolve_toolkit_root
 from .validation import (
@@ -185,6 +195,64 @@ def build_parser() -> argparse.ArgumentParser:
     )
     validate_parser.add_argument("--json", action="store_true", dest="as_json")
     validate_parser.set_defaults(handler=_handle_baseline_validate)
+
+    # PIP-832 — contrato de ticket. Offline por construção: nenhum destes comandos
+    # abre rede ou toca credencial, então rodam em CI e em pre-push sem gate.
+    ticket_parser = commands.add_parser(
+        "ticket", help="Work with the Pipe ticket contract."
+    )
+    ticket_commands = ticket_parser.add_subparsers(dest="ticket_command", required=True)
+
+    ticket_check = ticket_commands.add_parser(
+        "check",
+        help="Check a ticket body against the required fields for its type.",
+    )
+    ticket_check.add_argument("body", help="Markdown file with the ticket body.")
+    ticket_check.add_argument(
+        "--type",
+        dest="ticket_type",
+        help="Override the Type field when the body does not declare one.",
+    )
+    ticket_check.add_argument("--json", action="store_true", dest="as_json")
+    ticket_check.set_defaults(handler=_handle_ticket_check)
+
+    ticket_render = ticket_commands.add_parser(
+        "render",
+        help="Render a ticket body from a JSON field map, in contract order.",
+    )
+    ticket_render.add_argument("fields", help="JSON file mapping field keys to content.")
+    ticket_render.add_argument("--json", action="store_true", dest="as_json")
+    ticket_render.set_defaults(handler=_handle_ticket_render)
+
+    ticket_matrix = ticket_commands.add_parser(
+        "matrix",
+        help="Show the field matrix, or rewrite the generated block in the governance doc.",
+    )
+    ticket_matrix.add_argument(
+        "--emit-markdown",
+        action="store_true",
+        dest="emit_markdown",
+        help="Rewrite the generated block in execution/ticket-type-field-matrix.md.",
+    )
+    ticket_matrix.add_argument("--json", action="store_true", dest="as_json")
+    ticket_matrix.set_defaults(handler=_handle_ticket_matrix)
+
+    handoff_parser = commands.add_parser(
+        "handoff", help="Work with the canonical delivery handoff."
+    )
+    handoff_commands = handoff_parser.add_subparsers(
+        dest="handoff_command", required=True
+    )
+    handoff_render = handoff_commands.add_parser(
+        "render",
+        help="Render the canonical handoff block from execution/ticket-pr-handoff-system.md.",
+    )
+    handoff_render.add_argument(
+        "--values",
+        help="Optional JSON file mapping handoff labels to values.",
+    )
+    handoff_render.add_argument("--json", action="store_true", dest="as_json")
+    handoff_render.set_defaults(handler=_handle_handoff_render)
 
     return parser
 
@@ -384,6 +452,149 @@ def _handle_baseline_validate(args: argparse.Namespace) -> dict[str, Any]:
         "command": "baseline.validate",
         "schemaVersion": "0.1.0",
         "message": "ProductBaseline is valid.",
+    }
+
+
+def _read_text_input(path: str) -> str:
+    try:
+        return Path(path).read_text(encoding="utf-8")
+    except OSError as exc:
+        raise PipeError(
+            code="INPUT_UNAVAILABLE",
+            message=f"Could not read {path}.",
+            exit_code=INPUT_UNAVAILABLE,
+        ) from exc
+
+
+def _read_json_input(path: str) -> dict[str, Any]:
+    raw = _read_text_input(path)
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise PipeError(
+            code="INPUT_INVALID_JSON",
+            message=f"{path} is not valid JSON.",
+            exit_code=INPUT_INVALID_JSON,
+        ) from exc
+    if not isinstance(parsed, dict):
+        raise PipeError(
+            code="INPUT_INVALID_JSON",
+            message=f"{path} must contain a JSON object.",
+            exit_code=INPUT_INVALID_JSON,
+        )
+    return parsed
+
+
+def _handle_ticket_check(args: argparse.Namespace) -> dict[str, Any]:
+    body = _read_text_input(args.body)
+    parsed = parse_ticket(body)
+    if args.ticket_type:
+        parsed.fields.setdefault("type", args.ticket_type)
+    report = check_conformance(parsed)
+
+    payload: dict[str, Any] = {"ok": report.ok, "command": "ticket.check"}
+    payload.update(report.as_dict())
+    if report.ok:
+        payload["message"] = (
+            f"Ticket conforms to the {report.ticket_type} contract."
+            + (
+                f" {len(report.unparsed)} unrecognised section(s) kept as-is."
+                if report.unparsed
+                else ""
+            )
+        )
+        return payload
+
+    problems = list(report.problems) + [
+        f"missing required field: {item.heading}" for item in report.missing
+    ]
+    raise PipeError(
+        code="TICKET_CONTRACT_VIOLATION",
+        message=f"Ticket does not conform to the {report.ticket_type or 'unknown'} contract.",
+        exit_code=READINESS_BLOCKED,
+        details=[
+            {"path": args.body, "message": problem, "rule": "ticket-field-matrix"}
+            for problem in problems
+        ],
+    )
+
+
+def _handle_ticket_render(args: argparse.Namespace) -> dict[str, Any]:
+    fields = _read_json_input(args.fields)
+    registry = load_registry()
+    unknown = sorted(set(fields) - {field.key for field in registry.all_fields()})
+    if unknown:
+        raise PipeError(
+            code="TICKET_UNKNOWN_FIELD",
+            message="Field keys are not in the ticket contract.",
+            exit_code=READINESS_BLOCKED,
+            details=[
+                {"path": args.fields, "message": key, "rule": "ticket-field-matrix"}
+                for key in unknown
+            ],
+        )
+    return {
+        "ok": True,
+        "command": "ticket.render",
+        "body": render_ticket(fields, registry),
+        "message": render_ticket(fields, registry),
+    }
+
+
+def _handle_ticket_matrix(args: argparse.Namespace) -> dict[str, Any]:
+    registry = load_registry()
+    block = emit_markdown_block(registry)
+    if not args.emit_markdown:
+        return {
+            "ok": True,
+            "command": "ticket.matrix",
+            "types": list(registry.types),
+            "message": block,
+        }
+
+    root = discover_project_root(None)
+    doc = root / "execution/ticket-type-field-matrix.md"
+    text = doc.read_text(encoding="utf-8")
+    if BEGIN_MARKER not in text or END_MARKER not in text:
+        raise PipeError(
+            code="GENERATED_BLOCK_MISSING",
+            message=f"{doc} has no generated field-matrix block to rewrite.",
+            exit_code=READINESS_BLOCKED,
+        )
+    start = text.index(BEGIN_MARKER) + len(BEGIN_MARKER)
+    end = text.index(END_MARKER)
+    updated = text[:start] + "\n" + block + text[end:]
+    changed = updated != text
+    if changed:
+        doc.write_text(updated, encoding="utf-8")
+    return {
+        "ok": True,
+        "command": "ticket.matrix",
+        "changed": changed,
+        "message": (
+            "Field matrix rewritten from contracts/ticket-field-matrix.json."
+            if changed
+            else "Field matrix already in sync."
+        ),
+    }
+
+
+def _handle_handoff_render(args: argparse.Namespace) -> dict[str, Any]:
+    template = load_handoff_template()
+    values = _read_json_input(args.values) if args.values else None
+    try:
+        body = template.render(values)
+    except HandoffTemplateError as exc:
+        raise PipeError(
+            code="HANDOFF_UNKNOWN_LABEL",
+            message=str(exc),
+            exit_code=READINESS_BLOCKED,
+        ) from exc
+    return {
+        "ok": True,
+        "command": "handoff.render",
+        "body": body,
+        "message": body,
     }
 
 

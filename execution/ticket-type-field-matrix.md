@@ -70,6 +70,9 @@ Keep baseline fields concise. A required field may say "Not applicable" only whe
 
 ## Field Matrix By Type
 
+<!-- BEGIN GENERATED: field-matrix -->
+<!-- Gerado de contracts/ticket-field-matrix.json por `pipe ticket matrix --emit-markdown`.
+     Não edite à mão: edite o JSON e regenere. O check de deriva reprova divergência. -->
 | Field | architecture | documentation | prompt | skill | workflow | governance | code | infrastructure | automation | observability | product | orchestration-prep |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | Technical Dependencies | C | N | C | C | C | C | R | R | R | R | C | C |
@@ -84,6 +87,7 @@ Keep baseline fields concise. A required field may say "Not applicable" only whe
 | Product KPI Baseline | N | N | N | N | N | N | C | C | C | C | R | N |
 | Runtime Healthcheck | N | N | N | C | C | C | R | R | R | R | C | N |
 | Security or Data Sensitivity Notes | C | C | C | C | C | C | R | R | R | R | R | C |
+<!-- END GENERATED: field-matrix -->
 
 ## Type-Specific Requirements
 
