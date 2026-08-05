@@ -1,0 +1,42 @@
+#!/bin/bash
+# Hook de pre-push (PIP-835). Instale com:
+#   git config core.hooksPath scripts/git-hooks
+#
+# Roda o que é rápido e local. NÃO roda `pipe ticket check`: esse comando valida o
+# corpo de um ticket, e o repositório não guarda corpo de ticket — eles vivem no
+# Linear. Inventar uma convenção de arquivo só para o hook ter o que checar seria
+# cerimônia. O que dá para verificar aqui é suíte verde e governança em sincronia.
+set -uo pipefail
+
+falhou=0
+aviso() { printf '\n\033[33m%s\033[0m\n' "$1"; }
+erro()  { printf '\n\033[31m%s\033[0m\n' "$1"; falhou=1; }
+
+raiz="$(git rev-parse --show-toplevel)"
+cd "$raiz" || exit 1
+
+if command -v node >/dev/null 2>&1; then
+  node --test runtime/tests/*.test.mjs >/dev/null 2>&1 \
+    || erro "Suíte Node vermelha. Rode: node --test runtime/tests/*.test.mjs"
+else
+  aviso "node ausente — suíte do runtime não verificada."
+fi
+
+if python3 -c "import pipe_venture_builder" >/dev/null 2>&1; then
+  python3 -m pytest -q >/dev/null 2>&1 \
+    || erro "Suíte Python vermelha. Rode: python3 -m pytest -q"
+
+  # Deriva da governança gerada: mesmo check da CI, antes de sair da máquina.
+  if python3 -m pipe_venture_builder.cli ticket matrix --emit-markdown >/dev/null 2>&1; then
+    git diff --quiet -- execution/ticket-type-field-matrix.md \
+      || erro "Matriz de campos fora de sincronia. Rode: pipe ticket matrix --emit-markdown"
+  fi
+else
+  aviso "pipe_venture_builder não importável neste Python — checks do toolkit pulados."
+fi
+
+if [ "$falhou" -ne 0 ]; then
+  printf '\nPush abortado. Para ignorar conscientemente: git push --no-verify\n\n'
+  exit 1
+fi
+exit 0

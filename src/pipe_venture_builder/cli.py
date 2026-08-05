@@ -280,7 +280,15 @@ def build_parser() -> argparse.ArgumentParser:
         "plan",
         help="Report coverage, lifecycle, and contract drift. Proposes; never writes.",
     )
-    reconcile_plan.add_argument("baseline", help="Approved ProductBaseline JSON file.")
+    reconcile_plan.add_argument(
+        "baseline",
+        nargs="?",
+        default=None,
+        help=(
+            "Approved ProductBaseline JSON file. Omit to run lifecycle drift only; "
+            "coverage is then reported as unavailable, never as zero."
+        ),
+    )
     reconcile_plan.add_argument(
         "--snapshot",
         help="ExternalSnapshot JSON. Omit to capture a fresh read-only snapshot.",
@@ -694,7 +702,7 @@ def _capture_snapshot_for(binding: dict[str, Any]) -> dict[str, Any]:
 def _handle_reconcile_plan(args: argparse.Namespace) -> dict[str, Any]:
     product_root = resolve_product_root(args.root or ".")
     toolkit_root = resolve_toolkit_root()
-    baseline = _read_json_input(args.baseline)
+    baseline = _read_json_input(args.baseline) if args.baseline else None
     binding = load_binding(product_root, toolkit_root)
 
     if args.snapshot:

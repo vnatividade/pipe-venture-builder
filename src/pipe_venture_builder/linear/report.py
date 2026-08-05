@@ -32,7 +32,8 @@ def render_report(report: Mapping[str, Any]) -> str:
     summary = report.get("summary", {})
     lines = [
         "Reconciliação Linear",
-        f"  artefatos sem ticket:      {summary.get('coverageProposals', 0)}",
+        f"  artefatos sem ticket:      {summary.get('coverageProposals', 0)}"
+        + ("" if summary.get("coverageStatus") == "available" else "  (NÃO verificado)"),
         f"  achados de ciclo de vida:  {summary.get('lifecycleFindings', 0)}"
         f" ({summary.get('lifecycleBlocking', 0)} bloqueantes)",
         f"  conformidade de corpo:     {summary.get('contractStatus')}",

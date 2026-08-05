@@ -25,3 +25,11 @@ package-dir = { "" = "src" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+# tests/fixtures guarda repositórios de exemplo com seus próprios arquivos de teste.
+# Coletá-los quebra a suíte com ModuleNotFoundError — eles são dado, não teste.
+# Sem isto, `pytest` puro falha e todo mundo aprende a passar --ignore à mão, que é
+# como um comando de CI nasce diferente do comando que a pessoa roda.
+norecursedirs = ["tests/fixtures", ".git", "node_modules", "runtime"]
+testpaths = ["tests"]

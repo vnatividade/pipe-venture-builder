@@ -169,3 +169,31 @@ class ReconcileTests(TestCase):
         self.assertFalse(
             {"apply", "create", "update", "write", "execute"}.intersection(dir(report))
         )
+
+
+class ReconcileWithoutBaselineTests(TestCase):
+    """PIP-835: o job agendado roda sobre um repositório que pode não ter baseline.
+
+    Sem baseline, a deriva de cobertura não é calculável. Ela é reportada como
+    `unavailable` com motivo — mesma regra da deriva de contrato. Devolver zero
+    seria afirmar "todo artefato virou ticket" sem ter olhado para artefato nenhum.
+    """
+
+    def test_coverage_is_unavailable_when_there_is_no_baseline(self) -> None:
+        report = reconcile(None, snapshot([issue_record("PIP-1")]))
+        self.assertEqual(report.coverage_status["status"], "unavailable")
+        self.assertIn("baseline", report.coverage_status["reason"].lower())
+        self.assertEqual(report.coverage, [])
+
+    def test_lifecycle_still_runs_without_a_baseline(self) -> None:
+        report = reconcile(None, snapshot([issue_record("PIP-1", delivery_links=[])]))
+        self.assertEqual([f["sourceKey"] for f in report.lifecycle], ["PIP-1"])
+
+    def test_clean_is_false_when_coverage_could_not_be_computed(self) -> None:
+        """`clean` não pode dizer 'em dia' quando metade da verificação não rodou."""
+        report = reconcile(None, snapshot([]))
+        self.assertFalse(report.summary["clean"])
+
+    def test_coverage_is_available_when_a_baseline_is_given(self) -> None:
+        report = reconcile(baseline_with_artifacts(["feature"]), snapshot([]))
+        self.assertEqual(report.coverage_status["status"], "available")
