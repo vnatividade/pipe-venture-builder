@@ -176,10 +176,18 @@ class LinearGraphQLInvoker:
         token_provider: Callable[[], str],
         endpoint: str = ENDPOINT,
         transport: Transport | None = None,
+        authorization_scheme: str = "",
+        on_unauthorized: Callable[[], None] | None = None,
     ) -> None:
         self._token_provider = token_provider
         self._endpoint = endpoint
         self._transport = transport or _urllib_transport
+        # "" para API key pessoal, "Bearer" para access token OAuth. A doc é
+        # explícita sobre a diferença, e trocar os dois devolve 401 silencioso.
+        self._scheme = authorization_scheme.strip()
+        # Chamado antes de UMA repetição quando a fonte responde 401. É o mecanismo
+        # de renovação do token de app, que não tem refresh (PIP-838).
+        self._on_unauthorized = on_unauthorized
         self.last_quota: dict[str, int] = {}
 
     def __call__(self, operation: str, arguments: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -187,7 +195,15 @@ class LinearGraphQLInvoker:
             # Conjunto fechado de operações: o chamador não escolhe query arbitrária.
             raise SourceContractFailure()
         variables = self._variables(operation, arguments)
-        body = self._post(_load_query(operation), variables)
+        query = _load_query(operation)
+        try:
+            body = self._post(query, variables)
+        except SourceUnauthorized:
+            if self._on_unauthorized is None:
+                raise
+            # Uma única repetição: credencial revogada não pode virar laço.
+            self._on_unauthorized()
+            body = self._post(query, variables)
         return self._shape(operation, body)
 
     def _variables(self, operation: str, arguments: Mapping[str, Any]) -> dict[str, Any]:
@@ -210,8 +226,11 @@ class LinearGraphQLInvoker:
         payload = json.dumps({"query": query, "variables": dict(variables)}).encode("utf-8")
         headers = {
             "Content-Type": "application/json",
-            # API key pessoal vai sem `Bearer`; só access token OAuth usa o prefixo.
-            "Authorization": self._token_provider(),
+            "Authorization": (
+                f"{self._scheme} {self._token_provider()}".strip()
+                if self._scheme
+                else self._token_provider()
+            ),
             "User-Agent": "pipe-venture-builder/linear-read",
         }
         status, raw, response_headers = self._transport(self._endpoint, payload, headers)
