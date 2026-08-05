@@ -220,3 +220,82 @@ class ComplexityBudgetTests(TestCase):
         )
         invoker(ISSUES_LIST, {"project": "p", "limit": 10})
         self.assertEqual(transport.calls[0]["payload"]["variables"]["first"], 10)
+
+
+class AppIdentityTests(TestCase):
+    """PIP-838: o transporte precisa falar as duas identidades.
+
+    API key pessoal vai SEM prefixo; access token OAuth vai com `Bearer`. E como o
+    token de app não tem refresh, um 401 precisa disparar renovação e UMA nova
+    tentativa — senão a integração morre calada 30 dias depois de entrar no ar.
+    """
+
+    def test_the_bearer_scheme_is_used_when_configured(self) -> None:
+        transport = transport_returning(200, {"data": {"project": PROJECT_PAYLOAD}})
+        invoker = LinearGraphQLInvoker(
+            token_provider=lambda: "tok-app",
+            authorization_scheme="Bearer",
+            transport=transport,
+        )
+        invoker(PROJECT_READ, {"query": "x"})
+        self.assertEqual(transport.calls[0]["headers"]["Authorization"], "Bearer tok-app")
+
+    def test_the_api_key_path_keeps_no_prefix(self) -> None:
+        invoker, transport = invoker_for(200, {"data": {"project": PROJECT_PAYLOAD}})
+        invoker(PROJECT_READ, {"query": "x"})
+        self.assertEqual(transport.calls[0]["headers"]["Authorization"], "chave-de-teste")
+
+    def test_a_401_renews_the_token_and_retries_once(self) -> None:
+        respostas = [
+            (401, {"errors": [{"message": "expired"}]}),
+            (200, {"data": {"project": PROJECT_PAYLOAD}}),
+        ]
+        enviados: list[str] = []
+        tokens = iter(["velho", "novo"])
+        atual = [next(tokens)]
+        renovacoes: list[int] = []
+
+        def transport(url: str, payload: bytes, headers: Mapping[str, str]):
+            enviados.append(headers["Authorization"])
+            status, body = respostas.pop(0)
+            return status, json.dumps(body).encode("utf-8"), dict(QUOTA_HEADERS)
+
+        def renovar() -> None:
+            renovacoes.append(1)
+            atual[0] = next(tokens)
+
+        invoker = LinearGraphQLInvoker(
+            token_provider=lambda: atual[0],
+            authorization_scheme="Bearer",
+            transport=transport,
+            on_unauthorized=renovar,
+        )
+        resultado = invoker(PROJECT_READ, {"query": "x"})
+
+        self.assertEqual(resultado["project"]["name"], "Protocolo")
+        self.assertEqual(enviados, ["Bearer velho", "Bearer novo"])
+        self.assertEqual(len(renovacoes), 1, "renovação deve acontecer exatamente uma vez")
+
+    def test_a_second_401_gives_up_instead_of_looping(self) -> None:
+        """Credencial revogada não pode virar laço infinito de renovação."""
+        tentativas: list[int] = []
+
+        def transport(url: str, payload: bytes, headers: Mapping[str, str]):
+            tentativas.append(1)
+            return 401, json.dumps({"errors": [{"message": "nope"}]}).encode("utf-8"), {}
+
+        invoker = LinearGraphQLInvoker(
+            token_provider=lambda: "t",
+            authorization_scheme="Bearer",
+            transport=transport,
+            on_unauthorized=lambda: None,
+        )
+        with self.assertRaises(SourceUnauthorized):
+            invoker(PROJECT_READ, {"query": "x"})
+        self.assertEqual(len(tentativas), 2, "uma tentativa original e exatamente uma repetição")
+
+    def test_without_a_renewal_hook_a_401_fails_immediately(self) -> None:
+        invoker, transport = invoker_for(401, {"errors": [{"message": "nope"}]})
+        with self.assertRaises(SourceUnauthorized):
+            invoker(PROJECT_READ, {"query": "x"})
+        self.assertEqual(len(transport.calls), 1, "sem hook de renovação não há repetição")
