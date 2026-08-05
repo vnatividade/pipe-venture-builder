@@ -172,12 +172,22 @@ def make_record(
         "tag": None,
         "prerelease": None,
         "checkSummary": None,
+        # PIP-834: URLs anexadas ao item. Simétrico a mergeCommitSha, que já existia
+        # para o lado GitHub — é o campo que torna verificável "não feche ticket de
+        # implementação sem PR mergeado". São URLs, não corpo nem comentário.
+        "deliveryLinks": [],
     }
     if attributes:
         unknown = set(attributes).difference(base_attributes)
         if unknown:
             raise ValueError("unsupported normalized attribute")
         base_attributes.update(attributes)
+    delivery_links = base_attributes["deliveryLinks"]
+    if not isinstance(delivery_links, list):
+        raise ValueError("deliveryLinks must be a list")
+    base_attributes["deliveryLinks"] = sorted(
+        {link for item in delivery_links if (link := safe_url(item))}
+    )
     labels = base_attributes["labels"]
     if not isinstance(labels, list):
         raise ValueError("labels must be a list")

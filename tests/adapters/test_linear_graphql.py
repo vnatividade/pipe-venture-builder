@@ -190,3 +190,33 @@ class EndToEndThroughTheExistingAdapterTests(TestCase):
         self.assertEqual(issue["attributes"]["labels"], ["priority:P0"])
         self.assertIn("blocks", {rel["type"] for rel in issue["relationships"]})
         self.assertIn("blocked_by", {rel["type"] for rel in issue["relationships"]})
+
+
+class ComplexityBudgetTests(TestCase):
+    """A cota que derruba a leitura não é a de requisições, é a de complexidade.
+
+    Medido contra a API em 2026-08-05: a query de issues custa ~139 pontos por issue
+    (25 → 3.469; 50 → 6.936) contra um teto de 10.000 por query. Com `first: 100` a
+    Linear responde "Query too complex" e a leitura inteira falha. Como o limite
+    padrão de registros é 200, sem este teto **todo snapshot real falharia** — e
+    falharia como `source_contract_failed`, que não diz ao operador que o problema
+    é tamanho de página.
+    """
+
+    def test_page_size_is_capped_regardless_of_the_record_limit(self) -> None:
+        from pipe_venture_builder.adapters.linear_graphql import MAX_PAGE_SIZE
+
+        invoker, transport = invoker_for(
+            200,
+            {"data": {"project": {"issues": {"pageInfo": {"hasNextPage": False}, "nodes": []}}}},
+        )
+        invoker(ISSUES_LIST, {"project": "p", "limit": 200})
+        self.assertEqual(transport.calls[0]["payload"]["variables"]["first"], MAX_PAGE_SIZE)
+
+    def test_a_smaller_request_is_honoured(self) -> None:
+        invoker, transport = invoker_for(
+            200,
+            {"data": {"project": {"issues": {"pageInfo": {"hasNextPage": False}, "nodes": []}}}},
+        )
+        invoker(ISSUES_LIST, {"project": "p", "limit": 10})
+        self.assertEqual(transport.calls[0]["payload"]["variables"]["first"], 10)

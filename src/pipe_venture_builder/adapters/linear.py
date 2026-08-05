@@ -16,7 +16,7 @@ from .contracts import (
     SourceUnavailable,
     UnsafeSourcePayload,
 )
-from .safety import payload_is_safe, safe_identifier, safe_text
+from .safety import payload_is_safe, safe_identifier, safe_text, safe_url
 from .snapshot import capture_snapshot, make_record
 
 ConnectorInvoker = Callable[[str, Mapping[str, Any]], Mapping[str, Any]]
@@ -218,6 +218,11 @@ def _normalize_linear(
                     "number": _linear_number(issue.get("identifier")),
                     "priority": priority,
                     "labels": _labels(issue.get("labels")),
+                    # URLs de anexo. Não são corpo nem comentário: a exclusão de
+                    # docs/connectors/README.md cobre descrição, corpo, comentário,
+                    # autor e revisor — o record já guardava `url`. É a evidência
+                    # que torna verificável "não feche ticket sem PR mergeado".
+                    "deliveryLinks": _delivery_links(issue.get("attachments")),
                 },
             )
         )
@@ -283,6 +288,21 @@ def _labels(value: Any) -> list[str]:
         if normalized := safe_text(label, limit=100):
             labels.append(normalized)
     return labels
+
+
+def _delivery_links(value: Any) -> list[str]:
+    if isinstance(value, Mapping):
+        value = value.get("nodes") or value.get("items") or []
+    if not isinstance(value, list):
+        return []
+    links = []
+    for item in value:
+        url = item.get("url") if isinstance(item, Mapping) else item
+        # safe_url e não safe_text: impõe https, recusa credencial embutida na URL,
+        # query e fragmento. Link de entrega é URL, e URL tem guarda própria aqui.
+        if normalized := safe_url(url):
+            links.append(normalized)
+    return links
 
 
 def _mapping_list(value: Any) -> list[Mapping[str, Any]]:

@@ -25,7 +25,8 @@ from .adapters.binding import load_binding, read_token
 from .adapters.contracts import AdapterReadError
 from .adapters.linear import LinearConnectorSource, LinearInventoryAdapter
 from .adapters.linear_graphql import LinearGraphQLInvoker
-from .manifest import resolve_toolkit_root
+from .linear import reconcile, render_report, report_path
+from .linear.report import write_report
 from .tickets import check_conformance, load_registry, parse_ticket, render_ticket
 from .tickets.handoff import HandoffTemplateError, load_handoff_template
 from .tickets.matrix import BEGIN_MARKER, END_MARKER, emit_markdown_block
@@ -267,6 +268,31 @@ def build_parser() -> argparse.ArgumentParser:
     )
     linear_snapshot.add_argument("--json", action="store_true", dest="as_json")
     linear_snapshot.set_defaults(handler=_handle_linear_snapshot)
+
+    # PIP-834 — reconciliação. Propõe, nunca aplica: não há caminho de mutação aqui.
+    reconcile_parser = commands.add_parser(
+        "reconcile", help="Compare the approved baseline against the observed inventory."
+    )
+    reconcile_commands = reconcile_parser.add_subparsers(
+        dest="reconcile_command", required=True
+    )
+    reconcile_plan = reconcile_commands.add_parser(
+        "plan",
+        help="Report coverage, lifecycle, and contract drift. Proposes; never writes.",
+    )
+    reconcile_plan.add_argument("baseline", help="Approved ProductBaseline JSON file.")
+    reconcile_plan.add_argument(
+        "--snapshot",
+        help="ExternalSnapshot JSON. Omit to capture a fresh read-only snapshot.",
+    )
+    reconcile_plan.add_argument(
+        "--root", help="Product repository root. Defaults to the current directory."
+    )
+    reconcile_plan.add_argument(
+        "--no-write", action="store_true", dest="no_write", help="Skip writing the report file."
+    )
+    reconcile_plan.add_argument("--json", action="store_true", dest="as_json")
+    reconcile_plan.set_defaults(handler=_handle_reconcile_plan)
 
     handoff_parser = commands.add_parser(
         "handoff", help="Work with the canonical delivery handoff."
@@ -654,6 +680,54 @@ def _handle_linear_snapshot(args: argparse.Namespace) -> dict[str, Any]:
             f"Captured {len(snapshot['records'])} record(s) from the bound Linear project "
             f"({snapshot['status']}). Quota: {invoker.last_quota or 'not reported'}."
         ),
+    }
+
+
+def _capture_snapshot_for(binding: dict[str, Any]) -> dict[str, Any]:
+    token = read_token()
+    invoker = LinearGraphQLInvoker(token_provider=lambda: token)
+    return LinearInventoryAdapter(LinearConnectorSource(invoker)).capture(
+        binding["project"]["id"]
+    )
+
+
+def _handle_reconcile_plan(args: argparse.Namespace) -> dict[str, Any]:
+    product_root = resolve_product_root(args.root or ".")
+    toolkit_root = resolve_toolkit_root()
+    baseline = _read_json_input(args.baseline)
+    binding = load_binding(product_root, toolkit_root)
+
+    if args.snapshot:
+        observed = _read_json_input(args.snapshot)
+    else:
+        try:
+            observed = _capture_snapshot_for(binding)
+        except AdapterReadError as exc:
+            raise PipeError(
+                code=exc.code.upper(),
+                message=exc.summary,
+                exit_code=READINESS_BLOCKED,
+            ) from exc
+
+    report = reconcile(baseline, observed)
+    payload = report.as_dict()
+
+    written: str | None = None
+    if not args.no_write:
+        destination = report_path(binding["project"]["id"], observed.get("capturedAt", ""))
+        written = str(write_report(payload, destination))
+
+    summary = payload["summary"]
+    return {
+        # `ok` é sobre a execução do comando, não sobre estar sem deriva: o
+        # reconciliador reportar problema é o comando funcionando.
+        "ok": True,
+        "command": "reconcile.plan",
+        "reportPath": written,
+        "clean": summary["clean"],
+        "summary": summary,
+        "report": payload,
+        "message": render_report(payload) + (f"\n\n  relatório: {written}" if written else ""),
     }
 
 
