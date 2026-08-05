@@ -20,6 +20,20 @@
     "decision_refs": {"type":"array","items":{"type":"string"}},
     "run_refs": {"type":"array","items":{"type":"string"}},
     "previous_state": {"type":["string","null"]},
+    "external_refs": {
+      "type":"array",
+      "description":"Vínculos com sistemas externos de execução (PIP-831). Opcional: projeto sem vínculo continua válido.",
+      "items":{
+        "type":"object",
+        "required":["system","id"],
+        "properties":{
+          "system":{"enum":["linear","github"]},
+          "id":{"type":"string","minLength":1},
+          "url":{"type":["string","null"]},
+          "kind":{"type":"string"}
+        }
+      }
+    },
     "created_at": {"type":"string"},
     "updated_at": {"type":"string"}
   }

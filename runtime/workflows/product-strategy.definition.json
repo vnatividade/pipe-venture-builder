@@ -67,6 +67,10 @@
   "phase_key": "product_strategy",
   "in_progress_state": "PRODUCT_STRATEGY_IN_PROGRESS",
   "baseline_advance": {
+    "artifact_types": {
+      "product-vision": "product_context",
+      "hypotheses": "validation_artifact"
+    },
     "currentStage": "controle_evaluation",
     "nextAllowedStage": "validation_planning",
     "nextActionId": "NEXT-controle-evaluation",

@@ -16,6 +16,35 @@ export function validateBaseline(baseline) {
   return validate(CANONICAL_SCHEMA, baseline);
 }
 
+// Tipagem de artefato no baseline (PIP-831).
+// O enum vem do schema canônico — nunca duplicado à mão, senão as duas listas
+// derivam em silêncio. O planner Python ticketiza um subconjunto destes tipos
+// (reconcile/planner.py, EXTERNAL_ARTIFACT_TARGETS); enquanto tudo era gravado
+// como product_context, nenhum ticket jamais seria proposto.
+export const BASELINE_ARTIFACT_TYPES = new Set(
+  CANONICAL_SCHEMA.$defs?.artifact?.properties?.artifactType?.enum ?? [],
+);
+export const DEFAULT_ARTIFACT_TYPE = 'product_context';
+
+export function assertBaselineArtifactType(type, context) {
+  if (!BASELINE_ARTIFACT_TYPES.has(type)) {
+    throw Object.assign(
+      new Error(`artifact_type "${type}" fora do enum do ProductBaseline (${context})`),
+      { code: 'INVALID_ARTIFACT_TYPE' },
+    );
+  }
+  return type;
+}
+
+// Resolve o tipo de um output pela definição do workflow, com fallback explícito.
+// Workflow sem mapa declarado mantém o comportamento anterior (product_context),
+// então adotar a tipagem é incremental, definição por definição.
+export function artifactTypeForOutput(workflowDef, output) {
+  const declared = workflowDef?.baseline_advance?.artifact_types?.[output];
+  if (declared === undefined) return DEFAULT_ARTIFACT_TYPE;
+  return assertBaselineArtifactType(declared, `${workflowDef?.id ?? 'workflow'}.${output}`);
+}
+
 export function loadBaselineFile(path) {
   const raw = readFileSync(path, 'utf8');
   const baseline = JSON.parse(raw);
@@ -91,7 +120,10 @@ export function loadProjectBaseline(store, slug) {
 // Emissão pós-aprovação do intake: lifecycle avança para founder_focus,
 // o brief entra em artifacts[], a aprovação do gate entra em approvals[].
 // Retorna null (com motivo) se a atualização não puder ser emitida válida.
-export function emitUpdatedBaseline({ store, slug, artifact, gateResult, decisions = [] }) {
+export function emitUpdatedBaseline({
+  store, slug, artifact, gateResult, decisions = [],
+  artifactType = DEFAULT_ARTIFACT_TYPE,
+}) {
   const current = loadProjectBaseline(store, slug);
   if (!current) return { emitted: false, reason: 'projeto sem baseline importado' };
   const b = structuredClone(current.baseline);
@@ -104,7 +136,9 @@ export function emitUpdatedBaseline({ store, slug, artifact, gateResult, decisio
   if (!b.artifacts.some((a) => a.artifactId === artifactId)) {
     b.artifacts.push({
       artifactId,
-      artifactType: 'product_context',
+      // O intake é contexto de produto por definição — nunca vira ticket de build.
+      // Fica parametrizado para que nenhum tipo seja literal fora deste módulo.
+      artifactType: assertBaselineArtifactType(artifactType, 'intake'),
       title: `Initial brief v${artifact.version} (venture-os intake loop)`,
       status: 'present',
       sourceRef: artifact.path,

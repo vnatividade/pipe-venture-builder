@@ -4,18 +4,105 @@
   "x-pipe-schema-version": "0.1.0",
   "title": "Workflow Definition (Venture OS slice contract)",
   "type": "object",
-  "required": ["id","version","name","entry_state","steps","transitions","gates","allowed_agents","outputs"],
+  "required": [
+    "id",
+    "version",
+    "name",
+    "entry_state",
+    "steps",
+    "transitions",
+    "gates",
+    "allowed_agents",
+    "outputs"
+  ],
   "properties": {
-    "id": {"type":"string"},
-    "version": {"type":"string"},
-    "name": {"type":"string"},
-    "entry_state": {"type":"string"},
-    "steps": {"type":"array","items":{"type":"object","required":["id","description"]}},
-    "transitions": {"type":"array","items":{"type":"string"}},
-    "gates": {"type":"array","items":{"type":"string"}},
-    "allowed_agents": {"type":"array","items":{"type":"string"}},
-    "outputs": {"type":"array","items":{"type":"string"}},
-    "max_attempts": {"type":"integer"},
-    "next_phase_on_success": {"type":"object"}
+    "id": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "entry_state": {
+      "type": "string"
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "description"
+        ]
+      }
+    },
+    "transitions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "gates": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "allowed_agents": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "max_attempts": {
+      "type": "integer"
+    },
+    "next_phase_on_success": {
+      "type": "object"
+    },
+    "baseline_advance": {
+      "type": "object",
+      "description": "Avanco do ProductBaseline apos o gate da fase. Quando presente, artifact_types e obrigatorio: e ele que decide se o artefato chega ao planner como ticketizavel (PIP-831). Sem essa exigencia, um erro de digitacao na chave cairia em product_context em silencio e a esteira voltaria a nao propor ticket nenhum.",
+      "required": [
+        "artifact_types",
+        "currentStage",
+        "nextAllowedStage",
+        "nextActionId",
+        "nextActionTitle"
+      ],
+      "properties": {
+        "artifact_types": {
+          "type": "object",
+          "description": "Mapa output -> artifactType do ProductBaseline. Output nao declarado cai no default product_context.",
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "currentStage": {
+          "type": "string"
+        },
+        "nextAllowedStage": {
+          "type": "string"
+        },
+        "nextActionId": {
+          "type": "string"
+        },
+        "nextActionTitle": {
+          "type": "string"
+        },
+        "nextActionOwner": {
+          "type": "string"
+        }
+      }
+    }
   }
 }

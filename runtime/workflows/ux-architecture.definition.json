@@ -60,6 +60,10 @@
     "Funcionalidades fora do MVP"
   ],
   "baseline_advance": {
+    "artifact_types": {
+      "user-flows": "product_requirement",
+      "states-exceptions": "feature"
+    },
     "currentStage": "risk_review",
     "nextAllowedStage": "architecture",
     "nextActionId": "NEXT-design-context",
