@@ -83,6 +83,24 @@ test('idea-to-intake continua sem baseline_advance (o caminho é o baseline-brid
   assert.equal(loadWorkflowDef('idea-to-intake').baseline_advance, undefined);
 });
 
+// Achado do review do PR #164: a lista de workflows acima é fixa, então um
+// workflow novo com baseline_advance e sem artifact_types passaria por ela.
+// O contrato fecha o buraco na origem — erro de digitação na chave vira
+// violação de contrato no load, não fallback silencioso para product_context.
+test('o contrato Workflow exige artifact_types quando há baseline_advance', () => {
+  const base = loadWorkflowDef('mvp-refinement');
+  const semMapa = structuredClone(base);
+  delete semMapa.baseline_advance.artifact_types;
+  const res = validateContract('Workflow', semMapa);
+  assert.equal(res.valid, false, 'baseline_advance sem artifact_types deveria violar o contrato');
+  assert.ok(res.errors.some((e) => /artifact_types/.test(e)), res.errors.join('; '));
+
+  const chaveErrada = structuredClone(base);
+  chaveErrada.baseline_advance.artifactTypes = chaveErrada.baseline_advance.artifact_types;
+  delete chaveErrada.baseline_advance.artifact_types;
+  assert.equal(validateContract('Workflow', chaveErrada).valid, false, 'typo na chave deveria falhar');
+});
+
 test('Project aceita external_refs e o schema declara o campo', () => {
   const schema = JSON.parse(readFileSync(join(ROOT, 'schemas', 'Project.schema.json'), 'utf8'));
   assert.ok(schema.properties.external_refs, 'Project.schema.json sem external_refs');
