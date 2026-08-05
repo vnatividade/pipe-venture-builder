@@ -27,6 +27,49 @@ Stop and request human approval before (in **every** mode — these gates never 
 
 If approval is missing, do not perform the action. Document the blocker in the assigned Linear ticket or PR.
 
+### Handling Secrets After Approval
+
+Approval to *touch* a secret is not approval to *expose* it. These rules govern
+how, once a human has approved the action.
+
+**The transcript is a disclosure surface.** Every byte a command prints is
+persisted in the session record. A secret that reaches the transcript is
+compromised — regardless of whether the file is local, whether anyone else has
+access, or how briefly it was displayed. Treat it as leaked and rotate it. Do
+not rationalize the exposure away.
+
+1. **Never print a secret store's contents.** Do not `cat`, echo, or dump a
+   vault item, an `.env`, or a variables listing. Extract the single field you
+   need directly into a variable or a `chmod 600` file.
+
+2. **Assume write commands echo.** A command that *sets* a secret may print the
+   resulting object back. Redirect the output (`>/dev/null`) and confirm the
+   write with a separate, non-printing check. This is not paranoia: it is the
+   failure that produced this rule.
+
+3. **Redaction by regex is not protection.** A filter that misses one line
+   fails completely, and it will miss the line that matters. If the goal is not
+   to see a value, do not print it.
+
+4. **Verify by comparison, never by display.** Confirm a value with a boolean
+   (`[ "$a" = "$b" ]`) or a truncated hash. Never print the value "just to
+   check".
+
+5. **Keep secrets out of `argv`.** Command arguments are visible in process
+   listings and in the transcript. Use `--stdin` with input redirected from a
+   `chmod 600` file.
+
+6. **Read-only inspection still leaks.** Listing environment variables, service
+   configuration, or connection strings prints secrets just as effectively as
+   reading the vault. Filter to key names, never values.
+
+**Blast radius before rotation.** Before rotating any credential, determine
+what actually consumes it — do not assume one credential means one consumer. A
+platform template may provision a single password for several database roles,
+so rotating the one that leaked can leave the exposure fully open while
+appearing complete. Enumerate every service and variable that carries the value
+first, then decide the sequence.
+
 ## Purpose
 
 This repository is designed for agentic venture builder execution.
