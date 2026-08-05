@@ -2,7 +2,12 @@
 // integral de prompts/ideias — apenas hashes, tamanhos e identificadores.
 import { nowIso } from './ids.mjs';
 
-const REDACT_KEYS = new Set(['secret', 'token', 'password', 'apiKey', 'api_key', 'authorization']);
+// Casa por nome exato — não por substring — então cada chave nova de conector
+// precisa entrar aqui explicitamente. Ao adicionar integração, adicione a chave.
+const REDACT_KEYS = new Set([
+  'secret', 'token', 'password', 'apiKey', 'api_key', 'authorization',
+  'linearApiKey', 'linear_token', 'linearToken', 'client_secret', 'webhook_secret',
+]);
 
 function redact(obj) {
   if (obj === null || typeof obj !== 'object') return obj;

@@ -16,7 +16,7 @@ import { DecisionQueue } from './decisions.mjs';
 import { runIntakeAgent } from '../agents/intake-agent.mjs';
 import { runIntakeReviewer } from '../reviewers/intake-reviewer.mjs';
 import { runIntakeCompletenessGate } from '../gates/intake-completeness-gate.mjs';
-import { loadBaselineFile, seedMarkdownFromBaseline, writeBaselineVersion, latestBaselineVersion, emitUpdatedBaseline, loadProjectBaseline, validateBaseline } from './baseline-bridge.mjs';
+import { loadBaselineFile, seedMarkdownFromBaseline, writeBaselineVersion, latestBaselineVersion, emitUpdatedBaseline, loadProjectBaseline, validateBaseline, artifactTypeForOutput } from './baseline-bridge.mjs';
 import { compilePromptPackage, COMPILER_VERSION } from './prompt-compiler.mjs';
 import { runStrategyReviewer } from '../reviewers/strategy-reviewer.mjs';
 import { runStrategyCompletenessGate } from '../gates/strategy-completeness-gate.mjs';
@@ -27,6 +27,11 @@ const PHASE_GATES = { 'strategy-completeness-gate': runStrategyCompletenessGate,
 import { basename } from 'node:path';
 
 const RUNTIME_DIR = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+// Reexportado para que a tipagem de artefato seja consultável pelo mesmo módulo
+// que carrega as definições de workflow — quem decide o tipo e quem lê a definição
+// são a mesma superfície.
+export { artifactTypeForOutput };
 
 export function loadWorkflowDef(workflowId) {
   const def = JSON.parse(readFileSync(join(RUNTIME_DIR, 'workflows', `${workflowId}.definition.json`), 'utf8'));
@@ -488,7 +493,8 @@ export function startPhase({ store, slug, workflowId = 'product-strategy', corre
   return { project, run, packageArtifact, packageMarkdown: pkg.markdown };
 }
 
-function advanceBaselineAfterPhase({ store, slug, registered, gateResult, advance }) {
+function advanceBaselineAfterPhase({ store, slug, registered, gateResult, workflowDef }) {
+  const advance = workflowDef.baseline_advance;
   const current = loadProjectBaseline(store, slug);
   if (!current) return { emitted: false, reason: 'projeto sem baseline importado' };
   const b = structuredClone(current.baseline);
@@ -499,7 +505,9 @@ function advanceBaselineAfterPhase({ store, slug, registered, gateResult, advanc
     const artifactId = `ART-${art.type}-v${art.version}`;
     if (!b.artifacts.some((a) => a.artifactId === artifactId)) {
       b.artifacts.push({
-        artifactId, artifactType: 'product_context',
+        // O tipo vem da definição do workflow: é o que decide se o artefato
+        // chega ao planner como ticketizável ou como contexto (PIP-831).
+        artifactId, artifactType: artifactTypeForOutput(workflowDef, art.type),
         title: `${art.type} v${art.version} (venture-os phase loop)`,
         status: 'present', sourceRef: art.path, externalRef: null, provenanceStatementIds: [],
       });
@@ -594,7 +602,7 @@ export function submitPhaseArtifacts({ store, slug, files, workflowId = 'product
     track(emit('GatePassed', { gate_result_id: gateResult.id, score: gateResult.score }, { runId: run.id }));
     transition(store, project, 'GATE_PASSED', { gateStatus: gateResult.status }, { emit, runId: run.id, gateResultId: gateResult.id });
     run.current_step = 'prepare_next';
-    const baselineUpdate = workflowDef.baseline_advance ? advanceBaselineAfterPhase({ store, slug, registered, gateResult, advance: workflowDef.baseline_advance }) : { emitted: false, reason: 'workflow sem baseline_advance' };
+    const baselineUpdate = workflowDef.baseline_advance ? advanceBaselineAfterPhase({ store, slug, registered, gateResult, workflowDef }) : { emitted: false, reason: 'workflow sem baseline_advance' };
     project.next_action = {
       ...workflowDef.next_phase_on_success,
       dependencies: registered.map((a) => `${a.type} v${a.version} aprovado (${a.id})`),

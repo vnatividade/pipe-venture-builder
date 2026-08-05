@@ -61,6 +61,10 @@
     "Backlog detalhado e implementacao"
   ],
   "baseline_advance": {
+    "artifact_types": {
+      "mvp-scope": "product_requirement",
+      "features-rules": "feature"
+    },
     "currentStage": "mvp_scope_review",
     "nextAllowedStage": "risk_review",
     "nextActionId": "NEXT-risk-review",
