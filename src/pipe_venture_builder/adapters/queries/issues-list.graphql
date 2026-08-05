@@ -46,6 +46,13 @@ query PipeIssuesList($id: String!, $first: Int!, $after: String) {
             }
           }
         }
+        # Só a URL do anexo. Título de anexo é texto livre e ficaria fora da
+        # fronteira de docs/connectors/README.md; URL já é campo que o record guarda.
+        attachments {
+          nodes {
+            url
+          }
+        }
       }
     }
   }

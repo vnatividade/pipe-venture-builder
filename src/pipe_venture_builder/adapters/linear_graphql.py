@@ -32,6 +32,14 @@ ENDPOINT = "https://api.linear.app/graphql"
 DEFAULT_TIMEOUT_SECONDS = 20
 MAX_RESPONSE_BYTES = 8 * 1024 * 1024
 
+# Teto de página imposto pelo orçamento de COMPLEXIDADE, não pelo limite de registros.
+# Medido contra a API em 2026-08-05: a query de issues custa ~139 pontos por issue
+# (25 → 3.469; 50 → 6.936), e o teto por query é 10.000. Em 100 a Linear responde
+# "Query too complex". 50 deixa ~30% de folga para issues com mais labels, relações
+# e anexos — o custo varia por issue, então a margem não é decoração.
+# Paginar mais vezes é barato; estourar o teto derruba a leitura inteira.
+MAX_PAGE_SIZE = 50
+
 # Verbos internos do adapter. NÃO são nomes de tool do MCP: a versão anterior
 # usava `linear_get_project`/`linear_list_issues`, que não existem em lugar nenhum
 # (o MCP oficial expõe `get_project`/`list_issues`, e a escrita é `save_issue`).
@@ -139,6 +147,15 @@ def _reshape_issue(issue: Mapping[str, Any]) -> dict[str, Any]:
         "blockedBy": _relation_ids(issue.get("inverseRelations"), "issue"),
     }
     reshaped.pop("inverseRelations", None)
+    # Achata os anexos em lista de URL: é a evidência de entrega que o
+    # reconciliador de ciclo de vida consome (PIP-834).
+    attachments = issue.get("attachments")
+    nodes = attachments.get("nodes") if isinstance(attachments, Mapping) else None
+    reshaped["attachments"] = [
+        str(node["url"])
+        for node in (nodes or [])
+        if isinstance(node, Mapping) and node.get("url")
+    ]
     # `status` é o nome do campo no Project; `state` é o que o normalizador lê.
     if "status" in reshaped and "state" not in reshaped:
         reshaped["state"] = reshaped.pop("status")
@@ -179,7 +196,10 @@ class LinearGraphQLInvoker:
         first = arguments.get("limit")
         variables: dict[str, Any] = {
             "id": str(arguments.get("project") or arguments.get("id") or ""),
-            "first": int(first) if isinstance(first, int) and first > 0 else 50,
+            "first": min(
+                int(first) if isinstance(first, int) and first > 0 else MAX_PAGE_SIZE,
+                MAX_PAGE_SIZE,
+            ),
         }
         cursor = arguments.get("cursor")
         if cursor:

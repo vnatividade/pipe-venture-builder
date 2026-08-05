@@ -311,7 +311,8 @@
         "defaultBranch",
         "tag",
         "prerelease",
-        "checkSummary"
+        "checkSummary",
+        "deliveryLinks"
       ],
       "properties": {
         "number": {
@@ -412,6 +413,14 @@
               "type": "null"
             }
           ]
+        },
+        "deliveryLinks": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/safeUrl"
+          },
+          "description": "URLs anexadas ao item (PIP-834). Evidencia de entrega: e o que torna verificavel a regra 'nao feche ticket de implementacao sem PR mergeado'. Sao URLs, nao corpo nem comentario — a exclusao de docs/connectors/README.md continua valendo."
         }
       }
     },
