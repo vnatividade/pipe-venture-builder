@@ -11,6 +11,10 @@ from pipe_venture_builder.exit_codes import READINESS_BLOCKED, SUCCESS
 
 from tests.portability.helpers import TOOLKIT_ROOT, initialize_product_repository
 
+# Espelha DoctorReport.is_ready. Um host sem o binário do runtime reporta `blocked`,
+# e isso é resposta correta do produto — não é falha de teste.
+READY_STATES = {"ready", "ready_with_warnings"}
+
 
 class PortabilityCliTests(TestCase):
     def run_cli(self, *args: str) -> tuple[int, str, str]:
@@ -56,13 +60,41 @@ class PortabilityCliTests(TestCase):
 
         self.assertEqual((plan[0], plan[2]), (SUCCESS, ""))
         self.assertEqual(json.loads(plan[1])["mode"], "plan")
-        self.assertEqual((apply[0], apply[2]), (SUCCESS, ""))
-        self.assertEqual(json.loads(apply[1])["result"]["action"], "created")
-        self.assertEqual((rerun[0], rerun[2]), (SUCCESS, ""))
-        self.assertEqual(json.loads(rerun[1])["result"]["action"], "unchanged")
+
+        # `bootstrap --apply` roda o doctor e devolve READINESS_BLOCKED quando o
+        # HOST não está pronto — por exemplo, sem o binário do runtime instalado.
+        # Fixar SUCCESS aqui embutia a suposição de que a máquina tem hermes/codex/
+        # claude: o teste ficava verde na máquina do fundador e vermelho em qualquer
+        # runner (PIP-837). O que importa verificar é que o exit code é COERENTE com
+        # o relatório do doctor devolvido na mesma resposta, não que o host esteja
+        # equipado. Reproduza a diferença com:
+        #   PATH=/usr/bin:/bin python -m pytest tests/portability/test_cli.py
+        apply_payload = json.loads(apply[1])
+        self.assertEqual(apply[2], "")
+        self.assertEqual(apply_payload["result"]["action"], "created")
+        self.assertEqual(
+            apply[0],
+            SUCCESS if apply_payload["doctor"]["status"] in READY_STATES else READINESS_BLOCKED,
+            f"exit code incoerente com doctor.status={apply_payload['doctor']['status']}",
+        )
+
+        rerun_payload = json.loads(rerun[1])
+        self.assertEqual(rerun[2], "")
+        self.assertEqual(rerun_payload["result"]["action"], "unchanged")
+        self.assertEqual(rerun[0], apply[0], "reaplicar sem mudança não pode mudar o exit code")
         self.assertEqual(first_bytes, second_bytes)
-        self.assertEqual((doctor[0], doctor[2]), (SUCCESS, ""))
-        self.assertIn(json.loads(doctor[1])["status"], {"ready", "ready_with_warnings"})
+
+        # `doctor` isolado segue o MESMO contrato de exit code: 0 quando pronto,
+        # READINESS_BLOCKED quando não. Verificamos a coerência, não a prontidão do host.
+        doctor_status = json.loads(doctor[1])["status"]
+        self.assertEqual(doctor[2], "")
+        self.assertEqual(
+            doctor[0],
+            SUCCESS if doctor_status in READY_STATES else READINESS_BLOCKED,
+            f"exit code incoerente com doctor.status={doctor_status}",
+        )
+        # E os dois caminhos precisam concordar sobre o mesmo host.
+        self.assertEqual(doctor[0], apply[0])
 
     def test_dry_run_alias_never_creates_manifest(self) -> None:
         with TemporaryDirectory(prefix="pipe cli dry run ") as temporary:
