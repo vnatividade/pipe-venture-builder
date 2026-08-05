@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pipe-venture-builder.local/schemas/LinearBinding.schema.json",
+  "x-pipe-schema-version": "0.1.0",
+  "title": "Linear Binding",
+  "description": "Como uma venture declara seu vínculo com o Linear (PIP-833). Vive em .pipe/linear.json no repositório da venture, não no toolkit: é o arquivo que faz a diretriz de ter tickets no Linear valer para qualquer venture sem alterar código. NUNCA contém credencial — o token vem do ambiente, provisionado pelo fluxo Vaultwarden aprovado.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "workspace", "team", "project"],
+  "properties": {
+    "schemaVersion": { "const": "0.1.0" },
+    "workspace": {
+      "type": "string",
+      "minLength": 1,
+      "description": "urlKey do workspace, ex.: pipe-venture-builder."
+    },
+    "team": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Nome ou id do time. Hoje todas as ventures compartilham um time só."
+    },
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "description": "UUID do projeto no Linear." },
+        "name": { "type": "string" },
+        "url": { "type": "string" }
+      }
+    },
+    "initiative": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string" }
+      },
+      "description": "Iniciativa da venture. Nulo enquanto o workspace não tiver uma iniciativa por venture — decisão em aberto com o fundador."
+    },
+    "notes": { "type": "string" }
+  }
+}

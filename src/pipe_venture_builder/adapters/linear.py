@@ -31,8 +31,13 @@ class LinearConnectorSource:
 
     source_system = "linear"
     container_type = "project"
-    _PROJECT_TOOL = "linear_get_project"
-    _ISSUES_TOOL = "linear_list_issues"
+    # Verbos internos do adapter, não nomes de tool de nenhum servidor. Os nomes
+    # anteriores (`linear_get_project`/`linear_list_issues`) não existem em lugar
+    # nenhum: o MCP oficial expõe `get_project`/`list_issues` e escreve com
+    # `save_issue`. Um invoker sobre MCP traduz estes verbos para os nomes de lá;
+    # `linear_graphql.LinearGraphQLInvoker` traduz para queries versionadas.
+    _PROJECT_TOOL = "project.read"
+    _ISSUES_TOOL = "issues.list"
 
     def __init__(self, invoke: ConnectorInvoker) -> None:
         self._invoke = invoke
