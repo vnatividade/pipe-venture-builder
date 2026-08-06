@@ -15,6 +15,8 @@ This layer is a read boundary, not an authentication manager and not a synchroni
 
 The adapters include titles and operational state but intentionally exclude descriptions, issue/PR bodies, comments, authors, assignees, response headers, raw connector envelopes, and credential material.
 
+One delimited exception exists, and it does not change the sentence above: `architecture/adr/adr-003-ticket-body-conformance-read.md` authorises reading the **issue description** through a **separate path** — never through `ExternalSnapshot`, which keeps sealing `rawPayloadPersisted: false`. That path emits booleans and field names only; the text itself is never persisted anywhere. Anyone reading the exclusion should find the exception, so it is linked here rather than left to be rediscovered.
+
 ## Status Semantics
 
 An authorized read with no child records is `empty`. It is never used as a fallback for an access failure.
