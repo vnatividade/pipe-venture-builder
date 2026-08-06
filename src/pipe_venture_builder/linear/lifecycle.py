@@ -15,7 +15,7 @@ existe caminho de mutação neste módulo.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable, Mapping, Sequence
 from urllib.parse import urlparse
 
 # Hosts que constituem evidência de entrega. Anexar um documento qualquer não prova
@@ -59,7 +59,44 @@ def _is_delivery_evidence(url: Any) -> bool:
     return any(host == known or host.endswith(f".{known}") for known in DELIVERY_EVIDENCE_HOSTS)
 
 
+def _children_by_parent(
+    records: Sequence[Mapping[str, Any]],
+) -> dict[str, list[Mapping[str, Any]]]:
+    children: dict[str, list[Mapping[str, Any]]] = {}
+    for record in records:
+        for relationship in record.get("relationships") or []:
+            if not isinstance(relationship, Mapping):
+                continue
+            if relationship.get("type") == "child_of" and relationship.get("targetSourceId"):
+                children.setdefault(str(relationship["targetSourceId"]), []).append(record)
+    return children
+
+
+def _has_own_evidence(record: Mapping[str, Any]) -> bool:
+    links = (record.get("attributes") or {}).get("deliveryLinks") or []
+    return any(_is_delivery_evidence(link) for link in links)
+
+
+def _children_carry_the_evidence(children: Sequence[Mapping[str, Any]]) -> bool:
+    """Evidência transitiva (PIP-846): um guarda-chuva não tem PR próprio — a entrega
+    vive nos filhos.
+
+    A exigência é deliberadamente dura: **todos** concluídos **e cada um** com
+    evidência. Aceitar apenas "tem filhos" faria qualquer ticket virar guarda-chuva e
+    parar de pedir prova — a brecha óbvia. Aqui a prova continua obrigatória; ela só
+    passa a poder vir por baixo.
+    """
+    if not children:
+        return False
+    return all(
+        _state_of(child) in COMPLETED_STATES and _has_own_evidence(child)
+        for child in children
+    )
+
+
 def find_lifecycle_drift(records: Iterable[Mapping[str, Any]]) -> list[LifecycleFinding]:
+    records = list(records)
+    children_by_parent = _children_by_parent(records)
     findings: list[LifecycleFinding] = []
     for record in records:
         if record.get("entityType") != "issue":
@@ -67,17 +104,22 @@ def find_lifecycle_drift(records: Iterable[Mapping[str, Any]]) -> list[Lifecycle
         key = str(record.get("sourceKey") or record.get("sourceId") or "")
         attributes = record.get("attributes") or {}
         labels = [str(label) for label in (attributes.get("labels") or [])]
-        links = attributes.get("deliveryLinks") or []
         state = _state_of(record)
+        children = children_by_parent.get(str(record.get("sourceId") or ""), [])
 
-        if state in COMPLETED_STATES and not any(_is_delivery_evidence(link) for link in links):
+        if (
+            state in COMPLETED_STATES
+            and not _has_own_evidence(record)
+            and not _children_carry_the_evidence(children)
+        ):
             findings.append(
                 LifecycleFinding(
                     source_key=key,
                     rule="completed_without_delivery_evidence",
                     summary=(
-                        "Ticket fechado sem link de entrega (PR) anexado. "
-                        "Um ticket de implementação não deveria fechar sem merge."
+                        "Ticket fechado sem link de entrega (PR) anexado, e sem filhos "
+                        "que carreguem essa evidência. Um ticket de implementação não "
+                        "deveria fechar sem merge."
                     ),
                     severity="blocking",
                     url=record.get("url"),

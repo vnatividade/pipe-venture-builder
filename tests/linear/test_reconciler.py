@@ -197,3 +197,73 @@ class ReconcileWithoutBaselineTests(TestCase):
     def test_coverage_is_available_when_a_baseline_is_given(self) -> None:
         report = reconcile(baseline_with_artifacts(["feature"]), snapshot([]))
         self.assertEqual(report.coverage_status["status"], "available")
+
+
+def parent_child_records(
+    *,
+    parent_state: str = "Done",
+    parent_links: list[str] | None = None,
+    children: list[tuple[str, list[str]]] | None = None,
+) -> list[dict]:
+    """Pai + filhos, com a relação child_of que o normalizador já emite."""
+    parent = issue_record("PIP-PARENT", state=parent_state, delivery_links=parent_links or [])
+    records = [parent]
+    for state, links in children or []:
+        child = issue_record(f"PIP-C{len(records)}", state=state, delivery_links=links)
+        child["relationships"] = [{"type": "child_of", "targetSourceId": parent["sourceId"]}]
+        records.append(child)
+    return records
+
+
+PR = "https://github.com/o/r/pull/1"
+
+
+class UmbrellaEvidenceTests(TestCase):
+    """PIP-846: um ticket guarda-chuva não tem PR próprio — a entrega vive nos filhos.
+
+    Achado pelo próprio reconciliador, na primeira execução agendada não supervisionada:
+    ele acusou o goal PIP-830 por não ter link. Estava certo sobre o fato e errado sobre
+    a conclusão.
+
+    A regra aceita evidência transitiva SEM virar brecha: exige que **todos** os filhos
+    estejam concluídos **e cada um** tenha evidência. Aceitar só "tem filhos" faria
+    qualquer ticket virar guarda-chuva e parar de pedir prova.
+    """
+
+    def test_parent_without_children_still_needs_its_own_evidence(self) -> None:
+        """Comportamento atual preservado: sem filhos, não há de onde herdar."""
+        findings = find_lifecycle_drift(parent_child_records())
+        self.assertEqual([f.source_key for f in findings], ["PIP-PARENT"])
+
+    def test_parent_passes_when_every_child_is_done_with_evidence(self) -> None:
+        findings = find_lifecycle_drift(
+            parent_child_records(children=[("Done", [PR]), ("Done", [PR])])
+        )
+        self.assertEqual(findings, [])
+
+    def test_one_open_child_keeps_the_parent_failing(self) -> None:
+        findings = find_lifecycle_drift(
+            parent_child_records(children=[("Done", [PR]), ("In Progress", [])])
+        )
+        self.assertIn("PIP-PARENT", [f.source_key for f in findings])
+
+    def test_one_child_closed_without_evidence_keeps_the_parent_failing(self) -> None:
+        """A brecha que a regra precisa recusar: herdar de quem também não provou."""
+        findings = find_lifecycle_drift(
+            parent_child_records(children=[("Done", [PR]), ("Done", [])])
+        )
+        self.assertIn("PIP-PARENT", [f.source_key for f in findings])
+
+    def test_a_parent_with_its_own_link_passes_without_looking_at_children(self) -> None:
+        findings = find_lifecycle_drift(
+            parent_child_records(parent_links=[PR], children=[("In Progress", [])])
+        )
+        self.assertEqual([f.source_key for f in findings], [])
+
+    def test_an_open_parent_is_never_evaluated(self) -> None:
+        """O filho fechado sem evidência é acusado com razão; o pai aberto, não."""
+        findings = find_lifecycle_drift(
+            parent_child_records(parent_state="In Progress", children=[("Done", [])])
+        )
+        self.assertNotIn("PIP-PARENT", [f.source_key for f in findings])
+        self.assertEqual(len(findings), 1, "só o filho deveria ser acusado")
