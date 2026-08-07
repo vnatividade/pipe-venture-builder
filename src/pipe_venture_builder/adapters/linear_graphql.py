@@ -46,10 +46,15 @@ MAX_PAGE_SIZE = 50
 # Nomes neutros evitam que a próxima pessoa leia isto como um contrato de MCP.
 PROJECT_READ = "project.read"
 ISSUES_LIST = "issues.list"
+# Caminho SEPARADO de conformidade (ADR-003). O resultado dele nunca entra no
+# ExternalSnapshot — quem consome é linear/conformance.py, que reduz a booleano
+# antes de qualquer coisa ser persistida.
+ISSUES_CONFORMANCE = "issues.conformance"
 
 _QUERY_FILES = {
     PROJECT_READ: "project-read.graphql",
     ISSUES_LIST: "issues-list.graphql",
+    ISSUES_CONFORMANCE: "issues-conformance.graphql",
 }
 
 # `type` das relações que o normalizador consome. Qualquer outro tipo (related,
@@ -276,6 +281,19 @@ class LinearGraphQLInvoker:
         issues = project.get("issues")
         if not isinstance(issues, Mapping) or not isinstance(issues.get("nodes"), list):
             raise SourceContractFailure()
+
+        if operation == ISSUES_CONFORMANCE:
+            # Devolve o corpo cru de propósito: quem chama é o avaliador de
+            # conformidade, que reduz a booleano. Nada aqui é persistido.
+            return {
+                "bodies": {
+                    str(node["identifier"]): str(node.get("description") or "")
+                    for node in issues["nodes"]
+                    if isinstance(node, Mapping) and node.get("identifier")
+                },
+                "pageInfo": issues.get("pageInfo") or {},
+            }
+
         return {
             "issues": [_reshape_issue(node) for node in issues["nodes"] if isinstance(node, Mapping)],
             "pageInfo": issues.get("pageInfo") or {},

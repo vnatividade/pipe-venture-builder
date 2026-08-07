@@ -58,6 +58,8 @@ class ReconciliationReport:
     def summary(self) -> dict[str, Any]:
         blocking = sum(1 for f in self.lifecycle if f.get("severity") == "blocking")
         coverage_ran = self.coverage_status.get("status") == "available"
+        contract_ran = self.contract.get("status") == "available"
+        off_contract = int(self.contract.get("offContract") or 0)
         return {
             "coverageProposals": len(self.coverage),
             "lifecycleFindings": len(self.lifecycle),
@@ -68,7 +70,15 @@ class ReconciliationReport:
             # Nenhuma deriva encontrada não é o mesmo que nenhuma deriva existente.
             # `clean` exige que a cobertura tenha REALMENTE rodado: dizer "em dia"
             # com metade da verificação pulada é a mentira que este campo evita.
-            "clean": coverage_ran and not self.coverage and blocking == 0 and not self.blockers,
+            "offContract": off_contract,
+            "clean": (
+                coverage_ran
+                and contract_ran
+                and not self.coverage
+                and blocking == 0
+                and off_contract == 0
+                and not self.blockers
+            ),
         }
 
     def as_dict(self) -> dict[str, Any]:
@@ -89,16 +99,26 @@ def reconcile(
     observed: Mapping[str, Any],
     *,
     verification: Mapping[str, Any] | None = None,
+    contract: Mapping[str, Any] | None = None,
 ) -> ReconciliationReport:
     """Compara o baseline aprovado com o inventário observado e propõe.
 
     `verification` é uma segunda leitura opcional: divergência entre a leitura e a
     verificação bloqueia a proposta afetada, no planner que já existe.
+
+    `contract` é o resultado **já reduzido** da conformidade de corpo (ADR-003,
+    PIP-845) — booleanos e nomes de campo. O reconciliador nunca recebe a descrição
+    do ticket: a redução acontece antes, em `linear/conformance.py`, para que o texto
+    não chegue nem ao raio de alcance deste módulo. Ausente, a deriva de contrato
+    segue `unavailable` com motivo.
     """
     lifecycle = [
         finding.as_dict() for finding in find_lifecycle_drift(observed.get("records", []))
     ]
-    contract = {"status": "unavailable", "reason": CONTRACT_UNAVAILABLE_REASON}
+    contract = dict(contract) if contract else {
+        "status": "unavailable",
+        "reason": CONTRACT_UNAVAILABLE_REASON,
+    }
 
     if baseline is None:
         return ReconciliationReport(
