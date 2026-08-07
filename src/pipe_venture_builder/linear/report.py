@@ -36,9 +36,22 @@ def render_report(report: Mapping[str, Any]) -> str:
         + ("" if summary.get("coverageStatus") == "available" else "  (NÃO verificado)"),
         f"  achados de ciclo de vida:  {summary.get('lifecycleFindings', 0)}"
         f" ({summary.get('lifecycleBlocking', 0)} bloqueantes)",
-        f"  conformidade de corpo:     {summary.get('contractStatus')}",
+        f"  conformidade de corpo:     {summary.get('contractStatus')}"
+        + (
+            f"  ({summary.get('offContract')} fora do contrato)"
+            if summary.get("contractStatus") == "available"
+            else ""
+        ),
         f"  bloqueios do plano:        {summary.get('blockers', 0)}",
     ]
+    for finding in report.get("contract", {}).get("findings", []):
+        if not finding.get("hasType"):
+            motivo = "sem campo Type — sem tipo não dá para saber o que é obrigatório"
+        elif not finding.get("typeRecognised"):
+            motivo = "Type fora do enum aprovado"
+        else:
+            motivo = "faltam " + ", ".join(finding.get("missingFields", []))
+        lines.append(f"  ! {finding.get('sourceKey')}: {motivo}")
     for finding in report.get("lifecycle", []):
         marker = "!" if finding.get("severity") == "blocking" else "-"
         lines.append(f"  {marker} {finding.get('sourceKey')}: {finding.get('rule')}")

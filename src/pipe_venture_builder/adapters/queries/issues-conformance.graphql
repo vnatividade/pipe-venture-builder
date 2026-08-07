@@ -1,0 +1,20 @@
+# Caminho SEPARADO de conformidade (ADR-003). Não é o snapshot: a descrição lida
+# aqui nunca entra em ExternalSnapshot, que segue selando rawPayloadPersisted: false.
+#
+# Seleção mínima: identificador para saber de quem é o resultado, e a descrição
+# para avaliá-la. Nada de comentários, autor, anexo ou estado — se algum deles for
+# necessário, ele vem do snapshot, que é o lugar dele.
+query PipeIssuesConformance($id: String!, $first: Int!, $after: String) {
+  project(id: $id) {
+    issues(first: $first, after: $after) {
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+      nodes {
+        identifier
+        description
+      }
+    }
+  }
+}

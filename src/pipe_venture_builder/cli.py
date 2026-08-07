@@ -24,8 +24,9 @@ from .exit_codes import (
 from .adapters.binding import load_binding, read_token
 from .adapters.contracts import AdapterReadError
 from .adapters.linear import LinearConnectorSource, LinearInventoryAdapter
-from .adapters.linear_graphql import LinearGraphQLInvoker
+from .adapters.linear_graphql import ISSUES_CONFORMANCE, LinearGraphQLInvoker
 from .linear import reconcile, render_report, report_path
+from .linear.conformance import evaluate_bodies, fetch_bodies, summarise
 from .linear.report import write_report
 from .tickets import check_conformance, load_registry, parse_ticket, render_ticket
 from .tickets.handoff import HandoffTemplateError, load_handoff_template
@@ -298,6 +299,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     reconcile_plan.add_argument(
         "--no-write", action="store_true", dest="no_write", help="Skip writing the report file."
+    )
+    reconcile_plan.add_argument(
+        "--check-bodies",
+        action="store_true",
+        dest="check_bodies",
+        help=(
+            "Also check ticket-body conformance (ADR-003). Reads descriptions through a "
+            "separate path; only booleans and field names reach the report."
+        ),
     )
     reconcile_plan.add_argument("--json", action="store_true", dest="as_json")
     reconcile_plan.set_defaults(handler=_handle_reconcile_plan)
@@ -717,7 +727,24 @@ def _handle_reconcile_plan(args: argparse.Namespace) -> dict[str, Any]:
                 exit_code=READINESS_BLOCKED,
             ) from exc
 
-    report = reconcile(baseline, observed)
+    contract = None
+    if args.check_bodies:
+        # ADR-003: a descrição é lida por caminho próprio e reduzida a booleano ANTES
+        # de chegar ao reconciliador. O texto não entra no raio de alcance dele.
+        token = read_token()
+        invoker = LinearGraphQLInvoker(token_provider=lambda: token)
+        try:
+            bodies = fetch_bodies(
+                invoker, binding["project"]["id"], operation=ISSUES_CONFORMANCE
+            )
+        except AdapterReadError as exc:
+            raise PipeError(
+                code=exc.code.upper(), message=exc.summary, exit_code=READINESS_BLOCKED
+            ) from exc
+        contract = summarise(evaluate_bodies(bodies))
+        del bodies
+
+    report = reconcile(baseline, observed, contract=contract)
     payload = report.as_dict()
 
     written: str | None = None
