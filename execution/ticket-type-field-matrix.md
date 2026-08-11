@@ -29,6 +29,33 @@ Use it with `execution/linear-ticket-template-v2.md`. The template defines the f
 
 Do not add a new type during execution unless a ticket explicitly asks for the taxonomy to change.
 
+### These types are NOT the `type:` labels in Linear
+
+The Linear workspace has a `type:` label family — `type:validation`, `type:research`,
+`type:distribution`, `type:linear-governance`, `type:repository`, and others. They look like a
+divergent copy of the list above. **They are not.** The two measure different things, and mapping
+one onto the other loses information in both directions.
+
+| | Question it answers | Example values |
+|---|---|---|
+| **This enum** | *what kind of deliverable is it* | `code`, `infrastructure`, `automation`, `observability` |
+| **Linear `type:` labels** | *what domain is the work about* | `validation`, `research`, `distribution`, `market-intelligence` |
+
+The enum drives **which fields are required**: `code` needs observability and rollback,
+`documentation` does not. Domain does not determine that — a validation ticket can be
+documentation, code, or automation, and each needs a different field set.
+
+Evidence that they are separate axes: in 2026-08, `type:repository` was applied to three tickets
+that were, by deliverable, `automation` (PIP-831), `infrastructure` (PIP-835) and `code`
+(PIP-837). The label was not too coarse — it was measuring something else.
+
+**Do not "reconcile" them by renaming.** Anyone who wants a single axis has to first decide which
+question the taxonomy should answer, and accept losing the other. That is a founder decision about
+the workspace, not a cleanup task.
+
+Practical consequence: **ticket type cannot be inferred from the label.** It comes from the `Type`
+field in the ticket body, which is what `pipe ticket check` reads.
+
 ## Baseline Fields
 
 These fields are required for every executable ticket, regardless of type:
