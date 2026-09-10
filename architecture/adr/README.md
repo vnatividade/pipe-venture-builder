@@ -19,3 +19,4 @@ Current records:
 
 - [ADR-001: Converge idea and existing-product intake on ProductBaseline](adr-001-dual-entry-product-intake.md) — Proposed under PIP-700.
 - [ADR-002: Use a Python 3.11 CLI as the portable Pipe execution foundation](adr-002-portable-cli-runtime.md) — Proposed under PIP-706.
+- [ADR-004: DeepSeek Harness — fronteira de runtime subordinado (decisão documental, sem implementação)](adr-004-deepseek-harness-runtime-boundary.md) — Accepted under PIP-898.
