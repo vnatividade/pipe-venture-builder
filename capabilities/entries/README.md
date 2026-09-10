@@ -22,6 +22,7 @@ PIP-153 creates initial declarative entries for external and hybrid capabilities
 | `capability.external.pm-skills.json` | PM Skills discovery, interview, PRD, GTM, and product reasoning support from `phuryn/pm-skills`. | Pilot/restricted |
 | `capability.external.superpowers.json` | TDD, debugging, review, and verification discipline. | Pilot/restricted |
 | `capability.internal.atelier.json` | Atelier frontend/UX/UI agent: concierge intake, direction, build, motion, audit, learning loop (hybrid: house skill + pinned external deps). | Pilot |
+| `capability.future.deepseek-harness.json` | DeepSeek Harness recorded as a future runtime evaluation candidate only; no install, execution, network, credential, or data transfer. | Proposed |
 | `capability.future.openclaw-paperclip.json` | Future orchestration placeholder only. | Future/restricted |
 
 Do not infer approval from this list alone. Agents must still check the assigned ticket, lifecycle, approval triggers, data boundary, and routing examples before using a capability.

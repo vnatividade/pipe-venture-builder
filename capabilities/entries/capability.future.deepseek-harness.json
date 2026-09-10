@@ -1,0 +1,151 @@
+{
+  "schemaVersion": "0.1.0",
+  "capabilityId": "capability.future.deepseek-harness",
+  "name": "DeepSeek Harness Future Runtime Candidate",
+  "summary": "External agent-harness runtime recorded as a future evaluation candidate only. The entry makes the candidate visible and explicitly non-operational: nothing is installed, executed, credentialed, connected, or sent to it under this lifecycle.",
+  "kind": "executor",
+  "origin": "external",
+  "lifecycle": "proposed",
+  "owner": {
+    "primaryOwner": "Orchestration Readiness Agent",
+    "supportingOwner": "Execution Steward Agent",
+    "reviewer": "human operator"
+  },
+  "source": {
+    "sourceType": "repository",
+    "sourceName": "DeepSeek Harness",
+    "sourceUrl": "https://github.com/deepseek-ai/deepseek-harness/tree/49a606bc5b5934603f22a26957a07dc799ab0291",
+    "repositoryPath": null,
+    "licenseOrTerms": "MIT",
+    "versionOrDate": "dsh-v0.1.2-alpha.5 (commit 49a606bc5b5934603f22a26957a07dc799ab0291)",
+    "notes": "The evaluated release dsh-v0.1.2-alpha.5 is an alpha developer preview and is not operational in Pipe. Source is pinned to commit 49a606bc5b5934603f22a26957a07dc799ab0291. Release: https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.5. Safety notice: https://github.com/deepseek-ai/deepseek-harness/blob/49a606bc5b5934603f22a26957a07dc799ab0291/SAFETY.md. License file: https://github.com/deepseek-ai/deepseek-harness/blob/49a606bc5b5934603f22a26957a07dc799ab0291/LICENSE. These official upstream sources (repository, pinned commit, release, safety notice, license file) were consulted on 2026-09-10; the evidence and the registration decision are tracked in Linear ticket PIP-897 and in the audit comment https://linear.app/pipe-venture-builder/issue/PIP-897/capability-registry-registrar-deepseek-harness-como-capability-futura#comment-5ba0a5eb-8287-4de2-803d-0099dc054157. The recorded license MIT reflects what is published in the pinned commit and does not constitute a legal review. No compatibility, benchmark, performance, cost, provider, or security property is asserted by this entry."
+  },
+  "routing": {
+    "useWhen": [
+      "An approved architecture or orchestration-prep ticket asks whether the DeepSeek Harness exists as a recorded future runtime candidate and under which boundary.",
+      "A future ticket needs to compare recorded runtime candidates or plan a later evaluation without installing or running anything."
+    ],
+    "doNotUseWhen": [
+      "Any installation, download, build, configuration, probe, execution, or dispatch of the harness is requested.",
+      "Any credential, token, account, model, provider, or API binding is requested.",
+      "Any prompt, code, context, telemetry, or other data would be sent to the candidate.",
+      "The entry would be treated as authorization, as a default route, or as evidence of compatibility, quality, cost, or security."
+    ],
+    "pipelineStages": [
+      "architecture",
+      "orchestration-future"
+    ],
+    "ticketTypes": [
+      "architecture",
+      "orchestration-prep"
+    ],
+    "primaryConsumers": [
+      "codex",
+      "claude-code",
+      "human",
+      "future-orchestrator"
+    ],
+    "fallback": "Use Codex and Claude Code under the current Pipe protocols; this candidate provides no operational path while the lifecycle is proposed."
+  },
+  "inputs": [
+    {
+      "name": "evaluationScope",
+      "required": true,
+      "description": "The approved future ticket scope that defines which questions about this candidate may be answered without installation, execution, network access, or data transfer.",
+      "sourceOrDestination": "Assigned Linear ticket and repository architecture artifacts"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "candidateRegistryStatus",
+      "required": true,
+      "description": "The durable answer that the DeepSeek Harness is a recorded evaluation candidate at lifecycle proposed and is not authorized for operational use.",
+      "sourceOrDestination": "Capability registry entry and dependent architecture artifacts"
+    }
+  ],
+  "schemas": {
+    "inputSchemas": [],
+    "outputSchemas": [],
+    "relatedSchemas": [],
+    "notes": "No schema binding exists for this candidate. A future ADR or contract spike ticket may define evaluation or adapter schemas; none may be inferred from this entry."
+  },
+  "toolAccess": {
+    "accessType": "none",
+    "requiresCredential": false,
+    "requiresNetwork": false,
+    "canMutateExternalState": false,
+    "allowedOperations": [
+      "Register the candidate and its recorded boundary in this registry",
+      "Compare the recorded candidate against other recorded runtime candidates",
+      "Plan a future evaluation that a separate approved ticket would authorize"
+    ],
+    "forbiddenOperations": [
+      "Install, download, build, configure, or probe the harness",
+      "Execute, run, or dispatch work to the harness",
+      "Open network connections, egress, or telemetry to the candidate",
+      "Use credentials, tokens, keys, accounts, models, or providers with the candidate",
+      "Send prompts, code, context, repository content, or any other data to the candidate",
+      "Mutate Linear, GitHub, repository, production, customer, or billing state through the candidate",
+      "Treat this entry as authorization or as a default execution route"
+    ]
+  },
+  "cost": {
+    "costType": "unknown",
+    "expectedCostLevel": "unknown",
+    "costDriver": "Unknown; no cost model has been established because nothing is installed, executed, or consumed under this entry.",
+    "approvalRequiredBeforePaidUse": true
+  },
+  "risks": [
+    {
+      "category": "scope",
+      "level": "medium",
+      "description": "A recorded candidate can be misread as an available executor and pull work away from the Codex and Claude Code baseline.",
+      "mitigation": "Keep lifecycle at proposed, keep the fallback explicit, and require a separate approved ticket before any promotion."
+    },
+    {
+      "category": "approval",
+      "level": "medium",
+      "description": "The entry could be cited as approval for installation, execution, credentials, or data transfer that no human has authorized.",
+      "mitigation": "Approval triggers, forbidden operations, and the data boundary state the refusal explicitly; the registry routes but does not authorize."
+    },
+    {
+      "category": "unsupported-claims",
+      "level": "medium",
+      "description": "Recording an external runtime can be mistaken for a compatibility, benchmark, cost, or security assessment of that runtime.",
+      "mitigation": "The entry records only pinned source, release, and license facts, and asserts no property of the candidate; the upstream release is an alpha developer preview."
+    }
+  ],
+  "governance": {
+    "approvalRequired": true,
+    "approvalTriggers": [
+      "Any installation, build, or configuration",
+      "Any execution, probe, or dispatch",
+      "Any network access, egress, or telemetry",
+      "Any credential, token, account, model, or provider binding",
+      "Any transfer of prompts, code, context, or other data",
+      "Any lifecycle promotion above proposed or registration as a runtime in the ProductManifest"
+    ],
+    "dataBoundary": "No data of any kind may be sent to the DeepSeek Harness under this entry. This includes prompts, code, repository content, founder context, tickets, logs, telemetry, secrets, customer data, and production data.",
+    "sensitiveActionBoundary": "This candidate may not act on the repository, Linear, GitHub, production, customer, billing, or any other external system, and may not be used to bypass approval gates.",
+    "loggingRequirement": "Record the operating mode, the human security and data-boundary approval, and the ticket and PR references for the creation of this entry, and for any future change to it.",
+    "updatePolicy": "Update only through an approved Linear ticket and PR. Lifecycle promotion additionally requires the runtime-boundary ADR and a new explicit human decision on installation, data, and tool boundaries."
+  },
+  "review": {
+    "lastReviewedAt": null,
+    "reviewCadence": "before-use",
+    "reviewStatus": "not-reviewed",
+    "reviewNotes": "Registered on 2026-09-10 as a proposed candidate under Linear ticket PIP-897, with the repository operating in exploration mode, and under an explicit human security and data-boundary approval limited to registration. Audit comment: https://linear.app/pipe-venture-builder/issue/PIP-897/capability-registry-registrar-deepseek-harness-como-capability-futura#comment-5ba0a5eb-8287-4de2-803d-0099dc054157. The PR that registers this entry is https://github.com/vnatividade/pipe-venture-builder/pull/179; the final merge evidence will be recorded in PIP-897 after that PR is merged. The runtime-boundary ADR required for any lifecycle promotion is future/pending and would be numbered ADR-004; it does not exist yet. No registry review of the candidate itself has been performed, and no operational use is approved."
+  },
+  "examples": [
+    {
+      "scenario": "An agent finds a reference to the DeepSeek Harness and asks whether Pipe can route work to it.",
+      "expectedUse": "Read this entry, see lifecycle proposed, and stop; report that the candidate is recorded but not authorized, and continue with Codex or Claude Code.",
+      "expectedNonUse": "Do not install, run, configure, credential, or send anything to the harness on the basis of this entry."
+    },
+    {
+      "scenario": "A future architecture ticket compares recorded runtime candidates before proposing a boundary decision.",
+      "expectedUse": "Cite the pinned source, release, and license recorded here as the durable identity of the candidate.",
+      "expectedNonUse": "Do not present this entry as evidence of compatibility, benchmark results, cost, provider support, or security posture."
+    }
+  ]
+}
