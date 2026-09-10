@@ -134,7 +134,7 @@
     "lastReviewedAt": null,
     "reviewCadence": "before-use",
     "reviewStatus": "not-reviewed",
-    "reviewNotes": "Registered on 2026-09-10 as a proposed candidate under Linear ticket PIP-897, with the repository operating in exploration mode, and under an explicit human security and data-boundary approval limited to registration. Audit comment: https://linear.app/pipe-venture-builder/issue/PIP-897/capability-registry-registrar-deepseek-harness-como-capability-futura#comment-5ba0a5eb-8287-4de2-803d-0099dc054157. The PR reference is not asserted here; it will be recorded in the PR and in PIP-897 once the PR exists. The runtime-boundary ADR required for any lifecycle promotion is future/pending and would be numbered ADR-004; it does not exist yet. No registry review of the candidate itself has been performed, and no operational use is approved."
+    "reviewNotes": "Registered on 2026-09-10 as a proposed candidate under Linear ticket PIP-897, with the repository operating in exploration mode, and under an explicit human security and data-boundary approval limited to registration. Audit comment: https://linear.app/pipe-venture-builder/issue/PIP-897/capability-registry-registrar-deepseek-harness-como-capability-futura#comment-5ba0a5eb-8287-4de2-803d-0099dc054157. The PR that registers this entry is https://github.com/vnatividade/pipe-venture-builder/pull/179; the final merge evidence will be recorded in PIP-897 after that PR is merged. The runtime-boundary ADR required for any lifecycle promotion is future/pending and would be numbered ADR-004; it does not exist yet. No registry review of the candidate itself has been performed, and no operational use is approved."
   },
   "examples": [
     {
