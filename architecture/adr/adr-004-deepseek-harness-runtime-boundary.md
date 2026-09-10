@@ -8,7 +8,7 @@
 - Status: Accepted
 - Owner: Vitor Natividade (fundador)
 - Linear ticket: PIP-898
-- PR: pendente de abertura no momento da redação; a preencher com o número real no merge deste documento. Este ADR não autoriza nada por si mesmo e não depende do número do PR para ser válido.
+- PR: [#180](https://github.com/vnatividade/pipe-venture-builder/pull/180) — merge pendente.
 - Related architecture review: `docs/hermes/README.md`, `setup/portable-bootstrap-and-runtime-boundaries.md`, `capabilities/entries/capability.future.deepseek-harness.json`, `architecture/adr/adr-003-ticket-body-conformance-read.md`
 - Supersedes: —
 - Superseded by: —
@@ -140,7 +140,7 @@ Revisar este ADR quando:
 ## Links
 
 - Linear: PIP-898 (este ADR) · PIP-897 (registro da capability, pré-condição mergeada)
-- PR: [#179](https://github.com/vnatividade/pipe-venture-builder/pull/179) — registro da capability `capability.future.deepseek-harness`, mergeado no commit `f370460`. O PR deste próprio ADR será referenciado aqui após abertura/merge.
+- PR: [#179](https://github.com/vnatividade/pipe-venture-builder/pull/179) — registro da capability `capability.future.deepseek-harness`, mergeado no commit `f370460`. O PR deste próprio ADR é [#180](https://github.com/vnatividade/pipe-venture-builder/pull/180), com merge pendente.
 - Architecture review: `docs/hermes/README.md`, `setup/portable-bootstrap-and-runtime-boundaries.md`, `architecture/adr/adr-003-ticket-body-conformance-read.md`
 - Fontes oficiais DSH pinadas (commit `49a606bc5b5934603f22a26957a07dc799ab0291`, release `dsh-v0.1.2-alpha.5`):
   - Repositório/commit: <https://github.com/deepseek-ai/deepseek-harness/tree/49a606bc5b5934603f22a26957a07dc799ab0291>
