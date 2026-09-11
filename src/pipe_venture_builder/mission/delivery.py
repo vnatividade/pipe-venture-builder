@@ -30,6 +30,18 @@ CHECK_BUCKETS_FAILED = frozenset({"fail", "cancel"})
 CHECK_BUCKETS_PENDING = frozenset({"pending"})
 
 
+
+# Variáveis do interpretador do próprio supervisor (ex.: PYTHONPATH=src quando
+# roda do código-fonte) não podem vazar para git/gh e seus hooks: o pre-push
+# do repositório tentou `python3 -m pytest` por causa disso na demo de 11/09.
+_INTERPRETER_ENV = ("PYTHONPATH", "PYTHONHOME", "PYTHONSTARTUP", "PYTHONUSERBASE")
+
+
+def child_env() -> dict[str, str]:
+    """Environment for git/gh children: the caller's, minus interpreter leaks."""
+
+    return {key: value for key, value in os.environ.items() if key not in _INTERPRETER_ENV}
+
 @dataclass(frozen=True)
 class PullRequest:
     url: str
@@ -110,7 +122,7 @@ def git_config_snapshot(repo: str | Path, worktree: str | Path) -> dict[str, str
         for scope in ("--local", "--worktree"):
             completed = subprocess.run(
                 ["git", "config", scope, "--list", "--null"],
-                cwd=str(cwd), capture_output=True, timeout=GIT_TIMEOUT_SECONDS, check=False,
+                cwd=str(cwd), capture_output=True, timeout=GIT_TIMEOUT_SECONDS, check=False, env=child_env(),
             )
             key = f"{label}:{scope.lstrip('-')}"
             if completed.returncode != 0:
@@ -139,7 +151,7 @@ def commit_if_needed(worktree: str | Path, message: str) -> bool:
 def _identity_args(worktree: str | Path) -> list[str]:
     probe = subprocess.run(
         ["git", "config", "user.email"],
-        cwd=str(worktree), capture_output=True, text=True, timeout=GIT_TIMEOUT_SECONDS, check=False,
+        cwd=str(worktree), capture_output=True, text=True, timeout=GIT_TIMEOUT_SECONDS, check=False, env=child_env(),
     )
     if probe.returncode == 0 and probe.stdout.strip():
         return []
@@ -159,7 +171,7 @@ def current_branch(worktree: str | Path) -> str | None:
 
     completed = subprocess.run(
         ["git", "symbolic-ref", "-q", "HEAD"],
-        cwd=str(worktree), capture_output=True, text=True, timeout=GIT_TIMEOUT_SECONDS, check=False,
+        cwd=str(worktree), capture_output=True, text=True, timeout=GIT_TIMEOUT_SECONDS, check=False, env=child_env(),
     )
     ref = completed.stdout.strip()
     if completed.returncode != 0 or not ref.startswith("refs/heads/"):
@@ -372,7 +384,7 @@ def _rev_parse(cwd: Path, option: str) -> Path | None:
     try:
         completed = subprocess.run(
             ["git", "rev-parse", option],
-            cwd=str(cwd), capture_output=True, text=True, timeout=GIT_TIMEOUT_SECONDS, check=False,
+            cwd=str(cwd), capture_output=True, text=True, timeout=GIT_TIMEOUT_SECONDS, check=False, env=child_env(),
         )
     except OSError:
         return None
@@ -386,7 +398,7 @@ def _rev_parse(cwd: Path, option: str) -> Path | None:
 def _branch_exists(repo: str | Path, branch: str) -> bool:
     completed = subprocess.run(
         ["git", "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}"],
-        cwd=str(repo), capture_output=True, text=True, timeout=GIT_TIMEOUT_SECONDS, check=False,
+        cwd=str(repo), capture_output=True, text=True, timeout=GIT_TIMEOUT_SECONDS, check=False, env=child_env(),
     )
     return completed.returncode == 0
 
@@ -395,7 +407,7 @@ def _git(cwd: str | Path, *args: str) -> str:
     completed = subprocess.run(
         ["git", *args],
         cwd=str(cwd), capture_output=True, text=True, encoding="utf-8", errors="replace",
-        timeout=GIT_TIMEOUT_SECONDS, check=False,
+        timeout=GIT_TIMEOUT_SECONDS, check=False, env=child_env(),
     )
     if completed.returncode != 0:
         raise RuntimeError(f"git {args[0]} failed with exit code {completed.returncode}")
@@ -407,7 +419,7 @@ def _gh(gh_bin: str, args: Sequence[str], *, cwd: str | Path, ok_codes: tuple[in
         completed = subprocess.run(
             [gh_bin, *args],
             cwd=str(cwd), stdin=devnull, capture_output=True, text=True, encoding="utf-8",
-            errors="replace", timeout=GH_TIMEOUT_SECONDS, check=False,
+            errors="replace", timeout=GH_TIMEOUT_SECONDS, check=False, env=child_env(),
         )
     if completed.returncode not in ok_codes:
         raise RuntimeError(f"gh {' '.join(args[:2])} failed with exit code {completed.returncode}")

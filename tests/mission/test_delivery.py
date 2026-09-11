@@ -200,6 +200,35 @@ class PullRequestTests(TestCase):
             git(worktree, "checkout", "-q", branch)
             self.assertEqual(current_branch(worktree), branch)
 
+    def test_push_does_not_leak_python_path_into_repository_hooks(self) -> None:
+        # Demo real de 11/09: o supervisor roda do código-fonte com
+        # PYTHONPATH=src; o pre-push do repositório herdou isso, tentou
+        # `python3 -m pytest` e o push falhou com exit 1. Filhos git/gh não
+        # podem herdar o ambiente do interpretador do supervisor.
+        import os
+        from unittest import mock
+
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo = make_repo(root, with_origin=True)
+            hooks = root / "hooks"
+            hooks.mkdir()
+            hook = hooks / "pre-push"
+            hook.write_text(
+                '#!/bin/sh\nif [ -n "${PYTHONPATH:-}" ]; then echo leak >&2; exit 1; fi\nexit 0\n',
+                encoding="utf-8",
+            )
+            hook.chmod(0o755)
+            git(repo, "config", "core.hooksPath", str(hooks))
+            mission = build_mission(loop_mission(repo), created_at=CREATED_AT)
+            worktree = ensure_worktree(mission, home=root / "home")
+            branch = branch_name(mission)
+            (worktree / "README.md").write_text("changed\n", encoding="utf-8")
+            commit_if_needed(worktree, "change")
+            with mock.patch.dict(os.environ, {"PYTHONPATH": "src", "PYTHONHOME": "/nowhere"}):
+                push_branch(worktree, branch)
+            self.assertIn(branch, git(repo, "ls-remote", "--heads", "origin", branch))
+
     def test_pr_body_follows_the_repository_template_and_cites_mission_and_ticket(self) -> None:
         with TemporaryDirectory() as directory:
             mission = build_mission(loop_mission(make_repo(Path(directory))), created_at=CREATED_AT)
