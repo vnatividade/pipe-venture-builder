@@ -6,10 +6,12 @@ from pipe_venture_builder.control_plane.model import (
 )
 
 from .contract import build_mission, mission_fingerprint, validate_mission
+from .store import MissionStore
 
 __all__ = [
     "ControlPlaneContractError",
     "ControlPlaneStateError",
+    "MissionStore",
     "build_mission",
     "mission_fingerprint",
     "validate_mission",
