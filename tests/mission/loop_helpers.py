@@ -213,9 +213,16 @@ class FakeBinaries:
         self.gh_log = self.gh_state / "gh.log"
         self._previous_env: dict[str, str | None] = {}
 
-    def scenario(self, *, worker: list[dict] | None = None, reviewer: list[dict] | None = None) -> None:
+    def scenario(
+        self,
+        *,
+        worker: list[dict] | None = None,
+        reviewer: list[dict] | None = None,
+        responder: list[dict] | None = None,
+    ) -> None:
         self.scenario_path.write_text(
-            json.dumps({"worker": worker or [], "reviewer": reviewer or []}), encoding="utf-8"
+            json.dumps({"worker": worker or [], "reviewer": reviewer or [], "responder": responder or []}),
+            encoding="utf-8",
         )
         for counter in self.dir.glob("*.count"):
             counter.unlink()

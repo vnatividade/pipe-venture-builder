@@ -23,6 +23,7 @@ from pipe_venture_builder.mission.status import build_status
 from pipe_venture_builder.mission.store import MissionStore
 from pipe_venture_builder.mission.supervisor import (
     SupervisorRefusal,
+    contains_sensitive_terms,
     reconcile,
     run_once,
     supervise,
@@ -587,6 +588,122 @@ class SupervisorDelegationScopeTests(SupervisorTestCase):
         self.assertEqual(h.events().count("decision.delegated"), 0)
         [decision] = h.store.pending_decisions(h.mission_id)
         self.assertEqual(set(decision["options"]), {"stop", "grant_cycle"})
+
+
+class SensitiveTermsGuardTests(TestCase):
+    """PIP-906 C4: the deterministic keyword guard exercised directly, not
+    only through a supervisor scenario — if ``contains_sensitive_terms`` is
+    weakened or its call site is removed from the responder path, this class
+    and ``AnswerBlockersDelegationTests`` below both notice."""
+
+    def test_positive_terms_in_portuguese_and_english(self) -> None:
+        for text in (
+            "preciso da credencial de acesso",
+            "isso e um segredo",
+            "precisa de uma API key nova",
+            "preciso do token de acesso",
+            "qual e a senha",
+            "share the password please",
+            "faca o merge da branch",
+            "aguardando producao",
+            "faz o deploy disso",
+            "configura o billing",
+            "revisa a cobranca do cliente",
+            "fizemos o pagamento",
+        ):
+            with self.subTest(text=text):
+                self.assertTrue(contains_sensitive_terms(text), text)
+
+    def test_ordinary_technical_text_is_not_flagged(self) -> None:
+        for text in (
+            "o worktree nao tem .venv",
+            "falta rodar pip install -r requirements.txt",
+            "onde fica o arquivo de fixture",
+            "qual versao do node usar",
+        ):
+            with self.subTest(text=text):
+                self.assertFalse(contains_sensitive_terms(text), text)
+
+    def test_guard_is_case_insensitive(self) -> None:
+        self.assertTrue(contains_sensitive_terms("PRECISO DO TOKEN AGORA"))
+
+
+def blocked_worker(text: str) -> dict[str, Any]:
+    return {"write_files": {}, "worker_output": good_worker_output(done=False, blockers=[text])}
+
+
+def responder_instructs(text: str) -> dict[str, Any]:
+    return {"structured_output": {"action": "instruct", "instructions": text, "reason": "bloqueio tecnico"}}
+
+
+def responder_escalates(reason: str = "fora do escopo") -> dict[str, Any]:
+    return {"structured_output": {"action": "escalate", "instructions": "", "reason": reason}}
+
+
+class AnswerBlockersDelegationTests(SupervisorTestCase):
+    """PIP-906: own coverage of ``delegation.answerBlockers``, with fixtures
+    distinct from the hidden acceptance suite, so this class alone catches a
+    regression here without depending on the hidden tests."""
+
+    RULE = {"answerBlockers": {"maxTimes": 1}}
+    BLOCKER = "Nao sei qual variavel de ambiente aponta pro banco de teste."
+    ANSWER = "Use TEST_DATABASE_URL, definida em tests/conftest.py."
+
+    def test_a_technical_blocker_is_answered_without_touching_the_founder(self) -> None:
+        h = self.harness(
+            schemaVersion="0.2.0", delegation=self.RULE,
+            constraints=dict(loop_mission(Path("/tmp"))["constraints"], maxCycles=2),
+        )
+        h.fakes.scenario(
+            worker=[blocked_worker(self.BLOCKER), good_worker()],
+            responder=[responder_instructs(self.ANSWER)],
+            reviewer=[{"structured_output": satisfied_verdict()}],
+        )
+        step = h.supervise()
+        self.assertEqual(step.status, "completed")
+        self.assertEqual(h.store.pending_decisions(h.mission_id), [])
+        delegated = h.payloads("decision.delegated")
+        self.assertEqual([p["rule"] for p in delegated], ["answerBlockers"])
+        self.assertEqual(len(h.calls("responder")), 1)
+        self.assertIn(self.BLOCKER, h.calls("responder")[0]["argv"][1])
+        self.assertIn(self.ANSWER, h.calls("worker")[1]["argv"][1])
+        revision = (h.home / h.mission_id / "revisions" / "cycle-1.md").read_text(encoding="utf-8")
+        self.assertIn(self.ANSWER, revision)
+        self.assertTrue(h.store.verify_chain(h.mission_id))
+
+    def test_without_the_rule_the_responder_is_never_called(self) -> None:
+        h = self.harness()
+        h.fakes.scenario(worker=[blocked_worker(self.BLOCKER)])
+        step = h.supervise()
+        self.assertEqual((step.status, step.reason), ("paused", "worker_blockers"))
+        self.assertEqual(h.calls("responder"), [])
+        self.assertNotIn("decision.delegated", h.events())
+
+    def test_responder_escalate_action_pauses_for_the_founder(self) -> None:
+        h = self.harness(schemaVersion="0.2.0", delegation=self.RULE)
+        h.fakes.scenario(
+            worker=[blocked_worker(self.BLOCKER)],
+            responder=[responder_escalates()],
+        )
+        step = h.supervise()
+        self.assertEqual(step.status, "paused")
+        [decision] = h.store.pending_decisions(h.mission_id)
+        self.assertEqual(decision["kind"], "clarification")
+        self.assertEqual(len(h.calls("responder")), 1)
+        self.assertNotIn("decision.delegated", h.events())
+
+    def test_a_sensitive_blocker_is_never_sent_to_the_responder(self) -> None:
+        h = self.harness(schemaVersion="0.2.0", delegation=self.RULE)
+        h.fakes.scenario(
+            worker=[blocked_worker("Preciso da senha do banco de staging.")],
+            responder=[responder_instructs("Pode seguir sem problema.")],
+        )
+        step = h.supervise()
+        self.assertEqual(step.status, "paused")
+        [decision] = h.store.pending_decisions(h.mission_id)
+        self.assertEqual(decision["kind"], "clarification")
+        self.assertEqual(h.calls("responder"), [], "a sensitive blocker never reaches the responder")
+        self.assertNotIn("decision.delegated", h.events())
 
 
 class FailureF6BudgetTests(SupervisorTestCase):

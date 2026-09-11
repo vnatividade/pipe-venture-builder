@@ -322,6 +322,121 @@ class DelegatedDecisionTests(TestCase):
             self.assertEqual(store.get_decision(decision_id)["status"], "pending")
 
 
+def answer_blockers_mission(store: MissionStore, **overrides: object) -> str:
+    rule = {"maxTimes": 1}
+    rule.update(overrides)
+    document = {**mission_input(), "schemaVersion": "0.2.0", "delegation": {"answerBlockers": rule}}
+    mission_id = store.create(build_mission(document, created_at=CREATED_AT), at=CREATED_AT)
+    store.activate(mission_id, at=LATER)
+    return mission_id
+
+
+class AnswerBlockersDelegatedDecisionTests(TestCase):
+    """PIP-906: the store-level half of ``delegation.answerBlockers`` — the
+    supervisor's acceptance tests cover the end-to-end responder cycle built
+    on top of this. Each check here is one that, removed, would let
+    ``resolve_decision(decided_by="delegated:orchestrator")`` answer
+    something only the founder should (a merge, a different decision kind,
+    an unrelated ``clarification`` reason, or an exhausted rule)."""
+
+    def _open_worker_blockers_decision(
+        self, store: MissionStore, mission_id: str, *, reason: str = "worker_blockers", cycle: int = 1
+    ) -> str:
+        store.pause(mission_id, at=LATER)
+        return store.open_decision(
+            mission_id, kind="clarification", context={"reason": reason, "cycle": cycle},
+            options=["pause", "retry"], safe_default="pause", blocked_scope="mission",
+            deadline=None, at=LATER,
+        )
+
+    def test_delegated_retry_marks_resolved_with_the_answer_blockers_rule(self) -> None:
+        with MissionStore(":memory:") as store:
+            mission_id = answer_blockers_mission(store)
+            decision_id = self._open_worker_blockers_decision(store, mission_id)
+            resolved = store.resolve_decision(
+                decision_id, option="retry", decided_by="delegated:orchestrator", at=EVEN_LATER
+            )
+            self.assertEqual(resolved["status"], "resolved")
+            self.assertEqual(resolved["decidedOption"], "retry")
+            self.assertEqual(resolved["decidedBy"], "delegated:orchestrator")
+            event = store.list_events(mission_id)[-1]
+            self.assertEqual(event["eventType"], "decision.delegated")
+            self.assertEqual(event["payload"], {"decisionId": decision_id, "rule": "answerBlockers"})
+
+    def test_delegated_source_cannot_choose_pause_for_a_worker_blockers_decision(self) -> None:
+        with MissionStore(":memory:") as store:
+            mission_id = answer_blockers_mission(store)
+            decision_id = self._open_worker_blockers_decision(store, mission_id)
+            with self.assertRaises(ControlPlaneContractError):
+                store.resolve_decision(decision_id, option="pause", decided_by="delegated:orchestrator", at=EVEN_LATER)
+            self.assertEqual(store.get_decision(decision_id)["status"], "pending")
+
+    def test_delegated_retry_refused_for_a_clarification_reason_other_than_worker_blockers(self) -> None:
+        with MissionStore(":memory:") as store:
+            mission_id = answer_blockers_mission(store)
+            decision_id = self._open_worker_blockers_decision(store, mission_id, reason="out_of_mission")
+            with self.assertRaises(ControlPlaneContractError):
+                store.resolve_decision(decision_id, option="retry", decided_by="delegated:orchestrator", at=EVEN_LATER)
+            self.assertEqual(store.get_decision(decision_id)["status"], "pending")
+
+    def test_delegated_retry_refused_on_an_escalation_decision(self) -> None:
+        # Same option string ("retry" is not used by grant_cycle, but the
+        # kind check must still hold on its own): a `worker_blockers`-shaped
+        # context under the wrong decision kind is never covered.
+        with MissionStore(":memory:") as store:
+            mission_id = answer_blockers_mission(store)
+            store.block(mission_id, reason_code="max_cycles", at=LATER)
+            decision_id = store.open_decision(
+                mission_id, kind="escalation", context={"reason": "worker_blockers", "cycle": 1},
+                options=["stop", "retry"], safe_default="stop", blocked_scope="mission",
+                deadline=None, at=LATER,
+            )
+            with self.assertRaises(ControlPlaneContractError):
+                store.resolve_decision(decision_id, option="retry", decided_by="delegated:orchestrator", at=EVEN_LATER)
+            self.assertEqual(store.get_decision(decision_id)["status"], "pending")
+
+    def test_delegated_retry_refused_when_the_mission_has_no_answer_blockers_rule(self) -> None:
+        with MissionStore(":memory:") as store:
+            mission_id = active_mission(store)  # no delegation at all
+            decision_id = self._open_worker_blockers_decision(store, mission_id)
+            with self.assertRaises((ControlPlaneContractError, ControlPlaneStateError)):
+                store.resolve_decision(decision_id, option="retry", decided_by="delegated:orchestrator", at=EVEN_LATER)
+            self.assertEqual(store.get_decision(decision_id)["status"], "pending")
+
+    def test_a_grant_cycle_only_mission_does_not_cover_answer_blockers(self) -> None:
+        with MissionStore(":memory:") as store:
+            mission_id = delegated_mission(store)  # grantCycle only
+            decision_id = self._open_worker_blockers_decision(store, mission_id)
+            with self.assertRaises(ControlPlaneContractError):
+                store.resolve_decision(decision_id, option="retry", decided_by="delegated:orchestrator", at=EVEN_LATER)
+
+    def test_answer_blockers_max_times_is_enforced(self) -> None:
+        with MissionStore(":memory:") as store:
+            mission_id = answer_blockers_mission(store, maxTimes=1)
+            first = self._open_worker_blockers_decision(store, mission_id, cycle=1)
+            store.resolve_decision(first, option="retry", decided_by="delegated:orchestrator", at=EVEN_LATER)
+            store.resume(mission_id, at=EVEN_LATER)
+            second = self._open_worker_blockers_decision(store, mission_id, cycle=2)
+            with self.assertRaises(ControlPlaneStateError):
+                store.resolve_decision(second, option="retry", decided_by="delegated:orchestrator", at=EVEN_LATER)
+            self.assertEqual(store.get_decision(second)["status"], "pending")
+
+    def test_answer_blockers_rule_never_grants_a_cycle(self) -> None:
+        # The counterpart of DelegatedDecisionTests' grant_cycle-only checks:
+        # an ``answerBlockers`` rule must not let a delegated source resolve
+        # the unrelated ``escalation``/``grant_cycle`` decision.
+        with MissionStore(":memory:") as store:
+            mission_id = answer_blockers_mission(store)
+            store.block(mission_id, reason_code="max_cycles", at=LATER)
+            decision_id = store.open_decision(
+                mission_id, kind="escalation", context={"reason": "max_cycles", "cycle": 1},
+                options=["stop", "grant_cycle"], safe_default="stop", blocked_scope="cycles",
+                deadline=None, at=LATER,
+            )
+            with self.assertRaises(ControlPlaneContractError):
+                store.resolve_decision(decision_id, option="grant_cycle", decided_by="delegated:orchestrator", at=EVEN_LATER)
+
+
 class EvidenceAndCompletionTests(TestCase):
     def _satisfy_all(self, store: MissionStore, mission_id: str, run_id: str) -> None:
         for criterion in store.get(mission_id)["successCriteria"]:

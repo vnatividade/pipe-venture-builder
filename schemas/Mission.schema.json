@@ -129,7 +129,7 @@
     "delegation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["grantCycle"],
+      "minProperties": 1,
       "properties": {
         "grantCycle": {
           "type": "object",
@@ -139,6 +139,14 @@
             "maxTimes": { "type": "integer", "minimum": 1, "maximum": 3 },
             "maxCostFraction": { "type": "number", "exclusiveMinimum": 0, "maximum": 0.8 },
             "requireProgress": { "type": "boolean" }
+          }
+        },
+        "answerBlockers": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["maxTimes"],
+          "properties": {
+            "maxTimes": { "type": "integer", "minimum": 1, "maximum": 3 }
           }
         }
       }

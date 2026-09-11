@@ -67,6 +67,7 @@ from .delivery import (
     pr_title,
     push_branch,
 )
+from .responder import run_responder
 from .reviewer import (
     DEFAULT_REVIEW_TIMEOUT_SECONDS,
     REVIEWER_OUTPUT_INVALID,
@@ -74,7 +75,7 @@ from .reviewer import (
     run_review,
 )
 from .status import SUPERVISOR_PID_FILE, default_mission_home, pid_is_alive
-from .store import DELEGATED_ORCHESTRATOR_SOURCE, UNKNOWN_SOURCES, MissionStore
+from .store import ANSWER_BLOCKERS_RULE, DELEGATED_ORCHESTRATOR_SOURCE, UNKNOWN_SOURCES, MissionStore
 from .verify import (
     DEFAULT_CHECK_TIMEOUT_SECONDS,
     changed_files,
@@ -100,10 +101,36 @@ REVISIONS_DIR = "revisions"
 WORKER_EXECUTOR = "worker"
 REVIEWER_EXECUTOR = "reviewer"
 REVIEWER_ROLE = "reviewer"
+RESPONDER_EXECUTOR = "responder"
+RESPONDER_ROLE = "responder"
 REVIEW_RESERVE_USD = MIN_RUN_BUDGET_USD
 DEFAULT_CHECKS_POLL_SECONDS = 30.0
 DEFAULT_CHECKS_MAX_POLLS = 60
 GRANT_CYCLE_OPTION = "grant_cycle"
+ANSWER_BLOCKERS_OPTION = "retry"
+ANSWER_BLOCKERS_REASON = "worker_blockers"
+# Deterministic keyword guard over the worker's blockers and the responder's
+# instructions: whatever the model says, a mention of one of these topics
+# always escalates to the founder instead of being answered by the
+# responder — none of them are technical, in-repository questions.
+SENSITIVE_TERMS = (
+    "credencial",
+    "segredo",
+    "secret",
+    "api key",
+    "apikey",
+    "token",
+    "senha",
+    "password",
+    "merge",
+    "produção",
+    "producao",
+    "deploy",
+    "billing",
+    "cobrança",
+    "cobranca",
+    "pagamento",
+)
 # The only reason codes a mission's own ``delegation.grantCycle`` rule may
 # cover: hitting the cycle limit. Every other ``_block`` reason (a legitimate
 # reviewer verdict, the circuit breaker, an infrastructure failure escalating,
@@ -144,6 +171,15 @@ REVISION_CHECKS_FAILED = (
     "Os checks do CI falharam no PR aberto pelo supervisor. Rode localmente os comandos de "
     "verificação dos critérios e a suíte do repositório e corrija a causa, dentro do write set."
 )
+
+
+def contains_sensitive_terms(text: str) -> bool:
+    """Deterministic guard, independent of any model: a blocker or an
+    instruction that mentions a credential, a merge, production/deploy, or
+    billing is never answered by the responder, whatever it says."""
+
+    lowered = text.lower()
+    return any(term in lowered for term in SENSITIVE_TERMS)
 
 
 class SupervisorRefusal(ControlPlaneStateError):
@@ -501,15 +537,7 @@ class _Cycle:
         output = result.output or {}
         if not output.get("done") and output.get("blockers"):
             self.store.record_verdict(run_id, verdict="blocked", at=self.now())
-            _save_revision(self.home, self.mission_id, cycle, REVISION_BLOCKERS)
-            return self._pause_with_decision(
-                "clarification",
-                cycle,
-                run_id,
-                reason="worker_blockers",
-                options=["pause", "retry"],
-                extra={"blockers": len(output["blockers"])},
-            )
+            return self._handle_worker_blockers(cycle, run_id, list(output["blockers"]), worktree)
         if result.permission_denials:
             # A denial is not a verdict: the diff may already satisfy every
             # criterion. It only reaches the next brief if this cycle ends in
@@ -917,8 +945,21 @@ class _Cycle:
         options: list[str],
         extra: Mapping[str, Any] | None = None,
     ) -> Step:
+        self._open_pause_decision(kind, cycle, run_id, reason=reason, options=options, extra=extra)
+        return Step("paused", reason, cycle)
+
+    def _open_pause_decision(
+        self,
+        kind: str,
+        cycle: int,
+        run_id: str | None,
+        *,
+        reason: str,
+        options: list[str],
+        extra: Mapping[str, Any] | None = None,
+    ) -> str:
         self.store.pause(self.mission_id, at=self.now())
-        self.store.open_decision(
+        return self.store.open_decision(
             self.mission_id,
             kind=kind,
             context={"reason": reason, "cycle": cycle, "runId": run_id, **dict(extra or {})},
@@ -928,7 +969,123 @@ class _Cycle:
             deadline=None,
             at=self.now(),
         )
-        return Step("paused", reason, cycle)
+
+    # -- worker blockers: the delegated responder (PIP-906) ------------------
+
+    def _handle_worker_blockers(
+        self, cycle: int, run_id: str, blockers: list[str], worktree: Path
+    ) -> Step:
+        """A technical blocker never reaches the founder when the mission
+        declares ``delegation.answerBlockers`` and a clean-context responder
+        can answer it from the repository alone. The decision is always
+        opened (mirroring ``_delegate_grant_cycle``'s pattern for
+        ``grant_cycle``), so a delegated resolution leaves the same audit
+        trail as a human one would; it is just resolved immediately when the
+        responder's answer is usable."""
+
+        instructions = self._answer_blockers(cycle, blockers, worktree)
+        decision_id = self._open_pause_decision(
+            "clarification",
+            cycle,
+            run_id,
+            reason=ANSWER_BLOCKERS_REASON,
+            options=["pause", "retry"],
+            extra={"blockers": len(blockers)},
+        )
+        if instructions is not None and self._delegate_answer_blockers(decision_id, cycle, instructions):
+            return Step("active", ANSWER_BLOCKERS_REASON, cycle)
+        _save_revision(self.home, self.mission_id, cycle, REVISION_BLOCKERS)
+        return Step("paused", ANSWER_BLOCKERS_REASON, cycle)
+
+    def _answer_blockers(self, cycle: int, blockers: list[str], worktree: Path) -> str | None:
+        """The responder's instructions when they may be trusted, else
+        ``None`` (the caller then escalates exactly like before PIP-906).
+        Runs while the mission is still ``active`` (before any pause), so
+        ``store.open_run`` accepts it like any worker or reviewer run."""
+
+        rule = (self.mission.get("delegation") or {}).get(ANSWER_BLOCKERS_RULE)
+        if rule is None:
+            return None
+        if any(contains_sensitive_terms(text) for text in blockers):
+            return None
+        if self._answer_blockers_used() >= rule["maxTimes"]:
+            return None
+        run_id = self.store.open_run(
+            self.mission_id,
+            cycle=cycle,
+            attempt=1,
+            executor=f"{RESPONDER_EXECUTOR}:{self.reviewer_model}",
+            role=RESPONDER_ROLE,
+            at=self.now(),
+        )
+        _log(self.home, self.mission_id, "responder.dispatched", run=run_id, cycle=cycle)
+        try:
+            response = run_responder(
+                self.mission,
+                blockers,
+                claude_bin=self.claude_bin,
+                cwd=worktree,
+                budget_left=self._budget_left(),
+                model=self.reviewer_model,
+                timeout=self.review_timeout,
+                poll_seconds=self.poll_seconds,
+                should_stop=self._should_stop,
+                env=child_env(),
+                on_start=self._responder_started,
+            )
+        except BaseException:
+            self._terminate_worker()
+            self._close_run_on_error(run_id)
+            raise
+        finally:
+            self._process = None
+        claude = response.claude
+        self.store.collect_run(
+            run_id,
+            session_id=claude.session_id,
+            cost_usd=claude.cost_usd,
+            num_turns=claude.num_turns,
+            result_ref=None,
+            result_fingerprint=claude.result_fingerprint,
+            status=claude.status,
+            at=self.now(),
+            extra={
+                "reason": _code(response.reason or claude.reason),
+                "subtype": _code(claude.subtype),
+                "model": _code(self.reviewer_model),
+                "responseValid": response.valid,
+            },
+        )
+        _log(self.home, self.mission_id, "responder.closed", run=run_id, status=claude.status)
+        if claude.status != "collected" or not response.valid or response.action != "instruct":
+            return None
+        instructions = (response.instructions or "").strip()
+        if not instructions or contains_sensitive_terms(instructions):
+            return None
+        return instructions
+
+    def _delegate_answer_blockers(self, decision_id: str, cycle: int, instructions: str) -> bool:
+        try:
+            self.store.resolve_decision(
+                decision_id,
+                option=ANSWER_BLOCKERS_OPTION,
+                decided_by=DELEGATED_ORCHESTRATOR_SOURCE,
+                at=self.now(),
+            )
+        except (ControlPlaneContractError, ControlPlaneStateError):
+            return False
+        _save_revision(self.home, self.mission_id, cycle, instructions)
+        self.store.resume(self.mission_id, at=self.now())
+        _log(self.home, self.mission_id, "decision.delegated", decision=decision_id, cycle=cycle)
+        return True
+
+    def _answer_blockers_used(self) -> int:
+        return sum(
+            1
+            for event in self.store.list_events(self.mission_id)
+            if event["eventType"] == "decision.delegated"
+            and event["payload"].get("rule") == ANSWER_BLOCKERS_RULE
+        )
 
     # -- state readers ------------------------------------------------------
 
@@ -995,6 +1152,9 @@ class _Cycle:
             _write_private(self.home / self.mission_id / WORKER_PID_FILE, f"{process.pid}\n")
 
     def _reviewer_started(self, process: ClaudeProcess) -> None:
+        self._process = process
+
+    def _responder_started(self, process: ClaudeProcess) -> None:
         self._process = process
 
     def _terminate_worker(self) -> None:

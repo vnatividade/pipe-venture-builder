@@ -2,7 +2,8 @@
 """A stand-in for the ``claude`` binary, driven by a JSON scenario file.
 
 Environment:
-  FAKE_CLAUDE_SCENARIO  path to a JSON file: {"worker": [call, ...], "reviewer": [call, ...]}
+  FAKE_CLAUDE_SCENARIO  path to a JSON file: {"worker": [call, ...], "reviewer": [call, ...],
+                        "responder": [call, ...]}
                         A call is a mapping with optional keys:
                           sleep (s), on_sigterm ("exit"|"ignore"), mode ("json"|"garbage"|"silent"),
                           exit_code, result (overrides for the Claude result JSON),
@@ -13,8 +14,11 @@ Environment:
                           git_checkout (new branch name, ``git checkout -b`` in cwd),
                           spawn_grandchild ({"pid_file": path, "ignore_term": bool}: start a
                           sleeping child in the fake's process group and write its pid)
-                        The reviewer role is detected by ``--json-schema`` in argv. When a role's
-                        list is exhausted the last call is reused.
+                        A call with ``--json-schema`` in argv is the reviewer or the responder
+                        (both read-only, JSON-schema roles): distinguished by the schema's
+                        ``properties`` — ``verdict`` means reviewer, ``action`` means responder.
+                        Anything without ``--json-schema`` is the worker. When a role's list is
+                        exhausted the last call is reused.
   FAKE_CLAUDE_STATE_DIR where per-role call counters live (defaults to the scenario's directory).
   FAKE_CLAUDE_LOG       JSON-lines file receiving one record per invocation (argv, cwd, stdin).
 
@@ -55,8 +59,21 @@ def _next_call(role: str) -> dict:
     return calls[min(index, len(calls) - 1)]
 
 
+def _role(argv: list[str]) -> str:
+    if "--json-schema" not in argv:
+        return "worker"
+    try:
+        schema = json.loads(argv[argv.index("--json-schema") + 1])
+    except (IndexError, ValueError):
+        schema = {}
+    properties = schema.get("properties") if isinstance(schema, dict) else None
+    if isinstance(properties, dict) and "action" in properties:
+        return "responder"
+    return "reviewer"
+
+
 def main(argv: list[str]) -> int:
-    role = "reviewer" if "--json-schema" in argv else "worker"
+    role = _role(argv)
     call = _next_call(role)
 
     log_path = os.environ.get("FAKE_CLAUDE_LOG")
