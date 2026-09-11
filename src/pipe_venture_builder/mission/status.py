@@ -82,7 +82,23 @@ def build_status(
         "auditChainValid": store.verify_chain(mission_id),
         "updatedAt": document["updatedAt"],
         "supervisor": supervisor_liveness(document["missionId"], home),
+        "delivery": delivery_state(store, mission_id),
     }
+
+
+def delivery_state(store: MissionStore, mission_id: str) -> dict[str, Any]:
+    """The PR the supervisor opened (its URL is a ref) and the latest checks result."""
+
+    pull_request = None
+    checks = None
+    for event in store.list_events(mission_id):
+        if event["eventType"] == "delivery.pr_opened":
+            pull_request, checks = event["payload"].get("ref"), None
+        elif event["eventType"] == "delivery.checks_passed":
+            checks = "passed"
+        elif event["eventType"] == "delivery.checks_failed":
+            checks = "failed"
+    return {"pullRequest": pull_request, "checks": checks}
 
 
 def render_status_text(status: dict[str, Any]) -> str:
@@ -106,6 +122,13 @@ def render_status_text(status: dict[str, Any]) -> str:
     runs = status["runs"]
     if runs:
         why += " Runs: " + ", ".join(f"{count} {name}" for name, count in sorted(runs.items())) + "."
+
+    delivery = status.get("delivery") or {}
+    if delivery.get("pullRequest"):
+        why += f" PR: {delivery['pullRequest']} (checks: {delivery.get('checks') or 'aguardando'})."
+    supervisor = status.get("supervisor") or {}
+    if supervisor.get("alive") is not None:
+        why += " Supervisor: " + ("vivo" if supervisor["alive"] else "parado") + f" (pid {supervisor['pid']})."
 
     pending = status["pendingDecisions"]
     if not pending:

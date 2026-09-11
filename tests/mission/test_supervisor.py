@@ -476,6 +476,10 @@ class DeliveryTests(SupervisorTestCase):
         )
         self.assertEqual(git(worktree_path(h.mission_id, h.home), "status", "--porcelain"), "")
 
+        status = build_status(h.store, h.mission_id, home=h.home)
+        self.assertEqual(status["delivery"],
+                         {"pullRequest": "https://github.example/owner/repo/pull/1", "checks": "passed"})
+
         # Restarting after completion changes nothing.
         self.assertEqual(h.supervise().reason, "not_active")
         self.assertEqual(len([c for c in h.fakes.gh_calls() if c[:2] == ["pr", "create"]]), 1)
@@ -582,3 +586,50 @@ class SupervisorErrorTests(SupervisorTestCase):
         self.assertIn("pid", seen)
         with self.assertRaises(ProcessLookupError, msg="the worker process was terminated and reaped"):
             os.kill(seen["pid"], 0)
+
+
+class ResumeAndSignalTests(SupervisorTestCase):
+    def test_pause_during_review_resumes_with_the_review_only(self) -> None:
+        h = self.harness()
+        h.fakes.scenario(
+            worker=[good_worker()],
+            reviewer=[{"sleep": 30, "on_sigterm": "exit"}, {"structured_output": satisfied_verdict()}],
+        )
+
+        def pause_when_reviewing() -> None:
+            deadline = time.monotonic() + 10
+            while time.monotonic() < deadline and not h.calls("reviewer"):
+                time.sleep(0.02)
+            with MissionStore(h.store_path) as founder:
+                founder.pause(h.mission_id)
+
+        threading.Thread(target=pause_when_reviewing).start()
+        step = h.run_once(poll_seconds=0.05)
+        self.assertEqual((step.status, step.reason), ("paused", "interrupted"))
+        reviewer_runs = [run for run in h.store.list_runs(h.mission_id) if run["executor"].startswith("reviewer")]
+        self.assertEqual([run["status"] for run in reviewer_runs], ["interrupted"])
+
+        h.store.resume(h.mission_id)
+        step = h.run_once()
+        self.assertEqual(step.status, "completed")
+        self.assertEqual(len(h.calls("worker")), 1, "the worker is not re-dispatched")
+        self.assertEqual(len(h.calls("reviewer")), 2)
+        attempts = [run["attempt"] for run in h.store.list_runs(h.mission_id) if run["executor"].startswith("reviewer")]
+        self.assertEqual(sorted(attempts), [1, 2])
+
+    def test_sigterm_to_the_supervisor_interrupts_the_worker_and_keeps_the_mission_active(self) -> None:
+        import signal
+
+        h = self.harness()
+        h.fakes.scenario(worker=[{"sleep": 30, "on_sigterm": "exit"}, good_worker()],
+                         reviewer=[{"structured_output": satisfied_verdict()}])
+        previous = signal.getsignal(signal.SIGTERM)
+        threading.Timer(0.5, os.kill, (os.getpid(), signal.SIGTERM)).start()
+        started = time.monotonic()
+        step = h.supervise(poll_seconds=0.05)
+        self.assertLess(time.monotonic() - started, 10)
+        self.assertEqual((step.status, step.reason), ("active", "interrupted"))
+        self.assertEqual(signal.getsignal(signal.SIGTERM), previous, "handlers are restored")
+        [run] = h.store.list_runs(h.mission_id)
+        self.assertEqual(run["status"], "interrupted")
+        self.assertEqual(h.run_once().status, "completed", "the mission resumes from the same cycle")

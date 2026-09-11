@@ -113,8 +113,12 @@ class SupervisorCliTests(TestCase):
         import sqlite3
 
         with sqlite3.connect(self.store_path) as raw:
-            raw.execute("UPDATE mission_events SET event_hash = 'sha256:' || substr(event_hash, 8, 63) || '0'"
-                        " WHERE sequence = 2")
+            changed = raw.execute(
+                "UPDATE mission_events SET event_json = replace(event_json, '\"status\":\"active\"',"
+                " '\"status\":\"paused\"') WHERE sequence = 2"
+            ).rowcount
+        self.assertEqual(changed, 1)
+        self.assertFalse(self.status()["auditChainValid"], "the tamper really broke the chain")
         code, out, err = run_cli("mission", "supervise", self.mission_id, *self.common(), *self.fake_bins())
         self.assertEqual(code, READINESS_BLOCKED)
         self.assertEqual(json.loads(err)["code"], "MISSION_SUPERVISOR_REFUSED")
