@@ -36,11 +36,48 @@ CHECK_BUCKETS_PENDING = frozenset({"pending"})
 # do repositório tentou `python3 -m pytest` por causa disso na demo de 11/09.
 _INTERPRETER_ENV = ("PYTHONPATH", "PYTHONHOME", "PYTHONSTARTUP", "PYTHONUSERBASE")
 
+# Variáveis que um hook de worktree vinculado (``git worktree add``) exporta
+# para apontar para o ADMINISTRATIVO daquele worktree — ``GIT_DIR`` absoluto
+# incluído. Um filho git do supervisor que herdasse isso operaria no
+# repositório errado; foi assim que a demo de 11/09 corrompeu o repositório
+# real (``core.bare=true``, branch movida). Nenhum filho git/gh do supervisor
+# e nenhum check de critério (``verify.run_check``) pode herdá-las.
+GIT_CONTEXT_ENV = (
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_COMMON_DIR",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    "GIT_PREFIX",
+    "GIT_QUARANTINE_PATH",
+    "GIT_NAMESPACE",
+)
+
 
 def child_env() -> dict[str, str]:
-    """Environment for git/gh children: the caller's, minus interpreter leaks."""
+    """Environment for git/gh children: the caller's, minus interpreter leaks
+    and minus the linked-worktree ``GIT_*`` variables (see ``GIT_CONTEXT_ENV``)."""
 
-    return {key: value for key, value in os.environ.items() if key not in _INTERPRETER_ENV}
+    excluded = frozenset(_INTERPRETER_ENV) | frozenset(GIT_CONTEXT_ENV)
+    return {key: value for key, value in os.environ.items() if key not in excluded}
+
+
+# ``core.hooksPath`` for every git the supervisor runs against a mission
+# repository/worktree (worktree prune/add, commit, push). It defaults to (or is
+# configured as) a path inside the repository, resolved from whatever tree git
+# runs in: a mission worktree would then execute hook scripts the worker may
+# have written — with the supervisor's credentials and, in a linked worktree,
+# an absolute ``GIT_DIR``. ``/dev/null`` is not a directory, so git finds no
+# hook at all (pre-commit, commit-msg, post-commit, post-checkout,
+# reference-transaction, pre-push...), and nobody can populate it. Diff
+# verification and CI are the real gate; a local hook never runs.
+NO_HOOKS_PATH = "/dev/null"
+
+
+def _no_hooks_args() -> list[str]:
+    return ["-c", f"core.hooksPath={NO_HOOKS_PATH}"]
+
 
 @dataclass(frozen=True)
 class PullRequest:
@@ -90,7 +127,7 @@ def ensure_worktree(mission: Mapping[str, Any], *, home: str | Path | None = Non
     branch = branch_name(mission)
     if path.is_dir() and _is_mission_worktree(path, repo, branch):
         return path
-    _git(repo, "worktree", "prune")
+    _git(repo, *_no_hooks_args(), "worktree", "prune")
     if path.exists():
         if any(path.iterdir()):
             raise RuntimeError(
@@ -100,9 +137,14 @@ def ensure_worktree(mission: Mapping[str, Any], *, home: str | Path | None = Non
         path.rmdir()
     path.parent.mkdir(parents=True, exist_ok=True)
     if _branch_exists(repo, branch):
-        _git(repo, "worktree", "add", str(path), branch)
+        _git(repo, *_no_hooks_args(), "worktree", "add", str(path), branch)
     else:
-        _git(repo, "worktree", "add", str(path), "-b", branch, mission["workspace"]["baseRef"])
+        # ``--no-track``: a remote ``baseRef`` (``origin/main``) would otherwise
+        # set ``branch.<branch>.remote``/``.merge`` in the repository's *shared*
+        # config — another mission creating its own worktree during this
+        # mission's worker run would then change what ``git_config_snapshot``
+        # sees and trip ``git_config_tampered`` on a run that tampered nothing.
+        _git(repo, *_no_hooks_args(), "worktree", "add", "--no-track", str(path), "-b", branch, mission["workspace"]["baseRef"])
     return path
 
 
@@ -144,7 +186,7 @@ def commit_if_needed(worktree: str | Path, message: str) -> bool:
     if not _git(worktree, "status", "--porcelain").strip():
         return False
     _git(worktree, "add", "-A")
-    _git(worktree, *_identity_args(worktree), "commit", "-q", "-m", message)
+    _git(worktree, *_identity_args(worktree), *_no_hooks_args(), "commit", "-q", "-m", message)
     return True
 
 
@@ -163,7 +205,7 @@ def push_branch(worktree: str | Path, branch: str) -> None:
     """Publish HEAD — the commit that was verified — as ``branch``; never the
     local branch ref by name, which may not be where HEAD is."""
 
-    _git(worktree, "push", "-q", "origin", f"HEAD:refs/heads/{branch}")
+    _git(worktree, *_no_hooks_args(), "push", "-q", "origin", f"HEAD:refs/heads/{branch}")
 
 
 def current_branch(worktree: str | Path) -> str | None:

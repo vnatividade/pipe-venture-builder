@@ -15,6 +15,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Iterable, Mapping
 
 from pipe_venture_builder.control_plane.model import fingerprint
+from .delivery import child_env
 
 
 DEFAULT_CHECK_TIMEOUT_SECONDS = 600.0
@@ -109,6 +110,7 @@ def run_check(
                 stderr=subprocess.STDOUT,
                 timeout=timeout,
                 check=False,
+                env=child_env(),
             )
         except subprocess.TimeoutExpired as exc:
             size = len(exc.stdout or b"") if isinstance(exc.stdout, (bytes, bytearray)) else 0
@@ -208,6 +210,7 @@ def _git(worktree: str | Path, *args: str, ok_codes: tuple[int, ...] = (0,)) -> 
         errors="replace",
         timeout=GIT_TIMEOUT_SECONDS,
         check=False,
+        env=child_env(),
     )
     if completed.returncode not in ok_codes:
         raise RuntimeError(f"git {args[0]} failed with exit code {completed.returncode}")

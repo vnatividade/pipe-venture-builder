@@ -32,6 +32,9 @@ import time
 from pathlib import Path
 
 
+GIT_CONTEXT_KEYS = ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_OBJECT_DIRECTORY", "GIT_COMMON_DIR")
+
+
 def _stdin_is_devnull() -> bool:
     try:
         return os.fstat(0).st_rdev == os.stat(os.devnull).st_rdev
@@ -66,6 +69,8 @@ def main(argv: list[str]) -> int:
                         "argv": argv,
                         "cwd": os.getcwd(),
                         "stdinIsDevNull": _stdin_is_devnull(),
+                        # PIP-907: which linked-worktree git variables reached this child.
+                        "gitContextEnv": sorted(key for key in os.environ if key in GIT_CONTEXT_KEYS),
                     }
                 )
                 + "\n"

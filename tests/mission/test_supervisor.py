@@ -18,7 +18,7 @@ from unittest import TestCase
 
 from pipe_venture_builder.control_plane.model import ControlPlaneStateError
 from pipe_venture_builder.mission.contract import build_mission
-from pipe_venture_builder.mission.delivery import branch_name, worktree_path
+from pipe_venture_builder.mission.delivery import branch_name, ensure_worktree, worktree_path
 from pipe_venture_builder.mission.status import build_status
 from pipe_venture_builder.mission.store import MissionStore
 from pipe_venture_builder.mission.supervisor import (
@@ -39,6 +39,7 @@ from tests.mission.loop_helpers import (
     make_repo,
     process_gone,
     read_pid,
+    remote_workspace,
     satisfied_verdict,
     single_values,
 )
@@ -820,6 +821,59 @@ class GitConfigTamperTests(SupervisorTestCase):
         h = self.harness(with_origin=True, delivery={"kind": "pull_request", "requireChecks": False})
         h.fakes.scenario(worker=[good_worker()], reviewer=[{"structured_output": satisfied_verdict()}])
         self.assertEqual(h.run_once().status, "completed")
+
+    def test_another_mission_creating_its_worktree_during_a_worker_run_is_not_tampering(self) -> None:
+        # PIP-907 (c/d, concurrent scenario): the 11/09 false positive —
+        # another mission's ``ensure_worktree`` off a remote ``baseRef``, run
+        # while this mission's worker is still going, must not change the
+        # shared config ``git_config_snapshot`` hashes and must not trip
+        # ``git_config_tampered`` for a run that tampered nothing.
+        h = self.harness(with_origin=True, workspace=remote_workspace(self.root / "repo"))
+        h.fakes.scenario(
+            worker=[good_worker(sleep=1.0)],
+            reviewer=[{"structured_output": satisfied_verdict()}],
+        )
+        result: dict[str, Any] = {}
+
+        def run() -> None:
+            store = MissionStore(h.store_path)
+            try:
+                result["step"] = h.supervise(store=store)
+            finally:
+                store.close()
+
+        thread = threading.Thread(target=run)
+        thread.start()
+        deadline = time.monotonic() + 20
+        while not h.calls("worker") and time.monotonic() < deadline:
+            time.sleep(0.02)
+        time.sleep(0.2)
+        other = build_mission(loop_mission(h.repo, workspace=remote_workspace(h.repo), title="Outra missao concorrente"))
+        ensure_worktree(other, home=self.root / "home-b")
+        thread.join(timeout=30)
+        self.assertFalse(thread.is_alive(), "the supervisor thread did not finish")
+        self.assertEqual((result["step"].status, result["step"].reason), ("completed", "completed"))
+
+
+class ClaudeChildrenGitEnvironmentTests(SupervisorTestCase):
+    def test_worker_and_reviewer_never_receive_linked_worktree_git_variables(self) -> None:
+        # Revisão do PIP-907, P2: o ``claude`` do worker e do revisor
+        # herdavam GIT_DIR/GIT_WORK_TREE do supervisor; o worker roda os
+        # checks via Bash, então a exigência (b) valia só pela metade.
+        import os
+        from unittest import mock
+
+        h = self.harness()
+        h.fakes.scenario(worker=[good_worker()], reviewer=[{"structured_output": satisfied_verdict()}])
+        poison = self.root / "poison"
+        with mock.patch.dict(os.environ, {"GIT_DIR": str(poison / ".git"), "GIT_WORK_TREE": str(poison),
+                                          "GIT_INDEX_FILE": str(poison / "index")}):
+            step = h.supervise()
+        self.assertEqual(step.status, "completed")
+        calls = h.fakes.claude_calls()
+        self.assertEqual({call["role"] for call in calls}, {"worker", "reviewer"})
+        for call in calls:
+            self.assertEqual(call["gitContextEnv"], [], call["role"])
 
 
 class DeliveryTests(SupervisorTestCase):
