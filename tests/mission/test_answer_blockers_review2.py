@@ -84,7 +84,7 @@ def blocked_worker(text: str = TECH, **extra: Any) -> dict[str, Any]:
 
 
 def instruct(text: str = ANSWER, **extra: Any) -> dict[str, Any]:
-    call = {"structured_output": {"action": "instruct", "instructions": text, "reason": "tecnico"}}
+    call = {"structured_output": {"action": "instruct", "category": "environment", "founderDecision": False, "instructions": text, "reason": "tecnico"}}
     call.update(extra)
     return call
 

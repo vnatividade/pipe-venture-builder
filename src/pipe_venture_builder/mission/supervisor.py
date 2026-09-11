@@ -40,6 +40,7 @@ import signal
 import subprocess
 import threading
 import time
+import unicodedata
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -68,7 +69,7 @@ from .delivery import (
     push_branch,
 )
 from .guard import contains_sensitive_terms  # noqa: F401 - re-exported for callers and tests
-from .responder import run_responder
+from .responder import DELEGABLE_CATEGORIES, run_responder
 from .reviewer import (
     DEFAULT_REVIEW_TIMEOUT_SECONDS,
     REVIEWER_OUTPUT_INVALID,
@@ -1079,12 +1080,18 @@ class _Cycle:
                 "subtype": _code(claude.subtype),
                 "model": _code(self.reviewer_model),
                 "responseValid": response.valid,
+                "category": _code(response.category),
+                "founderDecision": response.founder_decision,
             },
         )
         _log(self.home, self.mission_id, "responder.closed", run=run_id, status=claude.status)
         if claude.status != "collected" or not response.valid or response.action != "instruct":
             return None
-        instructions = (response.instructions or "").strip()
+        # Structural allowlist: only a technical answer, declared not to be a
+        # founder decision, is applied (PIP-906, 3rd review).
+        if response.category not in DELEGABLE_CATEGORIES or response.founder_decision is not False:
+            return None
+        instructions = _printable(response.instructions or "").strip()
         if not instructions or contains_sensitive_terms(instructions):
             return None
         return instructions
@@ -1315,6 +1322,13 @@ def _kill_session(pid: int, *, grace_seconds: float) -> bool:
 
 def _revision_path(home: Path, mission_id: str, cycle: int) -> Path:
     return home / mission_id / REVISIONS_DIR / f"cycle-{cycle}.md"
+
+
+def _printable(text: str) -> str:
+    """Model text without control characters (a NUL once made every later
+    write of the revision fail); newlines and tabs stay."""
+
+    return "".join(ch for ch in text if ch in "\n\t" or unicodedata.category(ch)[0] != "C")
 
 
 def _save_revision(home: Path, mission_id: str, cycle: int, text: str) -> None:

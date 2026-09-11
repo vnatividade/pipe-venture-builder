@@ -686,11 +686,11 @@ def blocked_worker(text: str) -> dict[str, Any]:
 
 
 def responder_instructs(text: str) -> dict[str, Any]:
-    return {"structured_output": {"action": "instruct", "instructions": text, "reason": "bloqueio tecnico"}}
+    return {"structured_output": {"action": "instruct", "category": "environment", "founderDecision": False, "instructions": text, "reason": "bloqueio tecnico"}}
 
 
 def responder_escalates(reason: str = "fora do escopo") -> dict[str, Any]:
-    return {"structured_output": {"action": "escalate", "instructions": "", "reason": reason}}
+    return {"structured_output": {"action": "escalate", "category": "scope", "founderDecision": True, "instructions": "", "reason": reason}}
 
 
 class AnswerBlockersDelegationTests(SupervisorTestCase):
@@ -845,7 +845,7 @@ class PauseAndCancelDuringResponderTests(SupervisorTestCase):
     def _slow_responder(self) -> dict[str, Any]:
         return {
             "sleep": 5,
-            "structured_output": {"action": "instruct", "instructions": "resposta lenta", "reason": "r"},
+            "structured_output": {"action": "instruct", "category": "environment", "founderDecision": False, "instructions": "resposta lenta", "reason": "r"},
         }
 
     def test_pause_during_the_responder_keeps_the_clarification_pending(self) -> None:

@@ -63,6 +63,14 @@ RESPONDER_DENIED_READS = (
     "Read(~/.netrc)",
     "Read(~/.npmrc)",
     "Read(~/.pypirc)",
+    "Read(~/.config/**)",
+    "Read(~/.railway/**)",
+    "Read(~/.codex/**)",
+    "Read(~/.docker/**)",
+    "Read(~/.supabase/**)",
+    "Read(~/.kube/**)",
+    "Read(~/.gnupg/**)",
+    "Read(~/Library/Keychains/**)",
     "Read(//**/.env)",
     "Read(//**/.env.*)",
 )
@@ -70,6 +78,17 @@ RESPONDER_OUTPUT_INVALID = "responder_output_invalid"
 RESPONDER_RUN_FAILED = "responder_run_failed"
 DEFAULT_RESPONSE_TIMEOUT_SECONDS = 600.0
 ACTIONS = ("instruct", "escalate")
+# Structural allowlist (PIP-906, 3rd adversarial review: a keyword blacklist
+# never converges). The responder must say what kind of answer it gives and
+# whether the question is the founder's; only a technical category, declared
+# not to be a founder decision, is ever applied without the founder. The
+# keyword guard (``guard.contains_sensitive_terms``) stays as a backstop.
+CATEGORIES = (
+    "environment", "tooling", "tests", "codebase", "mission_criteria",
+    "product", "credentials", "production", "billing", "customers",
+    "communication", "governance", "scope", "other",
+)
+DELEGABLE_CATEGORIES = frozenset({"environment", "tooling", "tests", "codebase", "mission_criteria"})
 MAX_INSTRUCTIONS_CHARS = 4000
 MAX_REASON_CHARS = 600
 # The worker's own words, rendered verbatim: fenced so a blocker cannot smuggle
@@ -89,7 +108,12 @@ def _fenced_blocker(text: str) -> str:
     case, spacing or look-alike, no fake ``## Instruções``); the exact marker is
     still neutralized for good measure (PIP-906 review 2, achado 6)."""
 
-    return json.dumps(text.replace(_FENCE_MARKER, f"[{_FENCE_MARKER}]"), ensure_ascii=False)
+    rendered = json.dumps(text.replace(_FENCE_MARKER, f"[{_FENCE_MARKER}]"), ensure_ascii=False)
+    # ``json.dumps`` leaves these unescaped, and ``str.splitlines`` (like many
+    # readers) treats them as line breaks.
+    for char in ("\u2028", "\u2029", "\x85"):
+        rendered = rendered.replace(char, f"\\u{ord(char):04x}")
+    return rendered
 
 
 def responder_isolation_args() -> list[str]:
@@ -113,9 +137,11 @@ def responder_isolation_args() -> list[str]:
 RESPONSE_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["action", "instructions", "reason"],
+    "required": ["action", "category", "founderDecision", "instructions", "reason"],
     "properties": {
         "action": {"type": "string", "enum": list(ACTIONS)},
+        "category": {"type": "string", "enum": list(CATEGORIES)},
+        "founderDecision": {"type": "boolean"},
         "instructions": {"type": "string", "maxLength": MAX_INSTRUCTIONS_CHARS},
         "reason": {"type": "string", "maxLength": MAX_REASON_CHARS},
     },
@@ -129,6 +155,8 @@ class ResponseResult:
     valid: bool
     reason: str | None
     claude: ClaudeResult
+    category: str | None = None
+    founder_decision: bool | None = None
 
 
 def build_responder_prompt(mission: Mapping[str, Any], blockers: Sequence[str]) -> str:
@@ -169,6 +197,16 @@ def build_responder_prompt(mission: Mapping[str, Any], blockers: Sequence[str]) 
         "Responda `escalate` (instructions vazio) para qualquer coisa que envolva "
         "credencial, segredo, merge, produção/deploy, cobrança/billing, comunicação externa "
         "ou que esteja fora do escopo desta missão: isso é do fundador, não seu.",
+        "Classifique SEMPRE: `category` é o tema do bloqueio — `environment` (ambiente local, "
+        "venv, PATH), `tooling` (comandos, scripts, ferramentas do repo), `tests` (como rodar "
+        "ou escrever testes), `codebase` (onde fica/como funciona o código), `mission_criteria` "
+        "(o que um critério da missão pede) — ou, se tocar em produto/preço, credenciais, "
+        "produção, cobrança, clientes/dados de clientes, comunicação externa, governança do "
+        "repositório ou escopo: `product`, `credentials`, `production`, `billing`, `customers`, "
+        "`communication`, `governance`, `scope` (ou `other`). `founderDecision` é true se a "
+        "resposta depende de uma decisão que só o fundador pode tomar. Só `instruct` com uma "
+        "das cinco primeiras categorias e `founderDecision: false` é aplicado sem o fundador; "
+        "na dúvida, `escalate`.",
         "Responda apenas com o JSON do schema.",
     ]
     return "\n".join(lines) + "\n"
@@ -240,6 +278,8 @@ def run_responder(
         valid=True,
         reason=None,
         claude=claude,
+        category=parsed["category"],
+        founder_decision=parsed["founderDecision"],
     )
 
 
@@ -264,7 +304,16 @@ def _normalize_response(candidate: Any) -> dict[str, Any] | None:
     instructions = candidate.get("instructions")
     if not isinstance(instructions, str):
         return None
-    return {"action": candidate["action"], "instructions": instructions}
+    category = candidate.get("category")
+    founder_decision = candidate.get("founderDecision")
+    if category not in CATEGORIES or not isinstance(founder_decision, bool):
+        return None
+    return {
+        "action": candidate["action"],
+        "instructions": instructions,
+        "category": category,
+        "founderDecision": founder_decision,
+    }
 
 
 def _failed(reason: str, claude: ClaudeResult) -> ResponseResult:

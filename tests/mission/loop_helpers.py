@@ -59,7 +59,9 @@ EXPECTED_DISALLOWED_TOOLS = [
 # `instructions` reach the next worker's brief without going through review.
 EXPECTED_RESPONDER_DISALLOWED_TOOLS = EXPECTED_DISALLOWED_TOOLS + [
     "Read(~/.ssh/**)", "Read(~/.claude/**)", "Read(~/.aws/**)", "Read(~/.config/gh/**)",
-    "Read(~/.netrc)", "Read(~/.npmrc)", "Read(~/.pypirc)", "Read(//**/.env)", "Read(//**/.env.*)",
+    "Read(~/.netrc)", "Read(~/.npmrc)", "Read(~/.pypirc)", "Read(~/.config/**)", "Read(~/.railway/**)",
+    "Read(~/.codex/**)", "Read(~/.docker/**)", "Read(~/.supabase/**)", "Read(~/.kube/**)", "Read(~/.gnupg/**)",
+    "Read(~/Library/Keychains/**)", "Read(//**/.env)", "Read(//**/.env.*)",
 ]
 
 

@@ -100,21 +100,21 @@ class PromptAndCommandTests(TestCase):
         command = responder_command("p", claude_bin="claude", budget_left=1.5)
         schema = json.loads(command[command.index("--json-schema") + 1])
         self.assertNotIn("$schema", schema)
-        self.assertEqual(schema["required"], ["action", "instructions", "reason"])
+        self.assertEqual(schema["required"], ["action", "category", "founderDecision", "instructions", "reason"])
         self.assertEqual(schema["properties"]["action"]["enum"], ["instruct", "escalate"])
 
 
 class ParseResponseTests(TestCase):
     def test_parse_response_prefers_structured_output_then_result_text(self) -> None:
-        response = {"action": "instruct", "instructions": "faça X", "reason": "r"}
+        response = {"action": "instruct", "category": "environment", "founderDecision": False, "instructions": "faça X", "reason": "r"}
         parsed = parse_response(response, None)
-        self.assertEqual(parsed, {"action": "instruct", "instructions": "faça X"})
+        self.assertEqual(parsed, {"action": "instruct", "category": "environment", "founderDecision": False, "instructions": "faça X"})
         from_text = parse_response(None, "Aqui está:\n" + json.dumps(response))
         self.assertEqual(from_text["action"], "instruct")
         self.assertIsNone(parse_response(None, "no json"))
         self.assertIsNone(parse_response({"action": "maybe", "instructions": "x"}, None))
         self.assertIsNone(parse_response({"action": "instruct"}, None), "instructions missing")
-        self.assertIsNone(parse_response({"action": "instruct", "instructions": 1}, None))
+        self.assertIsNone(parse_response({"action": "instruct", "category": "environment", "founderDecision": False, "instructions": 1}, None))
 
 
 class RunResponderTests(TestCase):
@@ -123,7 +123,7 @@ class RunResponderTests(TestCase):
             repo = make_repo(Path(directory))
             mission = build_mission(loop_mission(repo), created_at=CREATED_AT)
             fakes.scenario(responder=[{
-                "structured_output": {"action": "instruct", "instructions": "use a venv do checkout", "reason": "r"},
+                "structured_output": {"action": "instruct", "category": "environment", "founderDecision": False, "instructions": "use a venv do checkout", "reason": "r"},
                 "result": {"total_cost_usd": 0.1},
             }])
             response = run_responder(
@@ -145,7 +145,7 @@ class RunResponderTests(TestCase):
             fakes.scenario(responder=[
                 {"mode": "garbage"},
                 {"result": {"subtype": "error_max_budget_usd", "is_error": True}},
-                {"structured_output": {"action": "escalate", "instructions": "", "reason": "fora do escopo"}},
+                {"structured_output": {"action": "escalate", "category": "scope", "founderDecision": True, "instructions": "", "reason": "fora do escopo"}},
             ])
             common = dict(claude_bin=fakes.claude_bin, cwd=repo, budget_left=3.0, poll_seconds=0.05)
             garbage = run_responder(mission, ["x"], **common)
