@@ -436,6 +436,40 @@ class AnswerBlockersDelegatedDecisionTests(TestCase):
             with self.assertRaises(ControlPlaneContractError):
                 store.resolve_decision(decision_id, option="grant_cycle", decided_by="delegated:orchestrator", at=EVEN_LATER)
 
+    def test_answer_blockers_and_grant_cycle_max_times_are_counted_independently(self) -> None:
+        # PIP-906 v2 review, achado 3/N11: each rule's ``maxTimes`` is its own
+        # counter in ``decision.delegated`` — using ``answerBlockers`` once
+        # must not exhaust or refuse a mission's separate ``grantCycle``.
+        with MissionStore(":memory:") as store:
+            document = {
+                **mission_input(),
+                "schemaVersion": "0.2.0",
+                "delegation": {
+                    "answerBlockers": {"maxTimes": 1},
+                    "grantCycle": {"maxTimes": 1, "maxCostFraction": 0.8, "requireProgress": False},
+                },
+            }
+            mission_id = store.create(build_mission(document, created_at=CREATED_AT), at=CREATED_AT)
+            store.activate(mission_id, at=LATER)
+            clarification = self._open_worker_blockers_decision(store, mission_id, cycle=1)
+            store.resolve_decision(clarification, option="retry", decided_by="delegated:orchestrator", at=EVEN_LATER)
+            store.resume(mission_id, at=EVEN_LATER)
+            store.block(mission_id, reason_code="max_cycles", at=EVEN_LATER)
+            escalation = store.open_decision(
+                mission_id, kind="escalation", context={"reason": "max_cycles", "cycle": 2},
+                options=["stop", "grant_cycle"], safe_default="stop", blocked_scope="cycles",
+                deadline=None, at=EVEN_LATER,
+            )
+            resolved = store.resolve_decision(
+                escalation, option="grant_cycle", decided_by="delegated:orchestrator", at=EVEN_LATER
+            )
+            self.assertEqual(resolved["status"], "resolved")
+            rules = [
+                event["payload"]["rule"] for event in store.list_events(mission_id)
+                if event["eventType"] == "decision.delegated"
+            ]
+            self.assertEqual(rules, ["answerBlockers", "grantCycle"])
+
 
 class EvidenceAndCompletionTests(TestCase):
     def _satisfy_all(self, store: MissionStore, mission_id: str, run_id: str) -> None:

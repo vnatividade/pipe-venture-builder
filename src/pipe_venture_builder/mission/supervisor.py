@@ -40,6 +40,7 @@ import signal
 import subprocess
 import threading
 import time
+import unicodedata
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -112,25 +113,74 @@ ANSWER_BLOCKERS_REASON = "worker_blockers"
 # Deterministic keyword guard over the worker's blockers and the responder's
 # instructions: whatever the model says, a mention of one of these topics
 # always escalates to the founder instead of being answered by the
-# responder — none of them are technical, in-repository questions.
-SENSITIVE_TERMS = (
-    "credencial",
-    "segredo",
-    "secret",
-    "api key",
-    "apikey",
-    "token",
-    "senha",
-    "password",
-    "merge",
-    "produção",
-    "producao",
-    "deploy",
-    "billing",
-    "cobrança",
-    "cobranca",
-    "pagamento",
+# responder — none of them are technical, in-repository questions. Matched
+# against ``_normalize_for_guard``'s output (radical/regex, not a literal
+# substring on ``lower()``), so an accent, a zero-width character or a
+# ``_``/``-``/``.``/``/`` separator never smuggles a term past it (PIP-906
+# review, achado 1): credential/credencial, secret/segredo, password/senha/
+# passwd, api key/chave de API, ssh/chave SSH, token, .env, merge, push
+# --force, production/produção/prod/deploy, billing/cobrança/pagamento/
+# cartão, e-mail/mensagem/Slack/WhatsApp to a customer, and the repository's
+# own governance surface (AGENTS.md, CLAUDE.md, .pipe/mode.json, operating
+# modes, the mission's write set).
+_SENSITIVE_PATTERNS = tuple(
+    re.compile(pattern)
+    for pattern in (
+        r"credenc",  # credencial(is)
+        r"credent",  # credential(s)
+        r"segred",  # segredo(s)
+        r"secret",
+        r"\bsenha",
+        r"passw",  # password, passwd
+        r"api\s?key",  # api key, apikey, api_key/api-key (normalized to "api key")
+        r"chave\s+(de\s+|da\s+)?api",
+        r"\bssh",
+        r"\btoken",
+        r"\benv\b",  # .env
+        r"\bmerge\b",
+        r"push\s*force",  # push --force / push -f
+        r"produc",  # produção, producao, production
+        r"\bprod\b",
+        r"\bdeploy",
+        r"billing",
+        r"cobr",  # cobrança, cobranca, cobrar, cobre
+        r"pagamento",
+        r"\bcartao\b",
+        r"agents\s*md",
+        r"claude\s*md",
+        r"pipe\s*mode",
+        r"mode\s*json",
+        r"operating\s*modes",
+        r"write\s*set",
+    )
+) + (
+    # External communication only escalates together with a customer: alone,
+    # "mensagem" (message) is too ordinary a word to fail closed on.
+    re.compile(r"(?=.*\bcliente\b)(?=.*(e\s*mail|mensagem|slack|whatsapp))"),
 )
+# Zero-width space, zero-width non-joiner/joiner, word joiner, BOM/zero-width
+# no-break space: invisible characters a term can be split around (PIP-906
+# review's zero-width-space-split "token") to slip past a plain substring match.
+_ZERO_WIDTH_CHARS = "".join(chr(code) for code in (0x200B, 0x200C, 0x200D, 0x2060, 0xFEFF))
+_ZERO_WIDTH_RE = re.compile(f"[{_ZERO_WIDTH_CHARS}]")
+_SEPARATOR_RE = re.compile(r"[_\-./]")
+_WHITESPACE_RE = re.compile(r"\s+")
+
+
+def _normalize_for_guard(text: str) -> str:
+    """NFKD, drop zero-width characters and combining marks (accents),
+    casefold, and turn ``_-./`` into spaces — so ``STRIPE_API_KEY``, ``chave
+    SSH``, ``produçao`` (NFD) and a token split by a zero-width space all
+    normalize to a form the radical/regex list above matches."""
+
+    normalized = unicodedata.normalize("NFKD", text)
+    normalized = _ZERO_WIDTH_RE.sub("", normalized)
+    normalized = "".join(ch for ch in normalized if not unicodedata.combining(ch))
+    normalized = _SEPARATOR_RE.sub(" ", normalized)
+    normalized = normalized.casefold()
+    return _WHITESPACE_RE.sub(" ", normalized).strip()
+
+
 # The only reason codes a mission's own ``delegation.grantCycle`` rule may
 # cover: hitting the cycle limit. Every other ``_block`` reason (a legitimate
 # reviewer verdict, the circuit breaker, an infrastructure failure escalating,
@@ -175,11 +225,14 @@ REVISION_CHECKS_FAILED = (
 
 def contains_sensitive_terms(text: str) -> bool:
     """Deterministic guard, independent of any model: a blocker or an
-    instruction that mentions a credential, a merge, production/deploy, or
-    billing is never answered by the responder, whatever it says."""
+    instruction that mentions a credential, a merge, production/deploy,
+    billing, external communication, or the repository's own governance
+    surface is never answered by the responder, whatever it says. Fails
+    closed: it normalizes first (``_normalize_for_guard``) and matches by
+    radical/regex, so it is not a plain substring check on ``lower()``."""
 
-    lowered = text.lower()
-    return any(term in lowered for term in SENSITIVE_TERMS)
+    normalized = _normalize_for_guard(text)
+    return any(pattern.search(normalized) for pattern in _SENSITIVE_PATTERNS)
 
 
 class SupervisorRefusal(ControlPlaneStateError):
@@ -536,7 +589,6 @@ class _Cycle:
 
         output = result.output or {}
         if not output.get("done") and output.get("blockers"):
-            self.store.record_verdict(run_id, verdict="blocked", at=self.now())
             return self._handle_worker_blockers(cycle, run_id, list(output["blockers"]), worktree)
         if result.permission_denials:
             # A denial is not a verdict: the diff may already satisfy every
@@ -946,7 +998,7 @@ class _Cycle:
         extra: Mapping[str, Any] | None = None,
     ) -> Step:
         self._open_pause_decision(kind, cycle, run_id, reason=reason, options=options, extra=extra)
-        return Step("paused", reason, cycle)
+        return Step(self._status(), reason, cycle)
 
     def _open_pause_decision(
         self,
@@ -957,8 +1009,20 @@ class _Cycle:
         reason: str,
         options: list[str],
         extra: Mapping[str, Any] | None = None,
-    ) -> str:
-        self.store.pause(self.mission_id, at=self.now())
+    ) -> str | None:
+        """Pause the mission, then open the decision — except a pause or a
+        cancel from outside (the founder, mid-call) may have already left it
+        ``paused``/``blocked`` (``open_decision`` still accepts those) or
+        terminal (``cancelled``): treated the same way the reviewer treats an
+        ``interrupted`` run, never by calling ``store.pause`` a second time
+        (PIP-906 review, achado 2 — that raised ``ControlPlaneStateError`` and
+        dropped the mission's own blocker). Returns ``None``, opening nothing,
+        when the mission is no longer live: there is nothing left to decide."""
+
+        if self._status() == "active":
+            self.store.pause(self.mission_id, at=self.now())
+        if self._status() not in {"paused", "blocked"}:
+            return None
         return self.store.open_decision(
             self.mission_id,
             kind=kind,
@@ -981,8 +1045,39 @@ class _Cycle:
         opened (mirroring ``_delegate_grant_cycle``'s pattern for
         ``grant_cycle``), so a delegated resolution leaves the same audit
         trail as a human one would; it is just resolved immediately when the
-        responder's answer is usable."""
+        responder's answer is usable.
 
+        The diff — not the worker's account of it — is checked against the
+        write set *before* the responder ever runs (PIP-906 review, achado
+        5): a worker that reported blockers after planting something outside
+        the write set (a ``.claude/settings.json`` with a hook, say) never
+        gets a responder started in that worktree; it takes the same
+        ``outside_write_set``/``needs_revision`` path a normal cycle would."""
+
+        base_ref = self.mission["workspace"]["baseRef"]
+        files = changed_files(worktree, base_ref)
+        outside = outside_write_set(files, self.mission["workspace"]["writeSet"])
+        if outside:
+            self.store.record_verification(
+                run_id,
+                passed=False,
+                at=self.now(),
+                extra={
+                    "diffFingerprint": diff_fingerprint(worktree, base_ref),
+                    "changedFiles": len(files),
+                    "outsideWriteSet": len(outside),
+                },
+            )
+            self.store.record_verdict(run_id, verdict="needs_revision", at=self.now())
+            listed = "\n".join(f"- {path}" for path in outside)
+            self._revise(
+                cycle,
+                "O diff anterior alterou arquivos fora do write set. Reverta estas mudanças "
+                f"(inclusive commits) e mexa só no write set:\n{listed}",
+            )
+            return self._needs_revision(cycle, run_id, "outside_write_set")
+
+        self.store.record_verdict(run_id, verdict="blocked", at=self.now())
         instructions = self._answer_blockers(cycle, blockers, worktree)
         decision_id = self._open_pause_decision(
             "clarification",
@@ -992,10 +1087,14 @@ class _Cycle:
             options=["pause", "retry"],
             extra={"blockers": len(blockers)},
         )
-        if instructions is not None and self._delegate_answer_blockers(decision_id, cycle, instructions):
+        if (
+            decision_id is not None
+            and instructions is not None
+            and self._delegate_answer_blockers(decision_id, cycle, instructions)
+        ):
             return Step("active", ANSWER_BLOCKERS_REASON, cycle)
         _save_revision(self.home, self.mission_id, cycle, REVISION_BLOCKERS)
-        return Step("paused", ANSWER_BLOCKERS_REASON, cycle)
+        return Step(self._status(), ANSWER_BLOCKERS_REASON, cycle)
 
     def _answer_blockers(self, cycle: int, blockers: list[str], worktree: Path) -> str | None:
         """The responder's instructions when they may be trusted, else

@@ -54,6 +54,13 @@ EXPECTED_DISALLOWED_TOOLS = [
     "Bash(wget *)", "WebFetch", "WebSearch",
 ]
 
+# The responder additionally denies `Read` of the machine's and the
+# project's own secrets by path (PIP-906 v2 review, achado 5): its
+# `instructions` reach the next worker's brief without going through review.
+EXPECTED_RESPONDER_DISALLOWED_TOOLS = EXPECTED_DISALLOWED_TOOLS + [
+    "Read(~/.ssh/**)", "Read(~/.claude/**)", "Read(**/.env)", "Read(**/.env.*)",
+]
+
 
 def read_pid(path: Path, *, timeout: float = 10.0) -> int:
     """Wait for a pid file written by a fake and return the pid."""
