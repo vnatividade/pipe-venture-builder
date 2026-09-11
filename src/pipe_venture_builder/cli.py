@@ -33,6 +33,7 @@ from .tickets.handoff import HandoffTemplateError, load_handoff_template
 from .tickets.matrix import BEGIN_MARKER, END_MARKER, emit_markdown_block
 from .idea import generate_idea_baseline, write_idea_baseline
 from .manifest import resolve_product_root, resolve_toolkit_root
+from .mission.cli import register_mission_commands
 from .validation import (
     invalid_baseline_error,
     load_json_document,
@@ -328,6 +329,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     handoff_render.add_argument("--json", action="store_true", dest="as_json")
     handoff_render.set_defaults(handler=_handle_handoff_render)
+
+    # Mission Loop (ticket A) — durable missions. Offline: no worker, no network here.
+    register_mission_commands(commands)
 
     return parser
 

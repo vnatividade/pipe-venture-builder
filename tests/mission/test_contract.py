@@ -45,6 +45,10 @@ class MissionContractTests(TestCase):
         second = build_mission(mission_input(), created_at=CREATED_AT)
         self.assertEqual(first["fingerprint"], second["fingerprint"])
         self.assertEqual(first["missionId"], second["missionId"])
+        later = build_mission(mission_input(), created_at="2026-09-11T00:00:00Z")
+        self.assertEqual(later["missionId"], first["missionId"], "id is content-only")
+        bumped = build_mission(mission_variant(version=2), created_at=CREATED_AT)
+        self.assertNotEqual(bumped["missionId"], first["missionId"])
 
         mutated = copy.deepcopy(first)
         mutated["status"] = "active"

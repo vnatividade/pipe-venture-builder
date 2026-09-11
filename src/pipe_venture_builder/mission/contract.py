@@ -131,17 +131,14 @@ def build_mission(
     document.setdefault("updatedAt", document["createdAt"])
 
     if "missionId" not in document:
-        # Identity binds the content to its creation instant, so two missions
-        # with the same text created at different times stay distinct.
+        # Identity is content-only, so re-creating the same document is
+        # idempotent; a genuinely new mission changes content or ``version``.
         core = {
             key: value
             for key, value in document.items()
             if key not in FINGERPRINT_EXCLUDED_FIELDS
         }
-        document["missionId"] = stable_id(
-            MISSION_ID_PREFIX,
-            {"core": fingerprint(core), "createdAt": document["createdAt"]},
-        )
+        document["missionId"] = stable_id(MISSION_ID_PREFIX, {"core": fingerprint(core)})
 
     supplied_fingerprint = document.pop("fingerprint", None)
     computed = mission_fingerprint(document)
