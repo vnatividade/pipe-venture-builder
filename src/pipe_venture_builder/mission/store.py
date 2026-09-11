@@ -90,10 +90,13 @@ DECISION_KINDS = frozenset(
     {"approval", "clarification", "escalation", "out_of_mission", "budget"}
 )
 DECISION_STATUSES = frozenset({"pending", "resolved"})
-# The only non-human source ``resolve_decision`` accepts, and only for an
-# ``escalation`` decision's ``grant_cycle`` option, covered by the mission's
-# own ``delegation.grantCycle`` rule (never merge, production, secrets,
-# external comms, billing, budget, or an ``out_of_mission`` verdict).
+# The only non-human source ``resolve_decision`` accepts, and only for one of
+# two narrowly-shaped decisions, each covered by its own rule in the mission's
+# own ``delegation`` (never merge, production, secrets, external comms,
+# billing, budget, or an ``out_of_mission`` verdict): an ``escalation``
+# decision's ``grant_cycle`` option (``delegation.grantCycle``), or a
+# ``clarification`` decision's ``retry`` option opened for a technical worker
+# blocker (``delegation.answerBlockers``).
 DELEGATED_ORCHESTRATOR_SOURCE = "delegated:orchestrator"
 DELEGATED_DECISION_KIND = "escalation"
 DELEGATED_DECISION_OPTION = "grant_cycle"
@@ -104,6 +107,14 @@ DELEGATED_RULE = "grantCycle"
 # delivery check…) is refused here even if the mission declares a rule and a
 # human never opened the decision this way.
 DELEGABLE_REASONS = frozenset({"max_cycles", "needs_revision_limit"})
+# The ``answerBlockers`` counterpart: a ``clarification`` decision opened for
+# a technical worker blocker, resolved with ``retry`` when the mission's own
+# ``delegation.answerBlockers`` rule covers it (never any other reason a
+# ``clarification`` decision might carry).
+DELEGATED_ANSWER_KIND = "clarification"
+DELEGATED_ANSWER_OPTION = "retry"
+ANSWER_BLOCKERS_RULE = "answerBlockers"
+ANSWER_BLOCKERS_REASONS = frozenset({"worker_blockers"})
 DELIVERY_EVENTS = frozenset(
     {"delivery.pr_opened", "delivery.checks_passed", "delivery.checks_failed"}
 )
@@ -707,8 +718,7 @@ class MissionStore:
             options = json.loads(decision["options_json"])
             if option not in options:
                 raise ControlPlaneContractError("decision option is not one of the options")
-            if delegated:
-                self._require_delegation_covers(decision, option)
+            rule_name = self._require_delegation_covers(decision, option) if delegated else None
             self._connection.execute(
                 """
                 UPDATE decisions
@@ -718,7 +728,7 @@ class MissionStore:
                 (decided_by, option, occurred_at, decision_id),
             )
             if delegated:
-                payload = {"decisionId": decision_id, "rule": DELEGATED_RULE}
+                payload = {"decisionId": decision_id, "rule": rule_name}
                 event_type = "decision.delegated"
             else:
                 payload = {
@@ -736,38 +746,54 @@ class MissionStore:
             )
         return self.get_decision(decision_id)
 
-    def _require_delegation_covers(self, decision: sqlite3.Row, option: str) -> None:
+    def _require_delegation_covers(self, decision: sqlite3.Row, option: str) -> str:
         """Only an ``escalation``/``grant_cycle`` decision the mission's own
-        ``delegation.grantCycle`` rule allows, within ``maxTimes`` and
-        ``maxCostFraction`` (accumulated cost / ``maxBudgetUsd``). Progress
-        (``requireProgress``) is a cycle-shaped question the caller — the
-        supervisor, which knows the cycle — must have already checked."""
+        ``delegation.grantCycle`` rule allows, or a ``clarification``/``retry``
+        decision its ``delegation.answerBlockers`` rule allows, each within
+        its own ``maxTimes`` (``grantCycle`` also within ``maxCostFraction``:
+        accumulated cost / ``maxBudgetUsd``). Progress (``requireProgress``)
+        is a cycle-shaped question the caller — the supervisor, which knows
+        the cycle — must have already checked. Returns the rule name that
+        covered the decision, for the ``decision.delegated`` payload."""
 
-        if decision["kind"] != DELEGATED_DECISION_KIND or option != DELEGATED_DECISION_OPTION:
+        if decision["kind"] == DELEGATED_DECISION_KIND and option == DELEGATED_DECISION_OPTION:
+            rule_name, allowed_reasons = DELEGATED_RULE, DELEGABLE_REASONS
+        elif decision["kind"] == DELEGATED_ANSWER_KIND and option == DELEGATED_ANSWER_OPTION:
+            rule_name, allowed_reasons = ANSWER_BLOCKERS_RULE, ANSWER_BLOCKERS_REASONS
+        else:
             raise ControlPlaneContractError(
-                "delegation only covers an escalation decision's grant_cycle option"
+                "delegation only covers an escalation decision's grant_cycle option or a "
+                "clarification decision's retry option"
             )
         context = json.loads(decision["context_json"])
-        if context.get("reason") not in DELEGABLE_REASONS:
+        if context.get("reason") not in allowed_reasons:
             raise ControlPlaneContractError(
                 "delegation does not cover this decision's reason"
             )
-        mission = json.loads(self._mission_row(decision["mission_id"])["document_json"])
-        rule = (mission.get("delegation") or {}).get(DELEGATED_RULE)
+        row = self._mission_row(decision["mission_id"])
+        # Inside this write's transaction: a mission the founder cancelled (or
+        # completed) never gets a delegated resolution recorded after the fact
+        # (PIP-906 review 4, achado 2).
+        if row["status"] not in {"active", "paused", "blocked"}:
+            raise ControlPlaneStateError("delegation requires a live mission")
+        mission = json.loads(row["document_json"])
+        rule = (mission.get("delegation") or {}).get(rule_name)
         if rule is None:
-            raise ControlPlaneContractError("mission has no grantCycle delegation rule")
+            raise ControlPlaneContractError(f"mission has no {rule_name} delegation rule")
         used = sum(
             1
             for event in self.list_events(decision["mission_id"])
             if event["eventType"] == "decision.delegated"
-            and event["payload"].get("rule") == DELEGATED_RULE
+            and event["payload"].get("rule") == rule_name
         )
         if used >= rule["maxTimes"]:
-            raise ControlPlaneStateError("delegation grantCycle maxTimes already used")
-        max_budget = mission["constraints"]["maxBudgetUsd"]
-        fraction = self.total_cost_usd(decision["mission_id"]) / max_budget if max_budget else 1.0
-        if fraction > rule["maxCostFraction"]:
-            raise ControlPlaneStateError("delegation grantCycle maxCostFraction exceeded")
+            raise ControlPlaneStateError("delegation maxTimes already used")
+        if rule_name == DELEGATED_RULE:
+            max_budget = mission["constraints"]["maxBudgetUsd"]
+            fraction = self.total_cost_usd(decision["mission_id"]) / max_budget if max_budget else 1.0
+            if fraction > rule["maxCostFraction"]:
+                raise ControlPlaneStateError("delegation grantCycle maxCostFraction exceeded")
+        return rule_name
 
     def get_decision(self, decision_id: str) -> dict[str, Any]:
         return _decision_as_dict(self._decision_row(decision_id))

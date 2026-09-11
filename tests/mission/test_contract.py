@@ -365,3 +365,61 @@ class MissionContractTests(TestCase):
                 mission_variant(schemaVersion="0.2.0", delegation={"grantCycle": good, "extra": 1}),
                 created_at=CREATED_AT,
             )
+
+    def test_answer_blockers_rejects_every_boundary_violation(self) -> None:
+        # PIP-906: mirrors test_grant_cycle_rejects_every_boundary_violation
+        # for the second delegation rule — if the schema-0.2.0-only check, the
+        # exact-key-set check, or the maxTimes bounds check is loosened, this
+        # is the test that notices.
+        bad_answer_blockers = {
+            "maxTimes 0": {"maxTimes": 0},
+            "maxTimes 4": {"maxTimes": 4},
+            "maxTimes bool": {"maxTimes": True},
+            "maxTimes non-integer": {"maxTimes": 1.5},
+            "empty": {},
+            "extra key": {"maxTimes": 1, "extra": 1},
+            "unknown key instead": {"limit": 1},
+        }
+        for label, rule in bad_answer_blockers.items():
+            with self.subTest(label):
+                with self.assertRaises(ControlPlaneContractError):
+                    build_mission(
+                        mission_variant(schemaVersion="0.2.0", delegation={"answerBlockers": rule}),
+                        created_at=CREATED_AT,
+                    )
+        # The boundaries themselves (1 and 3) must be accepted.
+        for max_times in (1, 3):
+            build_mission(
+                mission_variant(
+                    schemaVersion="0.2.0", delegation={"answerBlockers": {"maxTimes": max_times}}
+                ),
+                created_at=CREATED_AT,
+            )
+        with self.assertRaisesRegex(ControlPlaneContractError, "requires schema 0.2.0"):
+            build_mission(
+                mission_variant(
+                    schemaVersion="0.1.0", delegation={"answerBlockers": {"maxTimes": 1}}
+                ),
+                created_at=CREATED_AT,
+            )
+
+    def test_delegation_accepts_grant_cycle_and_answer_blockers_together_or_alone(self) -> None:
+        grant_cycle = {"maxTimes": 1, "maxCostFraction": 0.5, "requireProgress": True}
+        answer_blockers = {"maxTimes": 2}
+        only_answer = build_mission(
+            mission_variant(schemaVersion="0.2.0", delegation={"answerBlockers": answer_blockers}),
+            created_at=CREATED_AT,
+        )
+        self.assertEqual(only_answer["delegation"], {"answerBlockers": answer_blockers})
+        both = build_mission(
+            mission_variant(
+                schemaVersion="0.2.0",
+                delegation={"grantCycle": grant_cycle, "answerBlockers": answer_blockers},
+            ),
+            created_at=CREATED_AT,
+        )
+        self.assertEqual(both["delegation"], {"grantCycle": grant_cycle, "answerBlockers": answer_blockers})
+        with self.assertRaises(ControlPlaneContractError):
+            build_mission(
+                mission_variant(schemaVersion="0.2.0", delegation={}), created_at=CREATED_AT
+            )

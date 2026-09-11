@@ -90,6 +90,9 @@ CRITERION_FIELDS = {
 GRANT_CYCLE_FIELDS = frozenset({"maxTimes", "maxCostFraction", "requireProgress"})
 MAX_GRANT_CYCLE_TIMES = 3
 MAX_GRANT_CYCLE_COST_FRACTION = 0.8
+DELEGATION_FIELDS = frozenset({"grantCycle", "answerBlockers"})
+ANSWER_BLOCKERS_FIELDS = frozenset({"maxTimes"})
+MAX_ANSWER_BLOCKERS_TIMES = 3
 
 MAX_DOCUMENT_BYTES = 64 * 1024
 MAX_TITLE_CHARS = 200
@@ -282,16 +285,24 @@ def _validate_criteria(criteria: Any) -> None:
 
 def _validate_delegation(value: Any, schema_version: str) -> None:
     """``None`` (v0.1.0 missions and most v0.2.0 ones) is always valid; a
-    ``grantCycle`` rule is a v0.2.0-only, narrowly-shaped opt-in (§ resolve_decision
-    in store.py enforces ``maxTimes``/``maxCostFraction`` at grant time)."""
+    ``grantCycle`` and/or ``answerBlockers`` rule is a v0.2.0-only,
+    narrowly-shaped opt-in (§ resolve_decision in store.py enforces each
+    rule's ``maxTimes``, and ``grantCycle``'s ``maxCostFraction``, at grant
+    time). At least one of the two keys must be present; no other key is."""
 
     if value is None:
         return
     if schema_version != DELEGATION_SCHEMA_VERSION:
         raise ControlPlaneContractError("mission delegation requires schema 0.2.0")
-    if not isinstance(value, Mapping) or set(value) != {"grantCycle"}:
+    if not isinstance(value, Mapping) or not value or not set(value) <= DELEGATION_FIELDS:
         raise ControlPlaneContractError("mission delegation is invalid")
-    grant_cycle = value["grantCycle"]
+    if "grantCycle" in value:
+        _validate_grant_cycle(value["grantCycle"])
+    if "answerBlockers" in value:
+        _validate_answer_blockers(value["answerBlockers"])
+
+
+def _validate_grant_cycle(grant_cycle: Any) -> None:
     if not isinstance(grant_cycle, Mapping) or set(grant_cycle) != GRANT_CYCLE_FIELDS:
         raise ControlPlaneContractError("mission delegation grantCycle is invalid")
     max_times = grant_cycle["maxTimes"]
@@ -311,6 +322,18 @@ def _validate_delegation(value: Any, schema_version: str) -> None:
         raise ControlPlaneContractError("delegation grantCycle maxCostFraction is out of range")
     if not isinstance(grant_cycle["requireProgress"], bool):
         raise ControlPlaneContractError("delegation grantCycle requireProgress must be boolean")
+
+
+def _validate_answer_blockers(rule: Any) -> None:
+    if not isinstance(rule, Mapping) or set(rule) != ANSWER_BLOCKERS_FIELDS:
+        raise ControlPlaneContractError("mission delegation answerBlockers is invalid")
+    max_times = rule["maxTimes"]
+    if (
+        isinstance(max_times, bool)
+        or not isinstance(max_times, int)
+        or not (1 <= max_times <= MAX_ANSWER_BLOCKERS_TIMES)
+    ):
+        raise ControlPlaneContractError("delegation answerBlockers maxTimes is out of range")
 
 
 def _validate_constraints(constraints: Any) -> None:

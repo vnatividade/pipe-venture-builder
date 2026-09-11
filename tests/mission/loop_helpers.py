@@ -54,6 +54,16 @@ EXPECTED_DISALLOWED_TOOLS = [
     "Bash(wget *)", "WebFetch", "WebSearch",
 ]
 
+# The responder additionally denies `Read` of the machine's and the
+# project's own secrets by path (PIP-906 v2 review, achado 5): its
+# `instructions` reach the next worker's brief without going through review.
+EXPECTED_RESPONDER_DISALLOWED_TOOLS = EXPECTED_DISALLOWED_TOOLS + [
+    "Read(~/.ssh/**)", "Read(~/.claude/**)", "Read(~/.aws/**)", "Read(~/.config/gh/**)",
+    "Read(~/.netrc)", "Read(~/.npmrc)", "Read(~/.pypirc)", "Read(~/.config/**)", "Read(~/.railway/**)",
+    "Read(~/.codex/**)", "Read(~/.docker/**)", "Read(~/.supabase/**)", "Read(~/.kube/**)", "Read(~/.gnupg/**)",
+    "Read(~/Library/Keychains/**)", "Read(//**/.env)", "Read(//**/.env.*)",
+]
+
 
 def read_pid(path: Path, *, timeout: float = 10.0) -> int:
     """Wait for a pid file written by a fake and return the pid."""
@@ -213,9 +223,16 @@ class FakeBinaries:
         self.gh_log = self.gh_state / "gh.log"
         self._previous_env: dict[str, str | None] = {}
 
-    def scenario(self, *, worker: list[dict] | None = None, reviewer: list[dict] | None = None) -> None:
+    def scenario(
+        self,
+        *,
+        worker: list[dict] | None = None,
+        reviewer: list[dict] | None = None,
+        responder: list[dict] | None = None,
+    ) -> None:
         self.scenario_path.write_text(
-            json.dumps({"worker": worker or [], "reviewer": reviewer or []}), encoding="utf-8"
+            json.dumps({"worker": worker or [], "reviewer": reviewer or [], "responder": responder or []}),
+            encoding="utf-8",
         )
         for counter in self.dir.glob("*.count"):
             counter.unlink()
