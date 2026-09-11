@@ -33,8 +33,9 @@ DEFAULT_REVIEW_TIMEOUT_SECONDS = 900.0
 MAX_DIFF_CHARS = 200_000
 VERDICTS = ("satisfied", "needs_revision", "out_of_mission", "blocked")
 
+# Sem "$schema": o validador do claude 2.1.267 recusa a URI draft 2020-12 e o
+# run morre antes da sessão (medido na demo real de 11/09).
 VERDICT_SCHEMA: dict[str, Any] = {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "additionalProperties": False,
     "required": ["verdict", "criteria", "reasons"],

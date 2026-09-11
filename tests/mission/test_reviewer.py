@@ -75,6 +75,16 @@ class PromptAndCommandTests(TestCase):
 
 
 class VerdictParsingTests(TestCase):
+    def test_schema_passed_to_cli_has_no_meta_schema_uri(self) -> None:
+        # Medido com o CLI real 2.1.267 na demo de 11/09: um "$schema" draft
+        # 2020-12 faz o claude recusar o --json-schema ("no schema with key or
+        # ref ...") e sair em 1 s, sem sessão; o revisor virava "blocked".
+        command = reviewer_command("p", claude_bin="claude", budget_left=1.5)
+        schema = json.loads(command[command.index("--json-schema") + 1])
+        self.assertNotIn("$schema", schema)
+        self.assertNotIn("$schema", VERDICT_SCHEMA)
+        self.assertEqual(schema["required"], ["verdict", "criteria", "reasons"])
+
     def test_parse_verdict_prefers_structured_output_then_result_text(self) -> None:
         verdict = satisfied_verdict(revisionInstructions="none")
         parsed = parse_verdict(verdict, None)
