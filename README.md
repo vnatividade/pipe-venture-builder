@@ -51,7 +51,7 @@ See [setup/operating-manual.md](setup/operating-manual.md) for the operating man
 
 ## CLI Foundation
 
-The first executable, read-only CLI slice is documented in [docs/cli/README.md](docs/cli/README.md). With Python 3.11+, it provides installation, version reporting, Pipe root discovery, and canonical ProductBaseline validation. The `idea`, `adopt`, bootstrap/doctor, connector, reconciliation, Hermes, and Atelier runtime work remains explicitly assigned to PIP-707 through PIP-715.
+The portable CLI is documented in [docs/cli/README.md](docs/cli/README.md). With Python 3.11+, `pipe` provides installation, version reporting, Pipe root discovery, canonical ProductBaseline validation, and the executable `idea`, `adopt`, `bootstrap`, `doctor`, and `reconcile plan` commands (see `src/pipe_venture_builder/cli.py`). A Hermes probe/session adapter exists at `python -m pipe_venture_builder.adapters.hermes` (see `docs/hermes/operator-runbook.md`). A persistent, always-on runtime and the Atelier runtime are still open, not yet implemented.
 
 ## When Not To Proceed
 
@@ -120,4 +120,4 @@ Human approval is required in every mode before:
 
 ## Current Status
 
-The declarative governance layer, command catalog, agent contracts, operating modes, capability registry, and core schemas are in place. The dual-entry architecture and `ProductBaseline` contract are specified. A portable CLI foundation now implements version reporting, project-root discovery, and ProductBaseline validation; executable `idea`/`adopt`, portable bootstrap/doctor, reconciliation adapters, and a persistent runtime remain follow-up implementation work.
+The declarative governance layer, command catalog, agent contracts, operating modes, capability registry, and core schemas are in place. The dual-entry architecture and `ProductBaseline` contract are specified. A portable CLI foundation now implements version reporting, project-root discovery, ProductBaseline validation, and the executable `idea`, `adopt`, `bootstrap`, `doctor`, and `reconcile plan` commands; a persistent, always-on runtime and the Atelier runtime are still open, not yet implemented.

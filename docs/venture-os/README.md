@@ -23,7 +23,7 @@ node runtime/cli/pipe-os.mjs resume --project minha-ideia
 ## Como testar
 
 ```bash
-node --test "runtime/tests/*.test.mjs"    # 34 testes (unitários + integração + E2E + falhas)
+node --test "runtime/tests/*.test.mjs"    # 59 testes (unitários + integração + E2E + falhas), ver docs/venture-os/testing.md
 ```
 
 ## Como inspecionar estado

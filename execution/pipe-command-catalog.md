@@ -4,7 +4,9 @@
 
 This catalog defines the spec-only `/pipe:*` command map for Pipe Venture Builder.
 
-The commands are not executable slash commands, CLI commands, MCP tools, automations, or agent-dispatch instructions. They are stable operating contracts that future agents can use to understand the expected stage, inputs, outputs, routing, stop conditions, and next step.
+The `/pipe:*` commands documented here are not executable slash commands, MCP tools, automations, or agent-dispatch instructions. They are stable operating contracts that future agents can use to understand the expected stage, inputs, outputs, routing, stop conditions, and next step.
+
+This is distinct from the portable `pipe` CLI, which does now implement executable `pipe idea` and `pipe adopt` subcommands (see `src/pipe_venture_builder/cli.py` and `docs/cli/README.md`) that generate a `ProductBaseline`. The CLI commands are a narrower, mechanical generator; the `/pipe:*` contracts in this catalog cover the full founder-facing planning stage (framing, discovery, gates, routing) that the CLI does not implement.
 
 Use this catalog with:
 
@@ -648,7 +650,7 @@ For this catalog ticket, validation should confirm:
 - every command has GO and NO-GO conditions
 - every command has expected outputs
 - commands are explicitly spec-only
-- no CLI, MCP, executable slash command, automation, or runtime integration is introduced
+- no new MCP tool, executable slash command, automation, or runtime integration is introduced by this catalog (the existing `pipe idea`/`pipe adopt` CLI subcommands are out of scope for this ticket and unaffected)
 - the paper walkthrough reaches LearningRecord or a no-learning note without skipping validation gates
 
 ## Future Ticket Hooks

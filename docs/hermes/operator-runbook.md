@@ -8,7 +8,7 @@ From the versioned Pipe toolkit environment:
 python -m pipe_venture_builder.adapters.hermes probe
 ```
 
-The probe invokes only `hermes --version`, without a shell and with a minimal environment. Expected result for the validated local installation:
+The probe invokes only `hermes --version`, without a shell and with a minimal environment. Expected result once a compatible Hermes 0.17+ binary is on `PATH` (this repository does not assert that such an installation has been validated on any given machine — run the probe yourself and read its output):
 
 ```json
 {"available":true,"command":"hermes","compatible":true,"reason":null,"version":"0.17.0"}
