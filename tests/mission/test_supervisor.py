@@ -27,6 +27,7 @@ from pipe_venture_builder.mission.supervisor import (
     run_once,
     supervise,
 )
+from pipe_venture_builder.mission.worker import allowed_tools
 from tests.mission.loop_helpers import (
     GOOD_FILES,
     WORKER_SENTINEL,
@@ -334,6 +335,24 @@ class FailureF6BudgetTests(SupervisorTestCase):
         argv = h.calls("worker")[0]["argv"]
         self.assertEqual(flags(argv)["--max-budget-usd"], "2.50")
 
+    def test_f6_an_expensive_reviewer_makes_the_next_dispatch_hit_the_budget(self) -> None:
+        # M5: with only the worker's cost counted, 6 - 0.5 - 1.5 = 4.0 would
+        # dispatch cycle 2; with the reviewer's 3.0 it is 1.0 < 1.5.
+        constraints = dict(loop_mission(Path("/tmp"))["constraints"], maxBudgetUsd=6)
+        h = self.harness(constraints=constraints)
+        h.fakes.scenario(
+            worker=[good_worker(result={"total_cost_usd": 0.5}),
+                    {"write_files": {"README.md": "# Demo\n\npipe idea v2\n"}, "worker_output": good_worker_output()}],
+            reviewer=[{"structured_output": needs_revision_verdict(), "result": {"total_cost_usd": 3.0}}],
+        )
+        step = h.supervise()
+        self.assertEqual((step.status, step.reason), ("blocked", "budget_reached"))
+        self.assertEqual(len(h.calls("worker")), 1, "the reviewer's cost counts against the budget")
+        self.assertEqual(len(h.calls("reviewer")), 1)
+        self.assertAlmostEqual(h.store.total_cost_usd(h.mission_id), 3.5)
+        [decision] = h.store.pending_decisions(h.mission_id)
+        self.assertEqual(decision["kind"], "budget")
+
     def test_f6_budget_exhausted_by_the_worker_blocks_before_the_reviewer(self) -> None:
         constraints = dict(loop_mission(Path("/tmp"))["constraints"], maxBudgetUsd=4)
         h = self.harness(constraints=constraints)
@@ -446,24 +465,56 @@ class AntiLoopGuardTests(SupervisorTestCase):
         self.assertEqual(decision["safeDefault"], "pause")
         self.assertEqual(h.calls("reviewer"), [])
 
-    def test_permission_denials_route_to_needs_revision_with_instruction(self) -> None:
+    DENIALS = {"permission_denials": [
+        {"tool_name": "WebFetch", "tool_input": {"url": "https://example.invalid"}},
+        {"tool_name": "Bash", "tool_input": {"command": "npm test"}}]}
+
+    def test_permission_denials_are_not_a_verdict_the_cycle_is_verified_and_reviewed(self) -> None:
+        # Demo MSN-4a06360ef387: the worker did the right work but was denied
+        # `ls`/`node --test`; the old shortcut burned cycles 2 and 3.
         h = self.harness()
-        h.fakes.scenario(worker=[good_worker(result={"permission_denials": [
-            {"tool_name": "WebFetch", "tool_input": {"url": "https://example.invalid"}},
-            {"tool_name": "Bash", "tool_input": {"command": "npm test"}}]}),
-            good_worker()], reviewer=[{"structured_output": satisfied_verdict()}])
+        h.fakes.scenario(worker=[good_worker(result=self.DENIALS)],
+                         reviewer=[{"structured_output": satisfied_verdict()}])
         step = h.run_once()
-        self.assertEqual((step.status, step.reason), ("active", "permission_denied"))
-        self.assertEqual(h.payloads("run.collected")[0]["permissionDenials"], 2)
-        self.assertEqual(h.events()[-1], "review.needs_revision")
-        self.assertEqual(h.calls("reviewer"), [])
+        self.assertEqual((step.status, step.reason), ("completed", "completed"))
+        self.assertEqual(h.payloads("run.collected")[0]["permissionDenials"], 2,
+                         "the count is still recorded")
+        self.assertEqual(len(h.calls("reviewer")), 1)
+        self.assertEqual(len(h.calls("worker")), 1)
+        self.assertFalse((h.home / h.mission_id / "revisions" / "cycle-1.md").exists(),
+                         "no revision file when the cycle does not need revision")
+
+    def test_permission_denials_reach_the_revision_only_when_the_cycle_needs_revision(self) -> None:
+        h = self.harness()
+        h.fakes.scenario(
+            worker=[good_worker(result=self.DENIALS),
+                    {"write_files": {"README.md": "# Demo\n\npipe idea exists (v2)\n"},
+                     "worker_output": good_worker_output()}],
+            reviewer=[{"structured_output": needs_revision_verdict(f"Primeira: {REVIEWER_SENTINEL}")},
+                      {"structured_output": satisfied_verdict()}],
+        )
         step = h.run_once()
+        self.assertEqual((step.status, step.reason), ("active", "review_needs_revision"))
+        self.assertEqual(len(h.calls("reviewer")), 1, "the reviewer judged the cycle despite the denials")
+        step = h.run_once()
+        self.assertEqual(step.status, "completed")
         brief = h.calls("worker")[1]["argv"][1]
+        self.assertIn(f"Primeira: {REVIEWER_SENTINEL}", brief, "the reviewer instructions come first")
         self.assertIn("- WebFetch", brief)
         self.assertIn("- Bash(npm test)", brief, "the denied call is named, not the whole tool")
-        self.assertIn("Bash(git *)", brief, "the allowed tools are listed")
+        self.assertIn(f"Ferramentas permitidas: {allowed_tools(h.mission)}", brief,
+                      "the allowed tools are listed")
         self.assertIn("negada", brief)
-        self.assertEqual(step.status, "completed")
+
+    def test_permission_denials_are_appended_to_a_failed_criteria_revision(self) -> None:
+        h = self.harness()
+        h.fakes.scenario(worker=[{"write_files": {"docs/guide.md": "pipe idea\n"},
+                                  "worker_output": good_worker_output(), "result": self.DENIALS}])
+        step = h.run_once()
+        self.assertEqual((step.status, step.reason), ("active", "criteria_failed"))
+        revision = (h.home / h.mission_id / "revisions" / "cycle-1.md").read_text(encoding="utf-8")
+        self.assertIn("C1", revision)
+        self.assertIn("- Bash(npm test)", revision)
 
 
 class DeliveryTests(SupervisorTestCase):

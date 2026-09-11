@@ -320,6 +320,8 @@ class _Cycle:
         self.stop: threading.Event = options["stop_event"]
         self.mission: dict[str, Any] = {}
         self._process: ClaudeProcess | None = None
+        # Denied worker calls of this cycle (in memory only; see ``_revise``).
+        self._denials: str | None = None
 
     # -- entry --------------------------------------------------------------
 
@@ -444,18 +446,16 @@ class _Cycle:
                 extra={"blockers": len(output["blockers"])},
             )
         if result.permission_denials:
-            self.store.record_verdict(run_id, verdict="needs_revision", at=self.now())
+            # A denial is not a verdict: the diff may already satisfy every
+            # criterion. It only reaches the next brief if this cycle ends in
+            # ``needs_revision`` (see ``_revise``); the count is in the event.
             denied = "\n".join(f"- {call}" for call in sorted(set(result.denied_calls))) or "- (não identificada)"
-            _save_revision(
-                self.home,
-                self.mission_id,
-                cycle,
+            self._denials = (
                 "Estas chamadas foram negadas pelas permissões da missão; não as repita:\n"
                 f"{denied}\n"
                 f"Ferramentas permitidas: {allowed_tools(self.mission)}. "
-                "Cumpra os critérios só com elas.",
+                "Cumpra os critérios só com elas."
             )
-            return self._needs_revision(cycle, run_id, "permission_denied")
         return self._verify_and_review(cycle, run_id, worktree)
 
     # -- verify + review ----------------------------------------------------
@@ -482,9 +482,7 @@ class _Cycle:
             self.store.record_verification(worker_run, passed=False, at=self.now(), extra=facts)
             self.store.record_verdict(worker_run, verdict="needs_revision", at=self.now())
             listed = "\n".join(f"- {path}" for path in outside)
-            _save_revision(
-                self.home,
-                self.mission_id,
+            self._revise(
                 cycle,
                 "O diff anterior alterou arquivos fora do write set. Reverta estas mudanças "
                 f"(inclusive commits) e mexa só no write set:\n{listed}",
@@ -520,11 +518,8 @@ class _Cycle:
                     else f"`{criterion['path']}` ausente ou sem casar o padrão"
                 )
                 lines.append(f"- {item.id}: {detail}")
-            _save_revision(
-                self.home,
-                self.mission_id,
-                cycle,
-                "A verificação determinística reprovou estes critérios:\n" + "\n".join(lines),
+            self._revise(
+                cycle, "A verificação determinística reprovou estes critérios:\n" + "\n".join(lines)
             )
             return self._needs_revision(cycle, worker_run, "criteria_failed")
         return self._review(cycle, worker_run, worktree)
@@ -608,12 +603,7 @@ class _Cycle:
         if verdict == "satisfied":
             return self._deliver(cycle, worker_run, worktree)
         if verdict == "needs_revision":
-            _save_revision(
-                self.home,
-                self.mission_id,
-                cycle,
-                review.revision_instructions or REVISION_REVIEW_DEFAULT,
-            )
+            self._revise(cycle, review.revision_instructions or REVISION_REVIEW_DEFAULT)
             return self._needs_revision(cycle, review_run, "review_needs_revision")
         if verdict == "out_of_mission":
             _save_revision(
@@ -676,7 +666,7 @@ class _Cycle:
                 )
                 if worker_run is not None:
                     self.store.record_verdict(worker_run, verdict="needs_revision", at=self.now())
-                _save_revision(self.home, self.mission_id, cycle, REVISION_CHECKS_FAILED)
+                self._revise(cycle, REVISION_CHECKS_FAILED)
                 if cycle >= self._max_cycles():
                     return self._block("delivery_checks_failed", cycle, worker_run)
                 return Step("active", "checks_failed", cycle)
@@ -693,6 +683,14 @@ class _Cycle:
         return Step("completed", "completed", cycle)
 
     # -- routing helpers ----------------------------------------------------
+
+    def _revise(self, cycle: int, instructions: str) -> None:
+        """The next cycle's instructions; this cycle's denied calls go after them."""
+
+        text = instructions.strip()
+        if self._denials:
+            text += "\n\n" + self._denials
+        _save_revision(self.home, self.mission_id, cycle, text)
 
     def _needs_revision(self, cycle: int, run_id: str, reason: str) -> Step:
         if cycle >= self._max_cycles():
