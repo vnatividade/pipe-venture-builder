@@ -1,0 +1,238 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pipe-venture-builder.local/schemas/Mission.schema.json",
+  "title": "Mission",
+  "description": "Durable, versioned, fingerprinted mission for the Mission Loop. Every success criterion has a verifiable shape; absolute gates (production, secrets, external communications, billing) are fixed closed; the write set is repository-relative and cannot escape the repository. The contract enforced in code lives in src/pipe_venture_builder/mission/contract.py; this schema mirrors it.",
+  "x-pipe-schema-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "missionId",
+    "version",
+    "supersedes",
+    "title",
+    "intent",
+    "problem",
+    "who",
+    "successCriteria",
+    "nonGoals",
+    "delegable",
+    "reservedToHuman",
+    "constraints",
+    "workspace",
+    "delivery",
+    "linearTicketIds",
+    "status",
+    "createdAt",
+    "updatedAt",
+    "fingerprint"
+  ],
+  "properties": {
+    "schemaVersion": { "type": "string", "const": "0.1.0" },
+    "missionId": { "$ref": "#/$defs/missionId" },
+    "version": { "type": "integer", "minimum": 1 },
+    "supersedes": {
+      "oneOf": [{ "$ref": "#/$defs/missionId" }, { "type": "null" }]
+    },
+    "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "intent": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "problem": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "who": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "successCriteria": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": { "$ref": "#/$defs/successCriterion" }
+    },
+    "nonGoals": { "$ref": "#/$defs/textList" },
+    "delegable": { "$ref": "#/$defs/textList" },
+    "reservedToHuman": { "$ref": "#/$defs/textList" },
+    "constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maxCycles",
+        "maxBudgetUsd",
+        "maxTurnsPerRun",
+        "productionAllowed",
+        "secretsAllowed",
+        "externalCommsAllowed",
+        "billingAllowed"
+      ],
+      "properties": {
+        "maxCycles": { "type": "integer", "minimum": 1 },
+        "maxBudgetUsd": { "type": "number", "exclusiveMinimum": 0 },
+        "maxTurnsPerRun": { "type": "integer", "minimum": 1 },
+        "productionAllowed": { "const": false },
+        "secretsAllowed": { "const": false },
+        "externalCommsAllowed": { "const": false },
+        "billingAllowed": { "const": false }
+      }
+    },
+    "workspace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repo", "baseRef", "writeSet"],
+      "properties": {
+        "repo": { "type": "string", "pattern": "^/(?!.*(^|/)\\.\\.(/|$)).*$", "maxLength": 1024 },
+        "baseRef": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,255}$" },
+        "writeSet": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/relativePath" }
+        }
+      }
+    },
+    "delivery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "requireChecks"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["none", "pull_request"] },
+        "requireChecks": { "type": "boolean" }
+      }
+    },
+    "linearTicketIds": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9]{0,15}-[0-9]{1,9}$" }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "active", "paused", "blocked", "completed", "cancelled", "unknown"]
+    },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "fingerprint": { "$ref": "#/$defs/fingerprint" }
+  },
+  "$defs": {
+    "missionId": { "type": "string", "pattern": "^MSN-[a-f0-9]{12}$" },
+    "fingerprint": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "textList": {
+      "type": "array",
+      "maxItems": 64,
+      "items": { "type": "string", "minLength": 1, "maxLength": 1000 }
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^(?!/)(?!~)(?!\\.$)(?!.*(^|/)\\.\\.(/|$))[^\\\\\\u0000]+$"
+    },
+    "criterionBase": {
+      "type": "object",
+      "required": ["id", "text", "kind"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" },
+        "text": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "kind": { "type": "string", "enum": ["check", "artifact", "rubric"] }
+      }
+    },
+    "successCriterion": {
+      "allOf": [{ "$ref": "#/$defs/criterionBase" }],
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "text", "kind", "command"],
+          "properties": {
+            "id": true,
+            "text": true,
+            "kind": { "const": "check" },
+            "command": { "type": "string", "minLength": 1, "maxLength": 2000 },
+            "cwd": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": "^(?!/)(?!~)(?!.*(^|/)\\.\\.(/|$))[^\\\\\\u0000]+$"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "text", "kind", "path"],
+          "properties": {
+            "id": true,
+            "text": true,
+            "kind": { "const": "artifact" },
+            "path": { "$ref": "#/$defs/relativePath" },
+            "mustMatch": { "type": "string", "minLength": 1, "maxLength": 500 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "text", "kind", "question"],
+          "properties": {
+            "id": true,
+            "text": true,
+            "kind": { "const": "rubric" },
+            "question": { "type": "string", "minLength": 1, "maxLength": 1000 }
+          }
+        }
+      ]
+    }
+  },
+  "examples": [
+    {
+      "schemaVersion": "0.1.0",
+      "missionId": "MSN-000000000000",
+      "version": 1,
+      "supersedes": null,
+      "title": "Docs param de contradizer o codigo",
+      "intent": "As docs do Pipe descrevem o que o codigo faz hoje.",
+      "problem": "README e catalogo dizem que nao ha CLI.",
+      "who": "Fundador e agentes que leem o repositorio.",
+      "successCriteria": [
+        {
+          "id": "C1",
+          "text": "README nao diz que idea/adopt sao follow-up",
+          "kind": "check",
+          "command": "! grep -n 'remain follow-up' README.md",
+          "cwd": "."
+        },
+        {
+          "id": "C2",
+          "text": "catalogo de comandos cita o CLI",
+          "kind": "artifact",
+          "path": "execution/pipe-command-catalog.md",
+          "mustMatch": "pipe (idea|adopt)"
+        },
+        {
+          "id": "C3",
+          "text": "texto novo afirma so o que o codigo mostra",
+          "kind": "rubric",
+          "question": "O texto novo afirma apenas o que o codigo mostra?"
+        }
+      ],
+      "nonGoals": ["Alterar CLAUDE.md ou AGENTS.md"],
+      "delegable": ["Editar os arquivos Markdown do write set"],
+      "reservedToHuman": ["Merge do PR"],
+      "constraints": {
+        "maxCycles": 3,
+        "maxBudgetUsd": 15,
+        "maxTurnsPerRun": 60,
+        "productionAllowed": false,
+        "secretsAllowed": false,
+        "externalCommsAllowed": false,
+        "billingAllowed": false
+      },
+      "workspace": {
+        "repo": "/abs/path/to/repo",
+        "baseRef": "origin/main",
+        "writeSet": ["README.md", "execution/pipe-command-catalog.md"]
+      },
+      "delivery": { "kind": "pull_request", "requireChecks": true },
+      "linearTicketIds": ["PIP-901"],
+      "status": "draft",
+      "createdAt": "2026-09-10T22:00:00Z",
+      "updatedAt": "2026-09-10T22:00:00Z",
+      "fingerprint": "sha256:aee890af7573657f8080b554f481195b0915e8878075d63e61d306bbeb42ce8b"
+    }
+  ]
+}
