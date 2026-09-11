@@ -646,6 +646,67 @@ class DeliveryTests(SupervisorTestCase):
         with self.assertRaises(ControlPlaneStateError):
             h.store.complete(h.mission_id)
 
+    def assert_nothing_delivered(self, h: Harness, base: str) -> None:
+        self.assertEqual([call for call in h.fakes.gh_calls() if call[:2] == ["pr", "create"]], [], "no PR")
+        self.assertEqual(git(h.repo, "ls-remote", "--heads", "origin", branch_name(h.mission)), "", "no push")
+        self.assertNotIn("delivery.pr_opened", h.events())
+        self.assertNotIn("mission.completed", h.events())
+
+    def test_delivery_refuses_a_head_that_left_the_mission_branch(self) -> None:
+        # B4: something moved HEAD to another branch after the review.
+        h = self.pr_harness()
+        h.fakes.scenario(worker=[good_worker()],
+                         reviewer=[{"structured_output": satisfied_verdict(), "git_checkout": "other"}])
+        base = git(h.repo, "rev-parse", "main").strip()
+        step = h.run_once()
+        self.assertEqual((step.status, step.reason), ("blocked", "branch_mismatch"))
+        self.assert_nothing_delivered(h, base)
+        [decision] = h.store.pending_decisions(h.mission_id)
+        self.assertEqual((decision["kind"], decision["safeDefault"]), ("escalation", "stop"))
+
+    def test_verification_refuses_a_head_that_left_the_mission_branch(self) -> None:
+        h = self.pr_harness()
+        h.fakes.scenario(worker=[good_worker(git_checkout="other")],
+                         reviewer=[{"structured_output": satisfied_verdict()}])
+        step = h.run_once()
+        self.assertEqual((step.status, step.reason), ("blocked", "branch_mismatch"))
+        self.assertEqual(h.calls("reviewer"), [])
+
+    def test_delivery_rechecks_the_write_set_before_committing(self) -> None:
+        # B4: the reviewer ran, then a file outside the write set appeared
+        # (a resume at the ``deliver`` stage used to ``git add -A`` it).
+        h = self.pr_harness()
+        h.fakes.scenario(worker=[good_worker()],
+                         reviewer=[{"structured_output": satisfied_verdict(),
+                                    "write_files": {"docs/extra.md": "out of scope\n"}}])
+        base = git(h.repo, "rev-parse", "main").strip()
+        step = h.run_once()
+        self.assertEqual((step.status, step.reason), ("blocked", "delivery_outside_write_set"))
+        worktree = worktree_path(h.mission_id, h.home)
+        self.assertEqual(git(worktree, "rev-parse", "HEAD").strip(), base, "no supervisor commit")
+        self.assert_nothing_delivered(h, base)
+
+    def test_delivery_rechecks_the_write_set_before_pushing(self) -> None:
+        from pipe_venture_builder.mission import supervisor as module
+
+        h = self.pr_harness()
+        h.fakes.scenario(worker=[good_worker()], reviewer=[{"structured_output": satisfied_verdict()}])
+        real_commit = module.commit_if_needed
+
+        def commit_then_something_writes(worktree, message):
+            committed = real_commit(worktree, message)
+            (Path(worktree) / "docs" / "late.md").write_text("late\n", encoding="utf-8")
+            return committed
+
+        module.commit_if_needed = commit_then_something_writes
+        try:
+            base = git(h.repo, "rev-parse", "main").strip()
+            step = h.run_once()
+        finally:
+            module.commit_if_needed = real_commit
+        self.assertEqual((step.status, step.reason), ("blocked", "delivery_outside_write_set"))
+        self.assert_nothing_delivered(h, base)
+
     def test_checks_that_never_report_block_after_the_polling_cap(self) -> None:
         h = self.pr_harness()
         h.fakes.scenario(worker=[good_worker()], reviewer=[{"structured_output": satisfied_verdict()}])

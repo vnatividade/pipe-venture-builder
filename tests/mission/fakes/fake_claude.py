@@ -10,6 +10,7 @@ Environment:
                           structured_output (reviewer verdict), write_files ({relpath: content}),
                           git_mv ([source, destination]), git_commit (message),
                           git_config ({key: value}, run as ``git config`` in cwd),
+                          git_checkout (new branch name, ``git checkout -b`` in cwd),
                           spawn_grandchild ({"pid_file": path, "ignore_term": bool}: start a
                           sleeping child in the fake's process group and write its pid)
                         The reviewer role is detected by ``--json-schema`` in argv. When a role's
@@ -98,6 +99,9 @@ def main(argv: list[str]) -> int:
         target.write_text(content, encoding="utf-8")
     for key, value in (call.get("git_config") or {}).items():
         subprocess.run(["git", "config", key, value], check=True, capture_output=True)
+    if call.get("git_checkout"):
+        subprocess.run(["git", "checkout", "-q", "-b", str(call["git_checkout"])],
+                       check=True, capture_output=True)
     if call.get("git_mv"):
         source, destination = call["git_mv"]
         subprocess.run(["git", "mv", source, destination], check=True, capture_output=True)

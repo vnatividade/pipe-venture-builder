@@ -52,6 +52,7 @@ from .delivery import (
     branch_name,
     checks_status,
     commit_if_needed,
+    current_branch,
     ensure_worktree,
     git_config_snapshot,
     mission_home,
@@ -92,6 +93,8 @@ REVIEW_RESERVE_USD = MIN_RUN_BUDGET_USD
 DEFAULT_CHECKS_POLL_SECONDS = 30.0
 DEFAULT_CHECKS_MAX_POLLS = 60
 GRANT_CYCLE_OPTION = "grant_cycle"
+# The worktree is not what was verified: a human inspects it, then resumes.
+WORKSPACE_OPTIONS = ["stop", "fix_and_resume"]
 # ``active`` results that end ``supervise`` instead of starting another cycle.
 STOPPING_REASONS = frozenset({"pending_decisions", "interrupted"})
 # Signals that request a stop: SIGHUP too, since a foreground ``supervise``
@@ -503,6 +506,8 @@ class _Cycle:
     def _verify_and_review(self, cycle: int, worker_run: str, worktree: Path) -> Step:
         if self._status() != "active":
             return Step(self._status(), "not_active", cycle)
+        if not self._on_mission_branch(worktree):
+            return self._block("branch_mismatch", cycle, worker_run, options=WORKSPACE_OPTIONS)
         base_ref = self.mission["workspace"]["baseRef"]
         files = changed_files(worktree, base_ref)
         outside = outside_write_set(files, self.mission["workspace"]["writeSet"])
@@ -669,7 +674,16 @@ class _Cycle:
             return self._complete(cycle)
         if self._status() != "active":
             return Step(self._status(), "not_active", cycle)
+        # What gets committed and published is re-checked right before each
+        # step: the reviewer ran on this tree, but a resume at the ``deliver``
+        # stage (or anything that ran since) may have changed it.
+        refused = self._delivery_guard(cycle, worker_run, worktree)
+        if refused is not None:
+            return refused
         commit_if_needed(worktree, f"{self.mission_id}: ciclo {cycle} (commit do supervisor)")
+        refused = self._delivery_guard(cycle, worker_run, worktree)
+        if refused is not None:
+            return refused
         branch = branch_name(self.mission)
         push_branch(worktree, branch)
         body = pr_body(
@@ -743,6 +757,24 @@ class _Cycle:
                 at=self.now(),
             )
         return Step(status, "git_config_tampered", cycle)
+
+    def _on_mission_branch(self, worktree: Path) -> bool:
+        return current_branch(worktree) == branch_name(self.mission)
+
+    def _delivery_guard(self, cycle: int, worker_run: str | None, worktree: Path) -> Step | None:
+        """``blocked`` + decision when HEAD left the mission branch or the tree
+        now holds changes outside the write set; ``None`` when delivery may go on."""
+
+        if not self._on_mission_branch(worktree):
+            return self._block("branch_mismatch", cycle, worker_run, options=WORKSPACE_OPTIONS)
+        files = changed_files(worktree, self.mission["workspace"]["baseRef"])
+        outside = outside_write_set(files, self.mission["workspace"]["writeSet"])
+        if outside:
+            _log(self.home, self.mission_id, "delivery.outside_write_set", files=len(outside))
+            return self._block(
+                "delivery_outside_write_set", cycle, worker_run, options=WORKSPACE_OPTIONS
+            )
+        return None
 
     def _complete(self, cycle: int) -> Step:
         self.store.complete(self.mission_id, at=self.now())

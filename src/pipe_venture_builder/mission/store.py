@@ -82,6 +82,8 @@ BLOCK_REASONS = frozenset(
         "no_progress",
         "audit_chain_invalid",
         "git_config_tampered",
+        "branch_mismatch",
+        "delivery_outside_write_set",
     }
 )
 DECISION_KINDS = frozenset(

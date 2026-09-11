@@ -13,12 +13,14 @@ from pipe_venture_builder.mission.delivery import (
     branch_name,
     checks_status,
     commit_if_needed,
+    current_branch,
     ensure_worktree,
     existing_pr,
     git_config_snapshot,
     open_pr,
     pr_body,
     pr_title,
+    push_branch,
     slugify,
     worktree_path,
 )
@@ -62,6 +64,54 @@ class BranchAndWorktreeTests(TestCase):
             self.assertEqual(third, first)
             self.assertEqual((third / "README.md").read_text(encoding="utf-8"), "work in progress\n",
                              "the existing branch is reused, not recreated from baseRef")
+
+    def test_a_directory_inside_another_repository_is_not_the_mission_worktree(self) -> None:
+        # B3 (review S6): ``rev-parse --is-inside-work-tree`` is true for any
+        # directory inside any repository.
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo = make_repo(root)
+            outer = root / "outer"
+            outer.mkdir()
+            git(outer, "init", "-q", "-b", "main")
+            home = outer / "home"
+            mission = build_mission(loop_mission(repo), created_at=CREATED_AT)
+            empty = worktree_path(mission["missionId"], home)
+            empty.mkdir(parents=True)
+            created = ensure_worktree(mission, home=home)
+            self.assertEqual(created, empty)
+            self.assertEqual(Path(git(created, "rev-parse", "--show-toplevel").strip()).resolve(),
+                             created.resolve(), "a real worktree was created, not the outer repo reused")
+            self.assertEqual(git(created, "branch", "--show-current").strip(), branch_name(mission))
+
+            other = build_mission(loop_mission(repo, title="Outra missao qualquer"), created_at=CREATED_AT)
+            filled = worktree_path(other["missionId"], home)
+            filled.mkdir(parents=True)
+            (filled / "notes.txt").write_text("not a worktree\n", encoding="utf-8")
+            with self.assertRaises(RuntimeError):
+                ensure_worktree(other, home=home)
+
+    def test_a_worktree_on_another_branch_or_of_another_repo_is_refused(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo = make_repo(root)
+            home = root / "home"
+            mission = build_mission(loop_mission(repo), created_at=CREATED_AT)
+            worktree = ensure_worktree(mission, home=home)
+            git(worktree, "checkout", "-q", "-b", "elsewhere")
+            with self.assertRaises(RuntimeError, msg="wrong branch"):
+                ensure_worktree(mission, home=home)
+            git(worktree, "checkout", "-q", branch_name(mission))
+            self.assertEqual(ensure_worktree(mission, home=home), worktree)
+
+            stranger_root = root / "stranger"
+            stranger_root.mkdir()
+            stranger = make_repo(stranger_root)
+            foreign = worktree_path(mission["missionId"], root / "home2")
+            foreign.parent.mkdir(parents=True)
+            git(stranger, "worktree", "add", "-q", str(foreign), "-b", branch_name(mission))
+            with self.assertRaises(RuntimeError, msg="a worktree of another repository"):
+                ensure_worktree(mission, home=root / "home2")
 
     def test_commit_if_needed_commits_only_when_dirty(self) -> None:
         with TemporaryDirectory() as directory:
@@ -126,6 +176,29 @@ class PullRequestTests(TestCase):
             self.assertEqual(dict(zip(creates[0][2::2], creates[0][3::2]))["--base"], "main")
             saved_body = (fakes.gh_state / "pr-1-body.md").read_text(encoding="utf-8")
             self.assertEqual(saved_body, body)
+
+    def test_push_branch_publishes_head_not_the_local_branch_ref(self) -> None:
+        # B4: ``git push origin <branch>`` publishes the local ref even when
+        # HEAD (what was verified) is elsewhere.
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo = make_repo(root, with_origin=True)
+            mission = build_mission(loop_mission(repo), created_at=CREATED_AT)
+            worktree = ensure_worktree(mission, home=root / "home")
+            branch = branch_name(mission)
+            (worktree / "README.md").write_text("first\n", encoding="utf-8")
+            commit_if_needed(worktree, "first")
+            git(worktree, "checkout", "-q", "--detach")
+            (worktree / "README.md").write_text("second\n", encoding="utf-8")
+            commit_if_needed(worktree, "second")
+            push_branch(worktree, branch)
+            self.assertEqual(
+                git(repo, "ls-remote", "--heads", "origin", branch).split()[0],
+                git(worktree, "rev-parse", "HEAD").strip(),
+            )
+            self.assertIsNone(current_branch(worktree))
+            git(worktree, "checkout", "-q", branch)
+            self.assertEqual(current_branch(worktree), branch)
 
     def test_pr_body_follows_the_repository_template_and_cites_mission_and_ticket(self) -> None:
         with TemporaryDirectory() as directory:

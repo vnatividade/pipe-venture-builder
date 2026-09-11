@@ -76,12 +76,15 @@ def ensure_worktree(mission: Mapping[str, Any], *, home: str | Path | None = Non
     repo = mission["workspace"]["repo"]
     path = worktree_path(mission["missionId"], home)
     branch = branch_name(mission)
-    if path.is_dir() and _is_worktree(path):
+    if path.is_dir() and _is_mission_worktree(path, repo, branch):
         return path
     _git(repo, "worktree", "prune")
     if path.exists():
         if any(path.iterdir()):
-            raise RuntimeError("mission worktree path exists and is not a git worktree")
+            raise RuntimeError(
+                "mission worktree path exists and is not this mission's worktree "
+                "(other repository, other branch, or not a worktree)"
+            )
         path.rmdir()
     path.parent.mkdir(parents=True, exist_ok=True)
     if _branch_exists(repo, branch):
@@ -145,7 +148,23 @@ def _identity_args(worktree: str | Path) -> list[str]:
 
 
 def push_branch(worktree: str | Path, branch: str) -> None:
-    _git(worktree, "push", "-q", "-u", "origin", branch)
+    """Publish HEAD — the commit that was verified — as ``branch``; never the
+    local branch ref by name, which may not be where HEAD is."""
+
+    _git(worktree, "push", "-q", "origin", f"HEAD:refs/heads/{branch}")
+
+
+def current_branch(worktree: str | Path) -> str | None:
+    """The branch HEAD is on, or ``None`` when HEAD is detached."""
+
+    completed = subprocess.run(
+        ["git", "symbolic-ref", "-q", "HEAD"],
+        cwd=str(worktree), capture_output=True, text=True, timeout=GIT_TIMEOUT_SECONDS, check=False,
+    )
+    ref = completed.stdout.strip()
+    if completed.returncode != 0 or not ref.startswith("refs/heads/"):
+        return None
+    return ref[len("refs/heads/"):]
 
 
 # -- pull request --------------------------------------------------------------
@@ -330,15 +349,38 @@ No follow-ups identified by the supervisor. Record any in Linear under {", ".joi
 # -- internals -----------------------------------------------------------------
 
 
-def _is_worktree(path: Path) -> bool:
+def _is_mission_worktree(path: Path, repo: str | Path, branch: str) -> bool:
+    """``path`` is the top of a worktree of ``repo`` checked out on ``branch``.
+
+    ``rev-parse --is-inside-work-tree`` alone is true for any directory inside
+    any repository, and for a worktree of another repository or branch.
+    """
+
+    top = _rev_parse(path, "--show-toplevel")
+    if top is None or top != path.resolve():
+        return False
+    common = _rev_parse(path, "--git-common-dir")
+    expected = _rev_parse(Path(repo), "--git-common-dir")
+    if common is None or expected is None or common != expected:
+        return False
+    return current_branch(path) == branch
+
+
+def _rev_parse(cwd: Path, option: str) -> Path | None:
+    """An absolute, resolved path printed by ``git rev-parse <option>``."""
+
     try:
-        inside = subprocess.run(
-            ["git", "rev-parse", "--is-inside-work-tree"],
-            cwd=str(path), capture_output=True, text=True, timeout=GIT_TIMEOUT_SECONDS, check=False,
+        completed = subprocess.run(
+            ["git", "rev-parse", option],
+            cwd=str(cwd), capture_output=True, text=True, timeout=GIT_TIMEOUT_SECONDS, check=False,
         )
     except OSError:
-        return False
-    return inside.returncode == 0 and inside.stdout.strip() == "true"
+        return None
+    output = completed.stdout.strip()
+    if completed.returncode != 0 or not output:
+        return None
+    printed = Path(output)
+    return (printed if printed.is_absolute() else Path(cwd) / printed).resolve()
 
 
 def _branch_exists(repo: str | Path, branch: str) -> bool:
