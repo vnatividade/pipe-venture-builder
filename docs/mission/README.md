@@ -17,9 +17,9 @@ Um documento `Mission` v0.1.0 (`schemas/Mission.schema.json`; contrato imposto e
 
 ## Estados e transições
 
-`draft → active`; `active ↔ paused`; `active|paused → cancelled`; `active → blocked`; `blocked → active` (só sem decisão pendente); `active → completed`; `active|paused|blocked → unknown` **só** por `mark_unknown` (reconciliação). Transição inválida levanta `ControlPlaneStateError` e nada é persistido. `completed`, `cancelled` e `unknown` são terminais.
+`draft → active`; `active ↔ paused`; `active|paused|blocked → cancelled`; `active → blocked`; `blocked → active` (só sem decisão pendente); `active → completed`; `active|paused|blocked → unknown` **só** por `mark_unknown` (reconciliação). Transição inválida levanta `ControlPlaneStateError` e nada é persistido. `completed`, `cancelled` e `unknown` são terminais.
 
-`complete` exige: cadeia de eventos válida, evidência `satisfied=true` mais recente para **todos** os critérios, nenhuma decisão pendente e, quando `delivery.kind = pull_request`, evento `delivery.pr_opened` (e `delivery.checks_passed` depois dele se `requireChecks`).
+`complete` exige: cadeia de eventos válida, evidência `satisfied=true` mais recente para **todos** os critérios, nenhuma decisão pendente e, quando `delivery.kind = pull_request`, evento `delivery.pr_opened` (e, se `requireChecks`, o **último** evento `delivery.checks_*` após o último `pr_opened` tem de ser `checks_passed` — uma falha posterior ou um novo `pr_opened` volta a bloquear).
 
 ## Eventos
 

@@ -85,30 +85,42 @@ class MissionContractTests(TestCase):
 
     def test_schema_and_contract_agree_on_bad_documents(self) -> None:
         good = build_mission(mission_input(), created_at=CREATED_AT)
+        # (document overrides, contract message). The fingerprint is recomputed
+        # for every case so each one fails for the rule under test, never for
+        # "fingerprint does not match content".
         bad_documents = {
-            "unknown top-level key": {**good, "extra": 1},
-            "empty writeSet": {
-                **good,
-                "workspace": {**good["workspace"], "writeSet": []},
-            },
-            "bad delivery kind": {
-                **good,
-                "delivery": {"kind": "merge", "requireChecks": True},
-            },
-            "bad status": {**good, "status": "done"},
-            "flag true": {
-                **good,
-                "constraints": {**good["constraints"], "secretsAllowed": True},
-            },
-            "criterion without kind": {
-                **good,
-                "successCriteria": [{"id": "C1", "text": "x"}],
-            },
+            "unknown top-level key": (
+                {"extra": 1},
+                "mission document has unknown fields",
+            ),
+            "bad schemaVersion": (
+                {"schemaVersion": "9.9.9"},
+                "unsupported mission schema version",
+            ),
+            "empty writeSet": (
+                {"workspace": {**good["workspace"], "writeSet": []}},
+                "workspace writeSet must be a non-empty list",
+            ),
+            "bad delivery kind": (
+                {"delivery": {"kind": "merge", "requireChecks": True}},
+                "invalid delivery kind",
+            ),
+            "bad status": ({"status": "done"}, "invalid mission status"),
+            "flag true": (
+                {"constraints": {**good["constraints"], "secretsAllowed": True}},
+                "absolute gates cannot be opened by a mission",
+            ),
+            "criterion without kind": (
+                {"successCriteria": [{"id": "C1", "text": "x"}]},
+                "success criterion has no verifiable kind",
+            ),
         }
-        for label, document in bad_documents.items():
+        for label, (overrides, message) in bad_documents.items():
             with self.subTest(label):
+                document = {**good, **overrides}
+                document["fingerprint"] = mission_fingerprint(document)
                 self.assertNotEqual(schema_findings(document), [])
-                with self.assertRaises(ControlPlaneContractError):
+                with self.assertRaisesRegex(ControlPlaneContractError, message):
                     validate_mission(document)
 
     def test_criterion_without_verifiable_shape_is_rejected(self) -> None:

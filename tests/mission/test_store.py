@@ -88,6 +88,35 @@ class MissionStoreLifecycleTests(TestCase):
             )
             self.assertTrue(store.verify_chain(mission_id))
 
+    def test_blocked_mission_can_be_cancelled(self) -> None:
+        with new_store() as store:
+            mission_id = created(store)
+            store.activate(mission_id, at=LATER)
+            store.open_decision(
+                mission_id,
+                kind="out_of_mission",
+                context={"runId": "MRUN-000000000001", "cycle": 1},
+                options=["pause", "continue", "cancel"],
+                safe_default="pause",
+                blocked_scope="mission",
+                deadline=None,
+                at=LATER,
+            )
+            store.block(mission_id, reason_code="out_of_mission", at=LATER)
+            with self.assertRaises(ControlPlaneStateError):
+                store.pause(mission_id, at=EVEN_LATER)
+            with self.assertRaises(ControlPlaneStateError):
+                store.resume(mission_id, at=EVEN_LATER)
+            store.cancel(mission_id, at=EVEN_LATER)
+            document = store.get(mission_id)
+            self.assertEqual(document["status"], "cancelled")
+            self.assertEqual(document["updatedAt"], EVEN_LATER)
+            self.assertEqual(
+                [event["eventType"] for event in store.list_events(mission_id)][-2:],
+                ["mission.blocked", "mission.cancelled"],
+            )
+            self.assertTrue(store.verify_chain(mission_id))
+
     def test_budget_block_emits_budget_reached_before_blocked(self) -> None:
         with new_store() as store:
             mission_id = created(store)
@@ -320,6 +349,24 @@ class MissionRunTests(TestCase):
                 ["run.dispatched", "run.collected", "run.dispatched", "run.failed"],
             )
             self.assertEqual(store.run_counts(mission_id), {"collected": 1, "failed": 1})
+
+    def test_open_run_refused_when_mission_paused(self) -> None:
+        with new_store() as store:
+            mission_id = created(store)
+            store.activate(mission_id, at=LATER)
+            store.pause(mission_id, at=LATER)
+            with self.assertRaises(ControlPlaneStateError):
+                store.open_run(mission_id, cycle=1, attempt=1, executor="claude-code", at=LATER)
+            self.assertNotIn(
+                "run.dispatched",
+                [event["eventType"] for event in store.list_events(mission_id)],
+            )
+            store.resume(mission_id, at=LATER)
+            run_id = store.open_run(mission_id, cycle=1, attempt=1, executor="claude-code", at=LATER)
+            self.assertEqual(store.get_run(run_id)["status"], "running")
+            store.block(mission_id, reason_code="review_blocked", at=EVEN_LATER)
+            with self.assertRaises(ControlPlaneStateError):
+                store.open_run(mission_id, cycle=1, attempt=2, executor="claude-code", at=EVEN_LATER)
 
     def test_collect_run_validates_inputs(self) -> None:
         with new_store() as store:

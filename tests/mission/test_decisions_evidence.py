@@ -229,6 +229,55 @@ class EvidenceAndCompletionTests(TestCase):
             store.complete(mission_id, at=EVEN_LATER)
             self.assertEqual(store.get(mission_id)["status"], "completed")
 
+    def test_checks_failed_then_passed_allows_complete(self) -> None:
+        with MissionStore(":memory:") as store:
+            mission_id = active_mission(store)
+            run_id = store.open_run(mission_id, cycle=1, attempt=1, executor="claude-code", at=LATER)
+            self._satisfy_all(store, mission_id, run_id)
+            store.record_delivery(mission_id, event_type="delivery.pr_opened", ref="pr:1", at=EVEN_LATER)
+            store.record_delivery(
+                mission_id, event_type="delivery.checks_failed", ref="pr:1", at=EVEN_LATER
+            )
+            store.record_delivery(
+                mission_id, event_type="delivery.checks_passed", ref="pr:1", at=EVEN_LATER
+            )
+            store.complete(mission_id, at=EVEN_LATER)
+            self.assertEqual(store.get(mission_id)["status"], "completed")
+
+    def test_checks_passed_then_failed_refuses_complete(self) -> None:
+        with MissionStore(":memory:") as store:
+            mission_id = active_mission(store)
+            run_id = store.open_run(mission_id, cycle=1, attempt=1, executor="claude-code", at=LATER)
+            self._satisfy_all(store, mission_id, run_id)
+            self._delivered(store, mission_id)
+            store.record_delivery(
+                mission_id, event_type="delivery.checks_failed", ref="pr:1", at=EVEN_LATER
+            )
+            with self.assertRaises(ControlPlaneStateError):
+                store.complete(mission_id, at=EVEN_LATER)
+            self.assertEqual(store.get(mission_id)["status"], "active")
+            store.record_delivery(
+                mission_id, event_type="delivery.checks_passed", ref="pr:1", at=EVEN_LATER
+            )
+            store.complete(mission_id, at=EVEN_LATER)
+            self.assertEqual(store.get(mission_id)["status"], "completed")
+
+    def test_new_pr_opened_resets_passed_checks(self) -> None:
+        with MissionStore(":memory:") as store:
+            mission_id = active_mission(store)
+            run_id = store.open_run(mission_id, cycle=1, attempt=1, executor="claude-code", at=LATER)
+            self._satisfy_all(store, mission_id, run_id)
+            self._delivered(store, mission_id)
+            store.record_delivery(mission_id, event_type="delivery.pr_opened", ref="pr:2", at=EVEN_LATER)
+            with self.assertRaises(ControlPlaneStateError):
+                store.complete(mission_id, at=EVEN_LATER)
+            self.assertEqual(store.get(mission_id)["status"], "active")
+            store.record_delivery(
+                mission_id, event_type="delivery.checks_passed", ref="pr:2", at=EVEN_LATER
+            )
+            store.complete(mission_id, at=EVEN_LATER)
+            self.assertEqual(store.get(mission_id)["status"], "completed")
+
     def test_complete_without_delivery_requirement(self) -> None:
         draft = mission_input()
         draft["delivery"] = {"kind": "none", "requireChecks": False}

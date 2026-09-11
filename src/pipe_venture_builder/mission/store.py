@@ -45,11 +45,13 @@ DECISION_ID_PREFIX = "DEC"
 
 # Allowed transitions. ``unknown`` is deliberately absent: it is reachable only
 # through ``mark_unknown`` (reconciliation), never through a routine verb.
+# ``cancelled`` is reachable from every non-terminal state after ``draft`` so a
+# founder can always end a mission, including one blocked on a pending decision.
 TRANSITIONS: dict[str, frozenset[str]] = {
     "draft": frozenset({"active"}),
     "active": frozenset({"paused", "cancelled", "blocked", "completed"}),
     "paused": frozenset({"active", "cancelled"}),
-    "blocked": frozenset({"active"}),
+    "blocked": frozenset({"active", "cancelled"}),
     "completed": frozenset(),
     "cancelled": frozenset(),
     "unknown": frozenset(),
@@ -838,18 +840,28 @@ class MissionStore:
         )
 
     def _require_delivery(self, mission_id: str, require_checks: bool) -> None:
-        events = self.list_events(mission_id)
-        opened_at = None
-        checks_passed_at = None
-        for index, event in enumerate(events):
-            if event["eventType"] == "delivery.pr_opened":
-                opened_at = index
-                checks_passed_at = None
-            elif event["eventType"] == "delivery.checks_passed" and opened_at is not None:
-                checks_passed_at = index
-        if opened_at is None:
+        """Gate ``complete`` on the delivery events recorded so far.
+
+        A PR must have been opened; when checks are required, the *latest*
+        ``delivery.checks_*`` event after the *latest* ``delivery.pr_opened``
+        must be ``checks_passed`` (a later failure or a fresh PR resets it).
+        """
+
+        opened = False
+        latest_checks = None
+        for event in self.list_events(mission_id):
+            event_type = event["eventType"]
+            if event_type == "delivery.pr_opened":
+                opened = True
+                latest_checks = None
+            elif opened and event_type in {
+                "delivery.checks_passed",
+                "delivery.checks_failed",
+            }:
+                latest_checks = event_type
+        if not opened:
             raise ControlPlaneStateError("pull request delivery requires an opened PR")
-        if require_checks and checks_passed_at is None:
+        if require_checks and latest_checks != "delivery.checks_passed":
             raise ControlPlaneStateError("pull request delivery requires passing checks")
 
     def _append_event(
