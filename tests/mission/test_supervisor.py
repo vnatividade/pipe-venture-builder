@@ -243,6 +243,24 @@ class FailureF3OutsideWriteSetTests(SupervisorTestCase):
         revision = (h.home / h.mission_id / "revisions" / "cycle-1.md").read_text(encoding="utf-8")
         self.assertIn("docs/extra.md", revision)
 
+    def test_f3_a_committed_rename_of_a_restricted_file_is_outside_the_write_set(self) -> None:
+        # A1 (review S1): the rename used to show only its destination, which
+        # here is inside the write set.
+        h = self.harness(workspace={"repo": str(self.root / "repo"), "baseRef": "main",
+                                    "writeSet": ["README.md", "docs/"]})
+        (h.repo / "AGENTS.md").write_text("rules\n" * 20, encoding="utf-8")
+        git(h.repo, "add", "AGENTS.md")
+        git(h.repo, "commit", "-q", "-m", "agents")
+        h.fakes.scenario(
+            worker=[good_worker(git_mv=["AGENTS.md", "docs/agents-moved.md"], git_commit="move")],
+            reviewer=[{"structured_output": satisfied_verdict()}],
+        )
+        step = h.run_once()
+        self.assertEqual((step.status, step.reason), ("active", "outside_write_set"))
+        self.assertEqual(h.calls("reviewer"), [])
+        revision = (h.home / h.mission_id / "revisions" / "cycle-1.md").read_text(encoding="utf-8")
+        self.assertIn("AGENTS.md", revision)
+
 
 class FailureF4OutOfMissionTests(SupervisorTestCase):
     def test_f4_reviewer_out_of_mission_pauses_with_decision_safe_default_pause(self) -> None:

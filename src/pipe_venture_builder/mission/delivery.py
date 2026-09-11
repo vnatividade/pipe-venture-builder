@@ -255,7 +255,7 @@ Opened by the Pipe Mission Loop supervisor for mission `{mission['missionId']}` 
 ## Validation Performed
 
 {checks}
-- Write set check: `git diff --name-only <baseRef>...HEAD` + `git status --porcelain` inside the declared write set
+- Write set check: `git diff --name-only --no-renames <baseRef>...HEAD` + `git status --porcelain --no-renames` inside the declared write set
 
 Criteria at PR time:
 {criteria_lines}

@@ -45,6 +45,25 @@ class ChangedFilesTests(TestCase):
             self.assertIn("docs/renamed.md", files)
             self.assertIn("docs/guide.md", files)
 
+    def test_a_rename_reports_the_source_path_committed_or_not(self) -> None:
+        # A1: ``git diff --name-only`` detects renames and prints only the new
+        # path, so ``git mv AGENTS.md docs/x.md && git commit`` deleted a
+        # restricted file without the write set noticing.
+        for commit in (True, False):
+            with self.subTest(committed=commit), TemporaryDirectory() as directory:
+                repo = make_repo(Path(directory))
+                (repo / "AGENTS.md").write_text("rules\n" * 20, encoding="utf-8")
+                git(repo, "add", "AGENTS.md")
+                git(repo, "commit", "-q", "-m", "agents")
+                git(repo, "checkout", "-q", "-b", "work")
+                git(repo, "mv", "AGENTS.md", "docs/x.md")
+                if commit:
+                    git(repo, "commit", "-q", "-m", "move")
+                files = changed_files(repo, "main")
+                self.assertIn("AGENTS.md", files)
+                self.assertIn("docs/x.md", files)
+                self.assertEqual(outside_write_set(files, ["README.md", "docs/"]), ["AGENTS.md"])
+
     def test_write_set_matches_files_and_directory_prefixes(self) -> None:
         write_set = ["README.md", "docs/", "tests/mission"]
         self.assertTrue(within_write_set(["README.md", "docs/a.md", "tests/mission/x.py"], write_set))

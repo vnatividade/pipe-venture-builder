@@ -50,12 +50,18 @@ class CriterionResult:
 
 
 def changed_files(worktree: str | Path, base_ref: str) -> list[str]:
-    """Paths touched since ``base_ref``: committed, staged, unstaged, untracked."""
+    """Paths touched since ``base_ref``: committed, staged, unstaged, untracked.
+
+    Rename detection is off (``--no-renames``): a rename is a deletion of the
+    source plus an addition of the destination, so moving a restricted file
+    into the write set still reports the restricted path.
+    """
 
     files: set[str] = set()
-    committed = _git(worktree, "diff", "--name-only", f"{base_ref}...HEAD")
+    committed = _git(worktree, "diff", "--name-only", "--no-renames", f"{base_ref}...HEAD")
     files.update(line.strip() for line in committed.splitlines() if line.strip())
-    for line in _git(worktree, "status", "--porcelain", "--untracked-files=all").splitlines():
+    status = _git(worktree, "status", "--porcelain", "--no-renames", "--untracked-files=all")
+    for line in status.splitlines():
         if len(line) < 4:
             continue
         path = line[3:]

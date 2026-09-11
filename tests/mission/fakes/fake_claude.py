@@ -8,7 +8,7 @@ Environment:
                           exit_code, result (overrides for the Claude result JSON),
                           worker_output (dict rendered inside ``result``), wrap ("none"|"text"|"fence"),
                           structured_output (reviewer verdict), write_files ({relpath: content}),
-                          git_commit (message)
+                          git_mv ([source, destination]), git_commit (message)
                         The reviewer role is detected by ``--json-schema`` in argv. When a role's
                         list is exhausted the last call is reused.
   FAKE_CLAUDE_STATE_DIR where per-role call counters live (defaults to the scenario's directory).
@@ -79,6 +79,9 @@ def main(argv: list[str]) -> int:
         target = Path(os.getcwd()) / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8")
+    if call.get("git_mv"):
+        source, destination = call["git_mv"]
+        subprocess.run(["git", "mv", source, destination], check=True, capture_output=True)
     if call.get("git_commit"):
         subprocess.run(["git", "add", "-A"], check=True, capture_output=True)
         subprocess.run(
