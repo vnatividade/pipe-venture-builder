@@ -176,6 +176,43 @@ class MissionStoreLifecycleTests(TestCase):
                 store.get("not an id")
 
 
+class LegacyV010DocumentCompatibilityTests(TestCase):
+    """PIP-903 review finding #1: ``validate_mission`` started requiring the
+    ``delegation`` key, so every already-stored v0.1.0 mission (which never
+    had it) failed every transition (``_apply_status`` revalidates). These
+    exercise the real ``MissionStore`` the way the review's repro did."""
+
+    def test_v0_1_0_document_without_delegation_resumes_and_cancels(self) -> None:
+        with new_store() as store:
+            mission = build_mission(mission_input(), created_at=CREATED_AT)
+            self.assertNotIn("delegation", mission, "v0.1.0 documents never carry the key")
+            mission_id = store.create(mission, at=CREATED_AT)
+            store.activate(mission_id, at=LATER)
+            self.assertNotIn("delegation", store.get(mission_id))
+            store.pause(mission_id, at=LATER)
+            store.resume(mission_id, at=LATER)
+            self.assertEqual(store.get(mission_id)["status"], "active")
+            store.block(mission_id, reason_code="review_blocked", at=LATER)
+            store.resume(mission_id, at=LATER)
+            self.assertNotIn("delegation", store.get(mission_id))
+            store.cancel(mission_id, at=EVEN_LATER)
+            self.assertEqual(store.get(mission_id)["status"], "cancelled")
+
+    def test_v0_1_0_missionId_is_stable_across_recreating_the_same_draft(self) -> None:
+        # A mutation that put ``delegation`` back into the fingerprint (via an
+        # unconditional ``setdefault``) would change this id: the same JSON
+        # would stop resolving to the mission already on disk.
+        with new_store() as first_store:
+            first_id = first_store.create(
+                build_mission(mission_input(), created_at=CREATED_AT), at=CREATED_AT
+            )
+        with new_store() as second_store:
+            second_id = second_store.create(
+                build_mission(mission_input(), created_at=CREATED_AT), at=CREATED_AT
+            )
+        self.assertEqual(first_id, second_id)
+
+
 class MissionEventChainTests(TestCase):
     def test_event_allowlist_is_fixed(self) -> None:
         self.assertEqual(
@@ -203,6 +240,7 @@ class MissionEventChainTests(TestCase):
                     "review.blocked",
                     "decision.opened",
                     "decision.resolved",
+                    "decision.delegated",
                     "delivery.pr_opened",
                     "delivery.checks_passed",
                     "delivery.checks_failed",
@@ -408,3 +446,33 @@ class MissionRunTests(TestCase):
                 [event["eventType"] for event in store.list_events(mission_id)][-2:],
                 ["verify.failed", "review.needs_revision"],
             )
+
+    def test_criteria_status_up_to_cycle_only_counts_evidence_from_earlier_runs(self) -> None:
+        # The delegation "requireProgress" check compares a cycle's evidence
+        # snapshot against the previous one; ``criteria_status`` is the only
+        # place that knows how to join evidence back to the run's cycle.
+        with new_store() as store:
+            mission_id = created(store)
+            store.activate(mission_id, at=LATER)
+            first = store.open_run(mission_id, cycle=1, attempt=1, executor="claude-code", at=LATER)
+            store.record_evidence(
+                mission_id, criterion_id="C1", run_id=first, satisfied=True,
+                evidence_ref="evidence:C1", evidence_fingerprint=None, at=LATER,
+            )
+            second = store.open_run(mission_id, cycle=2, attempt=1, executor="claude-code", at=EVEN_LATER)
+            store.record_evidence(
+                mission_id, criterion_id="C2", run_id=second, satisfied=True,
+                evidence_ref="evidence:C2", evidence_fingerprint=None, at=EVEN_LATER,
+            )
+
+            def satisfied_ids(up_to_cycle: int | None) -> set[str]:
+                return {
+                    item["id"]
+                    for item in store.criteria_status(mission_id, up_to_cycle=up_to_cycle)
+                    if item["satisfied"]
+                }
+
+            self.assertEqual(satisfied_ids(0), set())
+            self.assertEqual(satisfied_ids(1), {"C1"})
+            self.assertEqual(satisfied_ids(2), {"C1", "C2"})
+            self.assertEqual(satisfied_ids(None), {"C1", "C2"}, "unset means every run, like before")

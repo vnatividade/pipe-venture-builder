@@ -66,9 +66,14 @@ from .delivery import (
     pr_title,
     push_branch,
 )
-from .reviewer import DEFAULT_REVIEW_TIMEOUT_SECONDS, run_review
+from .reviewer import (
+    DEFAULT_REVIEW_TIMEOUT_SECONDS,
+    REVIEWER_OUTPUT_INVALID,
+    REVIEWER_RUN_FAILED,
+    run_review,
+)
 from .status import SUPERVISOR_PID_FILE, default_mission_home, pid_is_alive
-from .store import UNKNOWN_SOURCES, MissionStore
+from .store import DELEGATED_ORCHESTRATOR_SOURCE, UNKNOWN_SOURCES, MissionStore
 from .verify import (
     DEFAULT_CHECK_TIMEOUT_SECONDS,
     changed_files,
@@ -98,6 +103,16 @@ REVIEW_RESERVE_USD = MIN_RUN_BUDGET_USD
 DEFAULT_CHECKS_POLL_SECONDS = 30.0
 DEFAULT_CHECKS_MAX_POLLS = 60
 GRANT_CYCLE_OPTION = "grant_cycle"
+# The only reason codes a mission's own ``delegation.grantCycle`` rule may
+# cover: hitting the cycle limit. Every other ``_block`` reason (a legitimate
+# reviewer verdict, the circuit breaker, an infrastructure failure escalating,
+# a failed delivery check…) always waits on the founder, whatever the rule says.
+DELEGABLE_REASONS = frozenset({"max_cycles", "needs_revision_limit"})
+# A reviewer infrastructure failure (the CLI crashed, or its output was not a
+# valid verdict) is not a judgement: it earns one automatic retry, with no new
+# worker. A verdict the model itself returned as ``blocked`` is never retried.
+REVIEWER_INFRA_FAILURES = frozenset({REVIEWER_RUN_FAILED, REVIEWER_OUTPUT_INVALID})
+MAX_REVIEWER_ATTEMPTS = 2
 # The worktree is not what was verified: a human inspects it, then resumes.
 WORKSPACE_OPTIONS = ["stop", "fix_and_resume"]
 # ``active`` results that end ``supervise`` instead of starting another cycle.
@@ -632,6 +647,14 @@ class _Cycle:
         if claude.status == "interrupted":
             return Step(self._status(), "interrupted", cycle)
 
+        if (
+            not review.valid
+            and review.reason in REVIEWER_INFRA_FAILURES
+            and attempt < MAX_REVIEWER_ATTEMPTS
+        ):
+            _log(self.home, self.mission_id, "review.retry", run=review_run, reason=review.reason)
+            return self._review(cycle, worker_run, worktree)
+
         if review.valid:
             for criterion in self.mission["successCriteria"]:
                 if criterion["kind"] == "rubric":
@@ -810,8 +833,9 @@ class _Cycle:
         scope: str = "cycles",
     ) -> Step:
         self.store.block(self.mission_id, reason_code=reason_code, at=self.now())
+        delegable = options is None and reason_code in DELEGABLE_REASONS
         choices = options or ["stop", GRANT_CYCLE_OPTION]
-        self.store.open_decision(
+        decision_id = self.store.open_decision(
             self.mission_id,
             kind="escalation",
             context={"reason": reason_code, "cycle": cycle, "runId": run_id},
@@ -821,7 +845,46 @@ class _Cycle:
             deadline=None,
             at=self.now(),
         )
+        # ``max_cycles`` is raised by ``_dispatch`` for the cycle that has not
+        # run yet; progress is measured on the one that ended.
+        ended = cycle - 1 if reason_code == "max_cycles" else cycle
+        if delegable and self._delegate_grant_cycle(decision_id, ended):
+            return Step("active", reason_code, cycle)
         return Step("blocked", reason_code, cycle)
+
+    def _delegate_grant_cycle(self, decision_id: str, cycle: int) -> bool:
+        """Grant the cycle without asking the founder, only when the mission's
+        own ``delegation.grantCycle`` rule covers it: the store still enforces
+        ``maxTimes`` and the accumulated-cost fraction, so this only adds the
+        cycle-shaped ``requireProgress`` check the store cannot see."""
+
+        rule = (self.mission.get("delegation") or {}).get("grantCycle")
+        if rule is None:
+            return False
+        if rule["requireProgress"] and not self._progressed(cycle):
+            return False
+        try:
+            self.store.resolve_decision(
+                decision_id,
+                option=GRANT_CYCLE_OPTION,
+                decided_by=DELEGATED_ORCHESTRATOR_SOURCE,
+                at=self.now(),
+            )
+        except (ControlPlaneContractError, ControlPlaneStateError):
+            return False
+        self.store.resume(self.mission_id, at=self.now())
+        _log(self.home, self.mission_id, "decision.delegated", decision=decision_id, cycle=cycle)
+        return True
+
+    def _progressed(self, cycle: int) -> bool:
+        """More criteria satisfied at the end of *cycle* than at the end of
+        the previous one; the first cycle compares against zero."""
+
+        def satisfied(up_to: int) -> int:
+            return sum(1 for item in self.store.criteria_status(self.mission_id, up_to_cycle=up_to) if item["satisfied"])
+
+        previous = satisfied(cycle - 1) if cycle > 1 else 0
+        return satisfied(cycle) > previous
 
     def _budget_reached(self, cycle: int) -> Step:
         self.store.block(self.mission_id, reason_code="budget_reached", at=self.now())

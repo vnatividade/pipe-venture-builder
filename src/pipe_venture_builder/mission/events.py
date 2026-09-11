@@ -49,6 +49,7 @@ EVENT_TYPES = frozenset(
         "review.blocked",
         "decision.opened",
         "decision.resolved",
+        "decision.delegated",
         "delivery.pr_opened",
         "delivery.checks_passed",
         "delivery.checks_failed",

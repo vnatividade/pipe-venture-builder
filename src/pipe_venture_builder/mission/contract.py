@@ -29,6 +29,8 @@ from pipe_venture_builder.control_plane.model import (
 
 
 SCHEMA_VERSION = "0.1.0"
+DELEGATION_SCHEMA_VERSION = "0.2.0"
+SUPPORTED_SCHEMA_VERSIONS = frozenset({SCHEMA_VERSION, DELEGATION_SCHEMA_VERSION})
 MISSION_ID_PREFIX = "MSN"
 
 MISSION_STATUSES = frozenset(
@@ -61,6 +63,7 @@ TOP_LEVEL_FIELDS = frozenset(
         "nonGoals",
         "delegable",
         "reservedToHuman",
+        "delegation",
         "constraints",
         "workspace",
         "delivery",
@@ -71,6 +74,11 @@ TOP_LEVEL_FIELDS = frozenset(
         "fingerprint",
     }
 )
+# ``delegation`` is the one optional top-level key: absent in every v0.1.0
+# document (old and new — it never enters the fingerprint for them, so the
+# same v0.1.0 JSON keeps the same ``missionId``), present (``null`` or a rule)
+# only when a v0.2.0 draft supplies it.
+REQUIRED_TOP_LEVEL_FIELDS = TOP_LEVEL_FIELDS - {"delegation"}
 CONSTRAINT_FIELDS = frozenset(
     {"maxCycles", "maxBudgetUsd", "maxTurnsPerRun", *ABSOLUTE_GATE_FLAGS}
 )
@@ -79,6 +87,9 @@ CRITERION_FIELDS = {
     "artifact": (frozenset({"path"}), frozenset({"mustMatch"})),
     "rubric": (frozenset({"question"}), frozenset()),
 }
+GRANT_CYCLE_FIELDS = frozenset({"maxTimes", "maxCostFraction", "requireProgress"})
+MAX_GRANT_CYCLE_TIMES = 3
+MAX_GRANT_CYCLE_COST_FRACTION = 0.8
 
 MAX_DOCUMENT_BYTES = 64 * 1024
 MAX_TITLE_CHARS = 200
@@ -125,6 +136,8 @@ def build_mission(
     document.setdefault("supersedes", None)
     for key in ("nonGoals", "delegable", "reservedToHuman", "linearTicketIds"):
         document.setdefault(key, [])
+    if document["schemaVersion"] == DELEGATION_SCHEMA_VERSION:
+        document.setdefault("delegation", None)
     document.setdefault("status", "draft")
     at = created_at or utc_now()
     document.setdefault("createdAt", at)
@@ -154,16 +167,16 @@ def validate_mission(document: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(document, Mapping):
         raise ControlPlaneContractError("mission document must be a mapping")
     keys = set(document)
-    if keys != TOP_LEVEL_FIELDS:
-        if keys - TOP_LEVEL_FIELDS:
-            raise ControlPlaneContractError("mission document has unknown fields")
+    if keys - TOP_LEVEL_FIELDS:
+        raise ControlPlaneContractError("mission document has unknown fields")
+    if REQUIRED_TOP_LEVEL_FIELDS - keys:
         raise ControlPlaneContractError("mission document is missing required fields")
     if not payload_is_safe(document):
         raise ControlPlaneContractError("mission document failed the safety boundary")
     if len(canonical_json(document).encode("utf-8")) > MAX_DOCUMENT_BYTES:
         raise ControlPlaneContractError("mission document is too large")
 
-    if document["schemaVersion"] != SCHEMA_VERSION:
+    if document["schemaVersion"] not in SUPPORTED_SCHEMA_VERSIONS:
         raise ControlPlaneContractError("unsupported mission schema version")
     require_stable_id(document["missionId"], MISSION_ID_PREFIX)
     _positive_int(document["version"], "mission version")
@@ -177,6 +190,7 @@ def validate_mission(document: Mapping[str, Any]) -> dict[str, Any]:
     _validate_criteria(document["successCriteria"])
     for key in ("nonGoals", "delegable", "reservedToHuman"):
         _text_list(document[key], f"mission {key}")
+    _validate_delegation(document.get("delegation"), document["schemaVersion"])
     _validate_constraints(document["constraints"])
     _validate_workspace(document["workspace"])
     _validate_delivery(document["delivery"])
@@ -264,6 +278,39 @@ def _validate_criteria(criteria: Any) -> None:
                     ) from exc
         else:
             _text(criterion["question"], "rubric question", MAX_CRITERION_TEXT_CHARS)
+
+
+def _validate_delegation(value: Any, schema_version: str) -> None:
+    """``None`` (v0.1.0 missions and most v0.2.0 ones) is always valid; a
+    ``grantCycle`` rule is a v0.2.0-only, narrowly-shaped opt-in (§ resolve_decision
+    in store.py enforces ``maxTimes``/``maxCostFraction`` at grant time)."""
+
+    if value is None:
+        return
+    if schema_version != DELEGATION_SCHEMA_VERSION:
+        raise ControlPlaneContractError("mission delegation requires schema 0.2.0")
+    if not isinstance(value, Mapping) or set(value) != {"grantCycle"}:
+        raise ControlPlaneContractError("mission delegation is invalid")
+    grant_cycle = value["grantCycle"]
+    if not isinstance(grant_cycle, Mapping) or set(grant_cycle) != GRANT_CYCLE_FIELDS:
+        raise ControlPlaneContractError("mission delegation grantCycle is invalid")
+    max_times = grant_cycle["maxTimes"]
+    if (
+        isinstance(max_times, bool)
+        or not isinstance(max_times, int)
+        or not (1 <= max_times <= MAX_GRANT_CYCLE_TIMES)
+    ):
+        raise ControlPlaneContractError("delegation grantCycle maxTimes is out of range")
+    fraction = grant_cycle["maxCostFraction"]
+    if (
+        isinstance(fraction, bool)
+        or not isinstance(fraction, (int, float))
+        or not math.isfinite(fraction)
+        or not (0 < fraction <= MAX_GRANT_CYCLE_COST_FRACTION)
+    ):
+        raise ControlPlaneContractError("delegation grantCycle maxCostFraction is out of range")
+    if not isinstance(grant_cycle["requireProgress"], bool):
+        raise ControlPlaneContractError("delegation grantCycle requireProgress must be boolean")
 
 
 def _validate_constraints(constraints: Any) -> None:

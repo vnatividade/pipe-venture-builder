@@ -90,6 +90,20 @@ DECISION_KINDS = frozenset(
     {"approval", "clarification", "escalation", "out_of_mission", "budget"}
 )
 DECISION_STATUSES = frozenset({"pending", "resolved"})
+# The only non-human source ``resolve_decision`` accepts, and only for an
+# ``escalation`` decision's ``grant_cycle`` option, covered by the mission's
+# own ``delegation.grantCycle`` rule (never merge, production, secrets,
+# external comms, billing, budget, or an ``out_of_mission`` verdict).
+DELEGATED_ORCHESTRATOR_SOURCE = "delegated:orchestrator"
+DELEGATED_DECISION_KIND = "escalation"
+DELEGATED_DECISION_OPTION = "grant_cycle"
+DELEGATED_RULE = "grantCycle"
+# Mirrors ``supervisor.DELEGABLE_REASONS``: the only ``context.reason`` values
+# a delegated grant may resolve. Any other reason (a legitimate reviewer
+# verdict, the circuit breaker, an escalated infrastructure failure, a failed
+# delivery check…) is refused here even if the mission declares a rule and a
+# human never opened the decision this way.
+DELEGABLE_REASONS = frozenset({"max_cycles", "needs_revision_limit"})
 DELIVERY_EVENTS = frozenset(
     {"delivery.pr_opened", "delivery.checks_passed", "delivery.checks_failed"}
 )
@@ -681,7 +695,8 @@ class MissionStore:
         decided_by: str,
         at: str | None = None,
     ) -> dict[str, Any]:
-        if not is_human_source(decided_by):
+        delegated = decided_by == DELEGATED_ORCHESTRATOR_SOURCE
+        if not delegated and not is_human_source(decided_by):
             raise ControlPlaneContractError("decisions are resolved by a named human source")
         occurred_at = at or utc_now()
         parse_datetime(occurred_at)
@@ -692,6 +707,8 @@ class MissionStore:
             options = json.loads(decision["options_json"])
             if option not in options:
                 raise ControlPlaneContractError("decision option is not one of the options")
+            if delegated:
+                self._require_delegation_covers(decision, option)
             self._connection.execute(
                 """
                 UPDATE decisions
@@ -700,18 +717,57 @@ class MissionStore:
                 """,
                 (decided_by, option, occurred_at, decision_id),
             )
-            self._append_event(
-                decision["mission_id"],
-                event_type="decision.resolved",
-                occurred_at=occurred_at,
-                payload={
+            if delegated:
+                payload = {"decisionId": decision_id, "rule": DELEGATED_RULE}
+                event_type = "decision.delegated"
+            else:
+                payload = {
                     "decisionId": decision_id,
                     "kind": decision["kind"],
                     "option": option,
                     "decidedBy": decided_by,
-                },
+                }
+                event_type = "decision.resolved"
+            self._append_event(
+                decision["mission_id"],
+                event_type=event_type,
+                occurred_at=occurred_at,
+                payload=payload,
             )
         return self.get_decision(decision_id)
+
+    def _require_delegation_covers(self, decision: sqlite3.Row, option: str) -> None:
+        """Only an ``escalation``/``grant_cycle`` decision the mission's own
+        ``delegation.grantCycle`` rule allows, within ``maxTimes`` and
+        ``maxCostFraction`` (accumulated cost / ``maxBudgetUsd``). Progress
+        (``requireProgress``) is a cycle-shaped question the caller — the
+        supervisor, which knows the cycle — must have already checked."""
+
+        if decision["kind"] != DELEGATED_DECISION_KIND or option != DELEGATED_DECISION_OPTION:
+            raise ControlPlaneContractError(
+                "delegation only covers an escalation decision's grant_cycle option"
+            )
+        context = json.loads(decision["context_json"])
+        if context.get("reason") not in DELEGABLE_REASONS:
+            raise ControlPlaneContractError(
+                "delegation does not cover this decision's reason"
+            )
+        mission = json.loads(self._mission_row(decision["mission_id"])["document_json"])
+        rule = (mission.get("delegation") or {}).get(DELEGATED_RULE)
+        if rule is None:
+            raise ControlPlaneContractError("mission has no grantCycle delegation rule")
+        used = sum(
+            1
+            for event in self.list_events(decision["mission_id"])
+            if event["eventType"] == "decision.delegated"
+            and event["payload"].get("rule") == DELEGATED_RULE
+        )
+        if used >= rule["maxTimes"]:
+            raise ControlPlaneStateError("delegation grantCycle maxTimes already used")
+        max_budget = mission["constraints"]["maxBudgetUsd"]
+        fraction = self.total_cost_usd(decision["mission_id"]) / max_budget if max_budget else 1.0
+        if fraction > rule["maxCostFraction"]:
+            raise ControlPlaneStateError("delegation grantCycle maxCostFraction exceeded")
 
     def get_decision(self, decision_id: str) -> dict[str, Any]:
         return _decision_as_dict(self._decision_row(decision_id))
@@ -778,17 +834,34 @@ class MissionStore:
                 ),
             )
 
-    def criteria_status(self, mission_id: str) -> list[dict[str, Any]]:
-        """Latest evidence per criterion, in mission order; unset means False."""
+    def criteria_status(
+        self, mission_id: str, *, up_to_cycle: int | None = None
+    ) -> list[dict[str, Any]]:
+        """Latest evidence per criterion, in mission order; unset means False.
+
+        ``up_to_cycle`` restricts that evidence to runs at or before the given
+        cycle: delegation's ``requireProgress`` compares this cycle's snapshot
+        against the previous one.
+        """
 
         document = self.get(mission_id)
-        rows = self._connection.execute(
-            """
-            SELECT criterion_id, satisfied, run_id, evidence_ref, at FROM criteria_evidence
-            WHERE mission_id = ? ORDER BY evidence_id
-            """,
-            (mission_id,),
-        ).fetchall()
+        if up_to_cycle is None:
+            rows = self._connection.execute(
+                """
+                SELECT criterion_id, satisfied, run_id, evidence_ref, at FROM criteria_evidence
+                WHERE mission_id = ? ORDER BY evidence_id
+                """,
+                (mission_id,),
+            ).fetchall()
+        else:
+            rows = self._connection.execute(
+                """
+                SELECT ce.criterion_id, ce.satisfied, ce.run_id, ce.evidence_ref, ce.at
+                FROM criteria_evidence ce JOIN mission_runs mr ON mr.run_id = ce.run_id
+                WHERE ce.mission_id = ? AND mr.cycle <= ? ORDER BY ce.evidence_id
+                """,
+                (mission_id, up_to_cycle),
+            ).fetchall()
         latest: dict[str, sqlite3.Row] = {}
         for row in rows:
             latest[row["criterion_id"]] = row

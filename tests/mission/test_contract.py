@@ -15,6 +15,7 @@ from pipe_venture_builder.mission.contract import (
 )
 from tests.mission.helpers import (
     CREATED_AT,
+    LATER,
     load_mission_schema,
     mission_input,
     mission_variant,
@@ -250,3 +251,117 @@ class MissionContractTests(TestCase):
         self.assertEqual(rebuilt, mission)
         with self.assertRaises(ControlPlaneContractError):
             build_mission(mission_variant(linearTicketIds=["pip 901"]), created_at=CREATED_AT)
+
+    def test_delegation_is_absent_for_v0_1_0_and_optional_null_for_v0_2_0(self) -> None:
+        # v0.1.0 (mission_input()'s default): the key never enters the
+        # document, so it never enters the fingerprint either — see
+        # test_v0_1_0_document_without_delegation_key_is_stable below.
+        mission = build_mission(mission_input(), created_at=CREATED_AT)
+        self.assertNotIn("delegation", mission)
+        self.assertEqual(schema_findings(mission), [])
+
+        rule = {"grantCycle": {"maxTimes": 1, "maxCostFraction": 0.5, "requireProgress": True}}
+        with self.assertRaisesRegex(ControlPlaneContractError, "requires schema 0.2.0"):
+            build_mission(
+                mission_variant(schemaVersion="0.1.0", delegation=rule), created_at=CREATED_AT
+            )
+        with_delegation = build_mission(
+            mission_variant(schemaVersion="0.2.0", delegation=rule), created_at=CREATED_AT
+        )
+        self.assertEqual(with_delegation["delegation"], rule)
+        self.assertEqual(schema_findings(with_delegation), [])
+
+        without_delegation = build_mission(
+            mission_variant(schemaVersion="0.2.0"), created_at=CREATED_AT
+        )
+        self.assertIsNone(without_delegation["delegation"])
+        self.assertEqual(schema_findings(without_delegation), [])
+
+    def test_v0_1_0_document_without_delegation_key_is_stable(self) -> None:
+        """The mutation this guards against: reintroducing an unconditional
+        ``setdefault("delegation", None)`` would change the fingerprint (and
+        so the ``missionId``) of every v0.1.0 document already on disk."""
+
+        first = build_mission(mission_input(), created_at=CREATED_AT)
+        second = build_mission(mission_variant(), created_at=CREATED_AT)
+        self.assertNotIn("delegation", first)
+        self.assertNotIn("delegation", second)
+        self.assertEqual(first["missionId"], second["missionId"])
+
+    def test_v0_1_0_identity_is_pinned_to_the_value_before_pip_903(self) -> None:
+        # Valores calculados com o código de main antes do PIP-903 (927625a).
+        # Comparar dois ids do mesmo código não pega mudança de identidade;
+        # o literal pega (revisão 2 do PIP-903, achado #4 / mutação M35).
+        mission = build_mission(mission_input(), created_at=CREATED_AT)
+        self.assertEqual(mission["missionId"], "MSN-ad14c130266c")
+        self.assertEqual(
+            mission["fingerprint"],
+            "sha256:a76cf3a5bd9c001a04f882e46047d2b4cf459a9e1ab6515fa31d9caf69d4b475",
+        )
+
+    def test_legacy_v0_1_0_document_without_delegation_key_still_validates(self) -> None:
+        """A document written to disk before the delegation key existed at
+        all (no ``delegation`` key, whatever the code once defaulted): the
+        contract must accept it exactly as it would have pre-PIP-903."""
+
+        legacy = build_mission(mission_input(), created_at=CREATED_AT)
+        self.assertNotIn("delegation", legacy)
+        self.assertEqual(validate_mission(legacy), legacy)
+
+        mutated = copy.deepcopy(legacy)
+        mutated["status"] = "active"
+        mutated["updatedAt"] = LATER
+        mutated["fingerprint"] = mission_fingerprint(mutated)
+        revalidated = validate_mission(mutated)
+        self.assertNotIn("delegation", revalidated)
+        self.assertEqual(revalidated["status"], "active")
+
+    def test_delegation_key_present_but_unknown_top_level_fields_still_refused(self) -> None:
+        legacy = build_mission(mission_input(), created_at=CREATED_AT)
+        with_extra = {**legacy, "extra": 1}
+        with_extra["fingerprint"] = mission_fingerprint(with_extra)
+        with self.assertRaisesRegex(ControlPlaneContractError, "unknown fields"):
+            validate_mission(with_extra)
+
+        missing_required = dict(legacy)
+        del missing_required["title"]
+        with self.assertRaisesRegex(ControlPlaneContractError, "missing required fields"):
+            validate_mission(missing_required)
+
+    def test_grant_cycle_rejects_every_boundary_violation(self) -> None:
+        good = {"maxTimes": 1, "maxCostFraction": 0.5, "requireProgress": True}
+        bad_grant_cycles = {
+            "maxTimes 0": {**good, "maxTimes": 0},
+            "maxTimes 4": {**good, "maxTimes": 4},
+            "maxTimes bool": {**good, "maxTimes": True},
+            "maxTimes non-integer": {**good, "maxTimes": 1.5},
+            "maxCostFraction 0": {**good, "maxCostFraction": 0},
+            "maxCostFraction negative": {**good, "maxCostFraction": -0.1},
+            "maxCostFraction above cap": {**good, "maxCostFraction": 0.9},
+            "maxCostFraction bool": {**good, "maxCostFraction": True},
+            "requireProgress non-bool": {**good, "requireProgress": "yes"},
+            "extra key inside grantCycle": {**good, "extra": 1},
+        }
+        for label, grant_cycle in bad_grant_cycles.items():
+            with self.subTest(label):
+                with self.assertRaises(ControlPlaneContractError):
+                    build_mission(
+                        mission_variant(schemaVersion="0.2.0", delegation={"grantCycle": grant_cycle}),
+                        created_at=CREATED_AT,
+                    )
+        # The boundaries this guards must be accepted, not just anything
+        # nearby: maxTimes at 1 and 3, and maxCostFraction at 0.8.
+        for grant_cycle in (
+            {**good, "maxTimes": 1},
+            {**good, "maxTimes": 3},
+            {**good, "maxCostFraction": 0.8},
+        ):
+            build_mission(
+                mission_variant(schemaVersion="0.2.0", delegation={"grantCycle": grant_cycle}),
+                created_at=CREATED_AT,
+            )
+        with self.assertRaises(ControlPlaneContractError):
+            build_mission(
+                mission_variant(schemaVersion="0.2.0", delegation={"grantCycle": good, "extra": 1}),
+                created_at=CREATED_AT,
+            )

@@ -66,6 +66,9 @@ def build_status(
             for item in store.criteria_status(mission_id)
         ],
         "pendingDecisions": store.pending_decisions(mission_id),
+        "delegatedDecisions": sum(
+            1 for event in store.list_events(mission_id) if event["eventType"] == "decision.delegated"
+        ),
         "costUsd": store.total_cost_usd(mission_id),
         "maxBudgetUsd": document["constraints"]["maxBudgetUsd"],
         "runs": store.run_counts(mission_id),

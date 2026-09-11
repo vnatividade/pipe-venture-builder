@@ -4,15 +4,17 @@ O Mission Loop transforma uma missão confirmada pelo fundador em trabalho deleg
 
 - Ticket A (PIP-901): contrato `Mission`, `MissionStore` (SQLite, eventos hash-chained), estados, decisões humanas, evidência e o CLI de estado.
 - Ticket B (PIP-902): `worker.py`, `verify.py`, `reviewer.py`, `delivery.py`, `supervisor.py`, `pipe mission supervise|run-once|reconcile` e a skill `/missao` (`.claude/skills/missao/SKILL.md`).
+- Ticket C (PIP-903): contrato v0.2.0 com `delegation`, `resolve_decision` com a fonte `delegated:orchestrator`, o supervisor concedendo `grant_cycle` sozinho quando a regra cobre, retry único do revisor em falha de infraestrutura e `delegatedDecisions` em `status`.
 
 Desenho de origem: `10-desenho-mission-loop-mvp.md` (D1–D11; §3 contrato; §4 tabelas; §5 falhas; §7 missão-demo).
 
 ## O que é uma Mission
 
-Um documento `Mission` v0.1.0 (`schemas/Mission.schema.json`; contrato imposto em `src/pipe_venture_builder/mission/contract.py`) com:
+Um documento `Mission` v0.1.0 ou v0.2.0 (`schemas/Mission.schema.json`; contrato imposto em `src/pipe_venture_builder/mission/contract.py`) com:
 
 - `missionId` `MSN-<12hex>`, gerado por `stable_id` só a partir do conteúdo (recriar o mesmo JSON é idempotente; missão nova muda conteúdo ou `version`); `fingerprint` cobre tudo menos `status`, `createdAt`, `updatedAt`, `fingerprint`.
 - `successCriteria`: cada critério tem forma verificável — `check` (`command`, `cwd` opcional), `artifact` (`path`, `mustMatch` opcional) ou `rubric` (`question`). Critério sem forma é recusado.
+- `delegation` (opcional; a chave fica **ausente** num documento v0.1.0 — não entra na fingerprint, então o mesmo JSON v0.1.0 continua gerando o mesmo `missionId` de antes do PIP-903 — e é `null` ou uma regra só numa missão v0.2.0): quando presente e não nula, exige `schemaVersion: "0.2.0"` e só `{"grantCycle": {"maxTimes": 1-3, "maxCostFraction": (0, 0.8], "requireProgress": bool}}` — qualquer outra chave, no nível de `delegation` ou dentro de `grantCycle`, é recusada. Ver "Decisões delegadas" abaixo.
 - `constraints`: `maxCycles`, `maxBudgetUsd`, `maxTurnsPerRun` positivos; `productionAllowed`, `secretsAllowed`, `externalCommsAllowed`, `billingAllowed` **têm de ser `false`**. Gates absolutos não são escalados: são recusados na criação.
 - `workspace.repo` absoluto, `baseRef`, `writeSet` relativo, não vazio, sem `..`.
 - `delivery.kind ∈ {none, pull_request}` e `requireChecks`.
@@ -30,7 +32,20 @@ Allowlist fixa em `events.py` (`mission.*`, `run.*`, `verify.*`, `review.*`, `de
 
 ## Decisões humanas
 
-`open_decision(kind ∈ {approval, clarification, escalation, out_of_mission, budget}, context curto, options, safe_default, blocked_scope, deadline)`; pedido pendente idêntico não duplica. `resolve_decision(decision_id, option, decided_by)` exige opção válida e `decided_by` com prefixo `human:chat:`, `human:linear:` ou `human:cli:` — qualquer outra fonte (agente, supervisor) é recusada. Silêncio nunca aprova; o `safe_default` é informação para quem decide, não uma resolução automática.
+`open_decision(kind ∈ {approval, clarification, escalation, out_of_mission, budget}, context curto, options, safe_default, blocked_scope, deadline)`; pedido pendente idêntico não duplica. `resolve_decision(decision_id, option, decided_by)` exige opção válida e `decided_by` com prefixo `human:chat:`, `human:linear:` ou `human:cli:`, **ou** exatamente `delegated:orchestrator` (ver "Decisões delegadas") — qualquer outra fonte (agente, supervisor por conta própria) é recusada. Silêncio nunca aprova; o `safe_default` é informação para quem decide, não uma resolução automática.
+
+### Decisões delegadas
+
+O fundador pode declarar, na própria missão, um limite dentro do qual o supervisor concede sozinho um pedido rotineiro: `delegation.grantCycle`. É a única coisa delegável hoje — nunca merge, produção, segredos, comunicação externa, billing, orçamento (`kind: budget`) ou um veredito `out_of_mission`.
+
+**Só dois motivos são delegáveis**: bater o limite de ciclos, sozinho (`max_cycles`) ou depois de esgotar as revisões (`needs_revision_limit`). Qualquer outro motivo que hoje abre uma decisão `escalation`/`grant_cycle` — um veredito `blocked` legítimo do revisor (`review_blocked`), o circuito anti-loop (`no_progress`), o worker falhando até o último ciclo (`run_failed`) ou os checks de entrega falhando no último ciclo (`delivery_checks_failed`) — **sempre** fica pendente para o fundador, mesmo com uma regra de delegação ativa na missão: o supervisor só tenta a delegação quando o motivo é um dos dois acima, e o store recusa a fonte `delegated:orchestrator` para qualquer outro motivo, gravado em `context.reason` da própria decisão.
+
+- `resolve_decision(decision_id, option="grant_cycle", decided_by="delegated:orchestrator")` só é aceito quando a decisão é `kind: escalation` com a opção `grant_cycle`, `context.reason ∈ {max_cycles, needs_revision_limit}`, a missão tem `delegation.grantCycle`, o número de concessões já feitas (`decision.delegated` com `rule: grantCycle`) está abaixo de `maxTimes`, e o custo acumulado dividido por `maxBudgetUsd` está dentro de `maxCostFraction` (igual ao limite concede; só acima dele recusa). Qualquer outra combinação (opção, `kind`, motivo, regra ausente, limite estourado) é recusada com `ControlPlaneContractError`/`ControlPlaneStateError` — o mesmo par de exceções que qualquer outra violação de contrato ou de estado.
+- A CLI (`pipe mission decide --by ...`) recusa qualquer `--by delegated:*` antes mesmo de chamar o store: é caminho interno do supervisor, nunca algo que se peça pela CLI (o texto de ajuda continua "as a named human").
+- Quando aceito, grava o mesmo jeito que qualquer decisão (linha em `decisions`, `status: resolved`), mas o evento é `decision.delegated` (payload `decisionId` + `rule: "grantCycle"`), nunca `decision.resolved` — assim `_max_cycles()` (que já soma decisões resolvidas com `grant_cycle`) e o resto do código continuam sem saber a diferença entre uma concessão humana e uma delegada.
+- `requireProgress` (o ciclo que terminou satisfez mais critérios que o anterior; o primeiro compara com zero) é um julgamento por ciclo que só o supervisor tem contexto para fazer — o store não o verifica; é o supervisor que decide se tenta a delegação antes de chamar `resolve_decision`.
+- O supervisor só tenta a delegação em `max_cycles` e `needs_revision_limit` — nunca em `no_progress`, `review_blocked`, `run_failed`, `delivery_checks_failed`, nos casos com outras opções (`branch_mismatch`, `delivery_outside_write_set`, `git_config_tampered`, checks sem resposta) nem em `budget`. Se a regra cobre o caso, resolve a decisão como `delegated:orchestrator`, chama `resume()` e o ciclo seguinte já sai sem pedir nada ao fundador; senão, a decisão fica pendente. Missões sem `delegation` — inclusive toda missão v0.1.0, onde a chave é sempre ausente — se comportam de forma idêntica ao PIP-902.
+- `status`/`build_status` expõe `delegatedDecisions`: a contagem de eventos `decision.delegated` da missão.
 
 ## Store
 
@@ -72,7 +87,7 @@ Códigos: `MISSION_CONTRACT_VIOLATION` e `MISSION_STATE_CONFLICT` saem com `READ
 8. **Coleta**: `session_id`, `total_cost_usd`, `num_turns`, `subtype` e contagem de `permission_denials` vão para o evento `run.*`; `subtype` de erro (`error_max_turns`, `error_max_budget_usd`…) ou resultado sem o JSON do worker → run `failed` com `reason`.
 9. **Roteamento do worker**: `failed` → próximo ciclo (no último, `blocked` + decisão); `done:false` com `blockers` → decisão `clarification` + `paused` (padrão seguro `pause`). **Negação de permissão não é veredito**: o ciclo segue para a verificação e o revisor como qualquer outro (na demo MSN-4a06360ef387 o worker fez o trabalho certo e teve `ls`/`node --test` negados). As chamadas negadas (`WebFetch`, `Bash(<comando>)`) e a lista de ferramentas permitidas só entram no arquivo de revisão se o ciclo terminar em `needs_revision`, depois das instruções.
 10. **Verificação determinística** (antes de gastar revisor): HEAD tem de estar na branch da missão (senão `blocked` `branch_mismatch`); circuit breaker — mesmo `diffFingerprint` do ciclo anterior → `blocked` (`no_progress`) + decisão; arquivo fora do write set (`git diff --name-only --no-renames <baseRef>...HEAD` + `git status --porcelain --no-renames`: um rename conta origem **e** destino) → `verify.failed` + `review.needs_revision` **sem revisor**; critérios `check` (exit 0, teto 600 s) e `artifact` gravam evidência e, se algum falha, `needs_revision` sem revisor.
-11. **Revisor** (contexto limpo): `claude -p` com a missão + diff, `--json-schema` do veredito, `--permission-mode plan`, `--allowedTools "Read,Grep,Glob,Bash(git diff *),Bash(git log *)"`, as mesmas `--setting-sources project --strict-mcp-config --disallowedTools <deny-list>` do worker, `--max-turns 20`, `--model <reviewer-model>`. Veredito inválido ou run com erro = `blocked`. Rubrics viram evidência. `satisfied` sem evidência de todos os critérios é rebaixado a `blocked`.
+11. **Revisor** (contexto limpo): `claude -p` com a missão + diff, `--json-schema` do veredito, `--permission-mode plan`, `--allowedTools "Read,Grep,Glob,Bash(git diff *),Bash(git log *)"`, as mesmas `--setting-sources project --strict-mcp-config --disallowedTools <deny-list>` do worker, `--max-turns 20`, `--model <reviewer-model>`. Uma falha de infraestrutura (`reviewer_run_failed`: o run não terminou `collected`; `reviewer_output_invalid`: terminou mas sem um veredito válido no schema) não é um julgamento — ganha **uma** nova tentativa de revisão, sem novo worker, sobre o mesmo diff; se a segunda tentativa falhar do mesmo jeito, aí sim vira `blocked`. Um veredito `blocked` que o próprio revisor devolveu (run válido, JSON válido, `verdict: "blocked"`) nunca é repetido. Rubrics viram evidência. `satisfied` sem evidência de todos os critérios é rebaixado a `blocked`.
 12. **Rotas**: `satisfied` → entrega; `needs_revision` → próximo ciclo com as instruções (no ciclo `maxCycles`: `blocked` + decisão); `out_of_mission` → `paused` + decisão `out_of_mission` (padrão seguro `pause`); `blocked` → `blocked` + decisão.
 13. **Entrega** (`delivery.kind = pull_request`): imediatamente antes do commit do supervisor e de novo antes do push, HEAD tem de estar na branch da missão (`branch_mismatch`) e `changed_files` é refeito contra o write set (`delivery_outside_write_set`); qualquer falha → `blocked` + decisão (`stop`/`fix_and_resume`), sem commit, push nem PR. Depois: commit do que o worker deixou no worktree, `git push origin HEAD:refs/heads/<branch>` (publica o HEAD verificado, nunca a ref local pelo nome), `gh pr create` **uma vez por branch** (consulta `gh pr list --head` antes; o evento `delivery.pr_opened` também não se repete), e polling de `gh pr checks` a cada 30 s por até 60 leituras. `passed` → `delivery.checks_passed` → `complete()`; `failed` → `delivery.checks_failed` + `needs_revision` no próximo ciclo; sem resposta no teto → `blocked` (`delivery_checks_timeout`) + decisão `stop`/`keep_waiting`. Com `delivery.kind = none`, conclui após o revisor.
 
@@ -84,14 +99,15 @@ Códigos: `MISSION_CONTRACT_VIOLATION` e `MISSION_STATE_CONFLICT` saem com `READ
 |---|---|---|---|
 | run órfão | `escalation` | `unknown` | `stop`, `revise_mission` |
 | orçamento | `budget` | `blocked` | `stop`, `revise_mission` |
-| limite de ciclos (`needs_revision_limit`, `run_failed`, `delivery_checks_failed`, `max_cycles`), `no_progress`, `review_blocked` | `escalation` | `blocked` | `stop`, `grant_cycle` |
+| limite de ciclos (`max_cycles`, `needs_revision_limit`) | `escalation` | `blocked` (ou concedida sozinha — ver "Decisões delegadas" — e a missão continua `active`) | `stop`, `grant_cycle` |
+| `no_progress`, `review_blocked`, `run_failed`, `delivery_checks_failed` | `escalation` | `blocked` (nunca delegável, mesmo com uma regra ativa) | `stop`, `grant_cycle` |
 | checks sem resposta | `escalation` | `blocked` | `stop`, `keep_waiting` |
 | config git alterada durante o worker (`git_config_tampered`) | `escalation` | `blocked` | `stop`, `restore_and_resume` |
 | HEAD fora da branch da missão (`branch_mismatch`), diff fora do write set na entrega (`delivery_outside_write_set`) | `escalation` | `blocked` | `stop`, `fix_and_resume` |
 | worker com `blockers` | `clarification` | `paused` | `pause`, `retry` |
 | revisor `out_of_mission` | `out_of_mission` | `paused` | `pause`, `retry_within_mission` |
 
-O supervisor não age sobre a opção escolhida, com uma exceção: cada decisão resolvida com `grant_cycle` concede um ciclo além de `maxCycles`. Para continuar depois de decidir: `pipe mission resume <id>` e `pipe mission supervise <id> --detach`.
+O supervisor não age sobre a opção escolhida, com uma exceção: cada decisão resolvida com `grant_cycle` (por um humano ou, dentro da regra declarada, por `delegated:orchestrator`) concede um ciclo além de `maxCycles`. Para continuar depois de uma decisão humana: `pipe mission resume <id>` e `pipe mission supervise <id> --detach`; uma decisão delegada já resume e segue sozinha, dentro do mesmo `supervise`.
 
 ## Pausar, cancelar, retomar
 
