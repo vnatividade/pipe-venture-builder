@@ -179,5 +179,3 @@ class FakeBinaries:
         if not self.gh_log.exists():
             return []
         return [json.loads(line) for line in self.gh_log.read_text(encoding="utf-8").splitlines()]
-
-
