@@ -24,11 +24,14 @@ from pipe_venture_builder.mission.worker import (
 )
 from tests.mission.helpers import CREATED_AT
 from tests.mission.loop_helpers import (
+    EXPECTED_DISALLOWED_TOOLS,
     WORKER_SENTINEL,
     FakeBinaries,
+    cli_options,
     good_worker_output,
     loop_mission,
     make_repo,
+    single_values,
 )
 
 
@@ -60,7 +63,7 @@ class BriefAndCommandTests(TestCase):
             mission = mission_for(make_repo(Path(directory)))
         command = worker_command(mission, "BRIEF", claude_bin="/bin/fake-claude", budget_left=3.456)
         self.assertEqual(command[:3], ["/bin/fake-claude", "-p", "BRIEF"])
-        pairs = dict(zip(command[3::2], command[4::2]))
+        pairs = single_values(command[3:])
         self.assertEqual(pairs["--output-format"], "json")
         self.assertEqual(pairs["--max-turns"], "60")
         self.assertEqual(pairs["--max-budget-usd"], "3.46")
@@ -70,17 +73,39 @@ class BriefAndCommandTests(TestCase):
         self.assertEqual(pairs["--append-system-prompt"], WORKER_FIXED_RULES)
         self.assertEqual(
             pairs["--allowedTools"],
-            "Read,Edit,Write,Grep,Glob,Bash(git *),Bash(! grep -q 'remain follow-up' README.md)",
+            "Read,Edit,Write,Grep,Glob,Bash(git status*),Bash(git diff*),Bash(git log*),"
+            "Bash(git show*),Bash(ls *),Bash(! grep -q 'remain follow-up' README.md)",
         )
         self.assertEqual(allowed_tools(mission), pairs["--allowedTools"])
+        self.assertNotIn("Bash(git *)", pairs["--allowedTools"], "A2: no blanket git for the worker")
         self.assertNotIn("--bare", command)
         self.assertNotIn("--resume", command)
-        self.assertEqual(
-            dict(zip(command[3::2], command[4::2]))["--model"], "sonnet",
-        )
         custom = worker_command(mission, "B", claude_bin="c", budget_left=2, model="opus")
-        self.assertEqual(dict(zip(custom[3::2], custom[4::2]))["--model"], "opus")
+        self.assertEqual(single_values(custom[3:])["--model"], "opus")
         self.assertGreaterEqual(MIN_RUN_BUDGET_USD, 1.5)
+
+    def test_command_isolates_the_worker_from_the_user_settings(self) -> None:
+        # A3: without these flags ``~/.claude/settings.json`` allow rules
+        # (``gh pr merge *``, ``railway up *``) and hooks reach the worker.
+        with TemporaryDirectory() as directory:
+            mission = mission_for(make_repo(Path(directory)))
+        options = cli_options(worker_command(mission, "B", claude_bin="c", budget_left=2)[3:])
+        self.assertEqual(options["--setting-sources"], ["project"])
+        self.assertEqual(options["--strict-mcp-config"], [])
+        self.assertEqual(options["--disallowedTools"], EXPECTED_DISALLOWED_TOOLS)
+        self.assertNotIn("--mcp-config", options)
+
+    def test_rules_and_brief_forbid_commit_push_and_network(self) -> None:
+        with TemporaryDirectory() as directory:
+            mission = mission_for(make_repo(Path(directory)))
+        brief = compile_brief(mission, cycle=1, revision_instructions=None)
+        self.assertIn("não faça commit nem push; o supervisor verifica e commita", brief)
+        self.assertNotIn("Faça commits", brief)
+        self.assertIn(f"Ferramentas permitidas: {allowed_tools(mission)}", brief)
+        for text in (brief, WORKER_FIXED_RULES):
+            self.assertNotIn("git/gh", text)
+            self.assertNotIn("`git`/`gh`", text)
+        self.assertIn("Não faça commit, push, PR nem merge", WORKER_FIXED_RULES)
 
 
 class ParsingTests(TestCase):

@@ -20,6 +20,7 @@ from .worker import (
     ClaudeProcess,
     ClaudeResult,
     _json_candidates,
+    isolation_args,
     run_claude,
 )
 
@@ -141,6 +142,7 @@ def reviewer_command(
         "plan",
         "--allowedTools",
         REVIEWER_ALLOWED_TOOLS,
+        *isolation_args(),
         "--model",
         model,
     ]

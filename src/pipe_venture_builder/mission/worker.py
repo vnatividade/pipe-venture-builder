@@ -37,13 +37,51 @@ DEFAULT_WORKER_TIMEOUT_SECONDS = 3600.0
 DEFAULT_POLL_SECONDS = 5.0
 DEFAULT_GRACE_SECONDS = 10.0
 DENIED_COMMAND_PREVIEW_CHARS = 160
-BASE_ALLOWED_TOOLS = ("Read", "Edit", "Write", "Grep", "Glob", "Bash(git *)")
+# The worker edits files and reads git; it never commits (the supervisor
+# verifies and commits), so no ``Bash(git *)``: ``git config`` in a worktree
+# writes the main checkout's config and ``git commit`` runs hooks.
+BASE_ALLOWED_TOOLS = (
+    "Read",
+    "Edit",
+    "Write",
+    "Grep",
+    "Glob",
+    "Bash(git status*)",
+    "Bash(git diff*)",
+    "Bash(git log*)",
+    "Bash(git show*)",
+    "Bash(ls *)",
+)
+# Deny wins over allow, including allow rules that could still come from the
+# project's settings. Passed as separate ``--disallowedTools`` arguments.
+DISALLOWED_TOOLS = (
+    "Bash(gh *)",
+    "Bash(railway *)",
+    "Bash(git push*)",
+    "Bash(git config*)",
+    "Bash(git remote*)",
+    "Bash(git -c *)",
+    "Bash(git -C *)",
+    "Bash(git checkout*)",
+    "Bash(git switch*)",
+    "Bash(git reset*)",
+    "Bash(git worktree*)",
+    "Bash(git commit*)",
+    "Bash(git add*)",
+    "Bash(git rebase*)",
+    "Bash(git merge*)",
+    "Bash(curl *)",
+    "Bash(wget *)",
+    "WebFetch",
+    "WebSearch",
+)
 
 WORKER_FIXED_RULES = (
     "Você executa UMA missão do Pipe dentro de um worktree isolado. "
     "Só altere arquivos do write set do brief; qualquer outro diff reprova o ciclo. "
-    "Não use rede além de git/gh já autenticados; não leia .env, cofre, chaves ou credenciais; "
-    "não altere configuração, hooks ou permissões. Não abra PR, não faça merge, não faça push. "
+    "Não use rede (nem gh, railway, curl); não leia .env, cofre, chaves ou credenciais; "
+    "não altere configuração (inclusive git config), hooks ou permissões. "
+    "Não faça commit, push, PR nem merge: o supervisor verifica e commita. "
     "Não invente evidência: se um critério não ficou verdadeiro, diga done=false e liste blockers. "
     "Termine respondendo SOMENTE com o JSON pedido no brief."
 )
@@ -366,10 +404,13 @@ def compile_brief(
     lines += [
         "",
         "## Regras",
-        "- Não use rede além de `git`/`gh` já autenticados; não leia `.env`, cofre ou "
-        "credenciais; não altere config.",
-        f"- Faça commits pequenos com mensagem começando por `{mission['missionId']}:`. "
-        "Não abra PR (o supervisor abre). Não faça merge.",
+        "- Não use rede (nem `gh`, `railway`, `curl`); não leia `.env`, cofre ou "
+        "credenciais; não altere config (inclusive `git config`), hooks ou permissões.",
+        "- Edite os arquivos e deixe as mudanças no worktree: não faça commit nem push; o "
+        "supervisor verifica e commita. Não abra PR (o supervisor abre). Não faça merge.",
+        f"- Ferramentas permitidas: {allowed_tools(mission)}. Qualquer outra chamada é negada "
+        "(inclusive comandos encadeados com `;`, `&&` ou `|`); o supervisor roda as "
+        "verificações dos critérios depois de você.",
         '- Ao terminar, responda SOMENTE com JSON: {"done": true|false, "summary": "...", '
         '"filesChanged": [...], "criteriaSelfAssessment": [{"id": "...", "met": true|false, '
         '"note": "..."}], "blockers": ["..."]}.',
@@ -391,6 +432,22 @@ def allowed_tools(mission: Mapping[str, Any]) -> str:
             if entry not in tools:
                 tools.append(entry)
     return ",".join(tools)
+
+
+def isolation_args() -> list[str]:
+    """Flags that keep a headless ``claude`` away from this machine's user
+    settings (allow rules such as ``gh pr merge *`` or ``railway up *``, hooks)
+    and MCP servers, plus the deny-list. Measured with the real CLI 2.1.267:
+    with them ``gh``/``railway``/``git push`` are denied and auth still works.
+    ``--disallowedTools`` is variadic, so an option must follow its values."""
+
+    return [
+        "--setting-sources",
+        "project",
+        "--strict-mcp-config",
+        "--disallowedTools",
+        *DISALLOWED_TOOLS,
+    ]
 
 
 def worker_command(
@@ -417,6 +474,7 @@ def worker_command(
         "none",
         "--allowedTools",
         allowed_tools(mission),
+        *isolation_args(),
         "--append-system-prompt",
         WORKER_FIXED_RULES,
         "--model",

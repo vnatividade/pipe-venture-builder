@@ -37,6 +37,7 @@ from tests.mission.loop_helpers import (
     loop_mission,
     make_repo,
     satisfied_verdict,
+    single_values,
 )
 
 REVIEWER_SENTINEL = "SENTINEL-reviewer-instructions-that-stay-out-of-sqlite"
@@ -52,9 +53,9 @@ def needs_revision_verdict(instructions: str = "Cite o comando no guia.") -> dic
 
 
 def flags(argv: list[str]) -> dict[str, str]:
-    """``--flag value`` pairs from the fake's logged argv (``-p <brief>`` first)."""
+    """One-value ``--flag value`` options from the fake's logged argv (``-p <brief>`` first)."""
 
-    return dict(zip(argv[2::2], argv[3::2]))
+    return single_values(argv[2:])
 
 
 def good_worker(**extra: Any) -> dict[str, Any]:
@@ -515,6 +516,38 @@ class AntiLoopGuardTests(SupervisorTestCase):
         revision = (h.home / h.mission_id / "revisions" / "cycle-1.md").read_text(encoding="utf-8")
         self.assertIn("C1", revision)
         self.assertIn("- Bash(npm test)", revision)
+
+
+class GitConfigTamperTests(SupervisorTestCase):
+    def test_worker_that_changes_the_repository_git_config_blocks_without_commit_or_push(self) -> None:
+        # A2 (review S7): ``git config`` in the worktree writes the common
+        # config of the main checkout, and the supervisor's own commit would
+        # then run the planted hook.
+        h = self.harness(with_origin=True, delivery={"kind": "pull_request", "requireChecks": True})
+        h.fakes.scenario(
+            worker=[good_worker(git_config={"core.hooksPath": "ignored/hooks"})],
+            reviewer=[{"structured_output": satisfied_verdict()}],
+        )
+        base = git(h.repo, "rev-parse", "main").strip()
+        step = h.run_once()
+        self.assertEqual((step.status, step.reason), ("blocked", "git_config_tampered"))
+        self.assertEqual(h.payloads("mission.blocked")[-1]["reasonCode"], "git_config_tampered")
+        [decision] = h.store.pending_decisions(h.mission_id)
+        self.assertEqual(decision["kind"], "escalation")
+        self.assertEqual(decision["safeDefault"], "stop")
+        self.assertEqual(h.calls("reviewer"), [], "nothing after the worker runs")
+        self.assertEqual(h.fakes.gh_calls(), [], "no PR")
+        worktree = worktree_path(h.mission_id, h.home)
+        self.assertEqual(git(worktree, "rev-parse", "HEAD").strip(), base, "no supervisor commit")
+        self.assertNotEqual(git(worktree, "status", "--porcelain"), "", "the worker's diff is left as is")
+        self.assertEqual(git(h.repo, "ls-remote", "--heads", "origin", branch_name(h.mission)), "", "no push")
+        self.assertEqual(git(h.repo, "config", "core.hooksPath").strip(), "ignored/hooks",
+                         "the tampering reached the main checkout (what the guard detects)")
+
+    def test_control_the_same_worker_without_git_config_delivers(self) -> None:
+        h = self.harness(with_origin=True, delivery={"kind": "pull_request", "requireChecks": False})
+        h.fakes.scenario(worker=[good_worker()], reviewer=[{"structured_output": satisfied_verdict()}])
+        self.assertEqual(h.run_once().status, "completed")
 
 
 class DeliveryTests(SupervisorTestCase):

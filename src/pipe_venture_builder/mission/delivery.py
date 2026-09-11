@@ -7,6 +7,7 @@ exists, ``open_pr`` asks ``gh pr list --head`` before creating, and
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -88,6 +89,34 @@ def ensure_worktree(mission: Mapping[str, Any], *, home: str | Path | None = Non
     else:
         _git(repo, "worktree", "add", str(path), "-b", branch, mission["workspace"]["baseRef"])
     return path
+
+
+def git_config_snapshot(repo: str | Path, worktree: str | Path) -> dict[str, str | None]:
+    """Hashes of the repository-level git config seen from the main checkout
+    and from the worktree (``--local``, and ``--worktree`` when git accepts it).
+
+    A worktree shares the main checkout's config, so a ``git config`` run by
+    the worker changes what every later git command of the supervisor does
+    (``core.hooksPath``, ``core.fsmonitor``, ``remote.origin.url``...). The
+    supervisor compares a snapshot before and after each worker run. Only
+    hashes are kept: the config may hold credentials in URLs.
+    """
+
+    snapshot: dict[str, str | None] = {}
+    for label, cwd in (("repo", repo), ("worktree", worktree)):
+        for scope in ("--local", "--worktree"):
+            completed = subprocess.run(
+                ["git", "config", scope, "--list", "--null"],
+                cwd=str(cwd), capture_output=True, timeout=GIT_TIMEOUT_SECONDS, check=False,
+            )
+            key = f"{label}:{scope.lstrip('-')}"
+            if completed.returncode != 0:
+                # ``--worktree`` fails without ``extensions.worktreeConfig`` when
+                # there are several worktrees; the error itself is the state.
+                snapshot[key] = None if scope == "--worktree" else f"error:{completed.returncode}"
+                continue
+            snapshot[key] = hashlib.sha256(completed.stdout).hexdigest()
+    return snapshot
 
 
 def commit_if_needed(worktree: str | Path, message: str) -> bool:

@@ -16,6 +16,43 @@ FAKE_GH = FAKES / "fake_gh.py"
 WORKER_SENTINEL = "SENTINEL-worker-summary-text-that-must-never-be-persisted"
 
 
+def cli_options(tokens: list[str]) -> dict[str, list[str]]:
+    """``--option value...`` groups: a boolean option maps to ``[]``, a
+    variadic one (``--disallowedTools a b``) to every value until the next
+    ``--option``. ``tokens`` start at the first option (after ``-p <prompt>``)."""
+
+    options: dict[str, list[str]] = {}
+    current: str | None = None
+    for token in tokens:
+        if token.startswith("--"):
+            current = token
+            if current in options:
+                raise AssertionError(f"option repeated: {current}")
+            options[current] = []
+        elif current is None:
+            raise AssertionError(f"value before any option: {token[:40]}")
+        else:
+            options[current].append(token)
+    return options
+
+
+def single_values(tokens: list[str]) -> dict[str, str]:
+    """``cli_options`` reduced to the one-value options."""
+
+    return {key: values[0] for key, values in cli_options(tokens).items() if len(values) == 1}
+
+
+# The deny-list the worker and the reviewer must carry (review A2/A3). Written
+# out here, not imported, so removing an entry from the code fails a test.
+EXPECTED_DISALLOWED_TOOLS = [
+    "Bash(gh *)", "Bash(railway *)", "Bash(git push*)", "Bash(git config*)",
+    "Bash(git remote*)", "Bash(git -c *)", "Bash(git -C *)", "Bash(git checkout*)",
+    "Bash(git switch*)", "Bash(git reset*)", "Bash(git worktree*)", "Bash(git commit*)",
+    "Bash(git add*)", "Bash(git rebase*)", "Bash(git merge*)", "Bash(curl *)",
+    "Bash(wget *)", "WebFetch", "WebSearch",
+]
+
+
 def git(cwd: Path, *args: str) -> str:
     completed = subprocess.run(
         ["git", "-c", "user.name=test", "-c", "user.email=test@example.invalid", *args],

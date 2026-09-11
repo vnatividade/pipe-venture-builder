@@ -49,6 +49,7 @@ from .delivery import (
     checks_status,
     commit_if_needed,
     ensure_worktree,
+    git_config_snapshot,
     mission_home,
     open_pr,
     pr_body,
@@ -374,6 +375,8 @@ class _Cycle:
             return self._budget_reached(cycle)
         worktree = ensure_worktree(self.mission, home=self.home)
         revision = _load_revision(self.home, self.mission_id, cycle - 1)
+        repo = self.mission["workspace"]["repo"]
+        config_before = git_config_snapshot(repo, worktree)
         run_id = self.store.open_run(
             self.mission_id,
             cycle=cycle,
@@ -425,6 +428,12 @@ class _Cycle:
             },
         )
         _log(self.home, self.mission_id, "worker.closed", run=run_id, status=status, reason=reason)
+        tampered = [
+            key for key, value in git_config_snapshot(repo, worktree).items()
+            if config_before.get(key) != value
+        ]
+        if tampered:
+            return self._config_tampered(cycle, run_id, status, len(tampered))
         if status == "interrupted":
             return Step(self._status(), "interrupted", cycle)
         if status == "failed":
@@ -677,6 +686,32 @@ class _Cycle:
             options=["stop", "keep_waiting"],
             scope="delivery",
         )
+
+    def _config_tampered(self, cycle: int, run_id: str, run_status: str, locations: int) -> Step:
+        """The repository git config changed during the worker run: nothing
+        else runs (no verification, no reviewer, no commit, no push) and a
+        human decides. The run's cycle is closed so a resume never delivers it."""
+
+        _log(self.home, self.mission_id, "git_config.tampered", run=run_id, locations=locations)
+        if run_status == "collected":
+            self.store.record_verdict(run_id, verdict="blocked", at=self.now())
+        status = self._status()
+        if status == "active":
+            return self._block(
+                "git_config_tampered", cycle, run_id, options=["stop", "restore_and_resume"]
+            )
+        if status in ("paused", "blocked"):
+            self.store.open_decision(
+                self.mission_id,
+                kind="escalation",
+                context={"reason": "git_config_tampered", "cycle": cycle, "runId": run_id},
+                options=["stop", "restore_and_resume"],
+                safe_default="stop",
+                blocked_scope="mission",
+                deadline=None,
+                at=self.now(),
+            )
+        return Step(status, "git_config_tampered", cycle)
 
     def _complete(self, cycle: int) -> Step:
         self.store.complete(self.mission_id, at=self.now())

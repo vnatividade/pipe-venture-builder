@@ -15,6 +15,7 @@ from pipe_venture_builder.mission.delivery import (
     commit_if_needed,
     ensure_worktree,
     existing_pr,
+    git_config_snapshot,
     open_pr,
     pr_body,
     pr_title,
@@ -75,6 +76,23 @@ class BranchAndWorktreeTests(TestCase):
             self.assertEqual(git(worktree, "status", "--porcelain"), "")
             self.assertIn(f"{mission['missionId']}: supervisor commit", git(worktree, "log", "-1", "--format=%s"))
             self.assertFalse(commit_if_needed(worktree, "again"))
+
+
+class GitConfigSnapshotTests(TestCase):
+    def test_snapshot_changes_when_the_worktree_writes_repository_config(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo = make_repo(root)
+            mission = build_mission(loop_mission(repo), created_at=CREATED_AT)
+            worktree = ensure_worktree(mission, home=root / "home")
+            before = git_config_snapshot(repo, worktree)
+            self.assertEqual(git_config_snapshot(repo, worktree), before, "stable without changes")
+            (worktree / "README.md").write_text("edit\n", encoding="utf-8")
+            self.assertEqual(git_config_snapshot(repo, worktree), before, "file edits are not config")
+            git(worktree, "config", "core.hooksPath", "ignored/hooks")
+            self.assertNotEqual(git_config_snapshot(repo, worktree), before)
+            self.assertNotIn("ignored/hooks", repr(git_config_snapshot(repo, worktree)),
+                             "only hashes are kept")
 
 
 class PullRequestTests(TestCase):

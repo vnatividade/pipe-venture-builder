@@ -20,7 +20,15 @@ from pipe_venture_builder.mission.reviewer import (
     run_review,
 )
 from tests.mission.helpers import CREATED_AT
-from tests.mission.loop_helpers import FakeBinaries, loop_mission, make_repo, satisfied_verdict
+from tests.mission.loop_helpers import (
+    EXPECTED_DISALLOWED_TOOLS,
+    FakeBinaries,
+    cli_options,
+    loop_mission,
+    make_repo,
+    satisfied_verdict,
+    single_values,
+)
 
 
 class PromptAndCommandTests(TestCase):
@@ -47,7 +55,7 @@ class PromptAndCommandTests(TestCase):
     def test_command_is_read_only_with_schema_and_model(self) -> None:
         command = reviewer_command("PROMPT", claude_bin="/bin/fake", budget_left=2.0)
         self.assertEqual(command[:3], ["/bin/fake", "-p", "PROMPT"])
-        pairs = dict(zip(command[3::2], command[4::2]))
+        pairs = single_values(command[3:])
         self.assertEqual(pairs["--output-format"], "json")
         self.assertEqual(json.loads(pairs["--json-schema"]), VERDICT_SCHEMA)
         self.assertEqual(pairs["--max-turns"], "20")
@@ -58,6 +66,10 @@ class PromptAndCommandTests(TestCase):
         self.assertEqual(pairs["--model"], "sonnet")
         self.assertNotIn("Edit", pairs["--allowedTools"])
         self.assertNotIn("--bare", command)
+        options = cli_options(command[3:])
+        self.assertEqual(options["--setting-sources"], ["project"], "A3: no user settings")
+        self.assertEqual(options["--strict-mcp-config"], [])
+        self.assertEqual(options["--disallowedTools"], EXPECTED_DISALLOWED_TOOLS)
         self.assertEqual(VERDICT_SCHEMA["properties"]["verdict"]["enum"],
                          ["satisfied", "needs_revision", "out_of_mission", "blocked"])
 
