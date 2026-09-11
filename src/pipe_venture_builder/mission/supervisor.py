@@ -4,22 +4,27 @@ Order of a cycle (desenho D4/D6/D7/D10/D11 and the anti-loop guards):
 
 1. the audit chain must verify, and no other live supervisor may own the
    mission (single writer); otherwise refuse;
-2. reconcile: a ``running`` run left by a dead supervisor becomes ``unknown``
-   with an ``escalation`` decision, and the mission becomes ``unknown`` —
-   nothing is re-executed;
+2. reconcile: a worker left alive by a dead supervisor is killed (only if its
+   pid still runs ``claude -p`` as a session leader); a ``running`` run
+   becomes ``unknown`` with an ``escalation`` decision, and the mission
+   becomes ``unknown`` — nothing is re-executed;
 3. the mission must be ``active`` with no pending decision;
 4. budget: worker budget = ``maxBudgetUsd`` − cost so far − reviewer reserve,
    never below ``MIN_RUN_BUDGET_USD``; otherwise ``budget.reached``;
-5. worktree → worker (``claude -p``) while the store is polled every
-   ``poll_seconds``: ``paused``/``cancelled`` → SIGTERM → ``run.interrupted``;
-6. verify: circuit breaker (same diff fingerprint as the previous cycle →
-   ``blocked``), write set (outside → ``needs_revision`` without the reviewer),
-   ``check``/``artifact`` evidence (failing → ``needs_revision`` without the
-   reviewer);
-7. clean-context reviewer; route ``satisfied`` → delivery → ``complete``;
-   ``needs_revision`` → next cycle (limit → ``blocked`` + decision);
-   ``out_of_mission`` → ``paused`` + decision (safe default ``pause``);
-   ``blocked`` → ``blocked`` + decision.
+5. worktree → worker (``claude -p``, isolated from the user's settings)
+   while the store is polled every ``poll_seconds``: ``paused``/``cancelled``
+   → SIGTERM to the group → ``run.interrupted``; the repository git config is
+   compared before/after the run (changed → ``blocked``
+   ``git_config_tampered``); permission denials are not a verdict;
+6. verify: HEAD on the mission branch, circuit breaker (same diff fingerprint
+   as the previous cycle → ``blocked``), write set without rename detection
+   (outside → ``needs_revision`` without the reviewer), ``check``/``artifact``
+   evidence (failing → ``needs_revision`` without the reviewer);
+7. clean-context reviewer; route ``satisfied`` → delivery (branch and write
+   set re-checked before the commit and before the push of ``HEAD``) →
+   ``complete``; ``needs_revision`` → next cycle (limit → ``blocked`` +
+   decision); ``out_of_mission`` → ``paused`` + decision (safe default
+   ``pause``); ``blocked`` → ``blocked`` + decision.
 
 Only ids, hashes, counts and reason codes reach SQLite and the log. The next
 cycle's revision instructions (reviewer text, file names, tool names) live in

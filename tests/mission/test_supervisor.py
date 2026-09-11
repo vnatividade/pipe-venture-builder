@@ -875,8 +875,8 @@ class ReconcileLiveWorkerTests(SupervisorTestCase):
         process = subprocess.Popen(command, cwd=h.repo, stdin=subprocess.DEVNULL,
                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                                    start_new_session=True)
+        self.addCleanup(process.wait)  # cleanups run last-in first-out: kill, then reap
         self.addCleanup(kill_quietly, process.pid)
-        self.addCleanup(process.wait)
         pid_file = h.home / h.mission_id / "worker.pid"
         pid_file.parent.mkdir(parents=True, exist_ok=True)
         pid_file.write_text(f"{process.pid}\n", encoding="utf-8")
