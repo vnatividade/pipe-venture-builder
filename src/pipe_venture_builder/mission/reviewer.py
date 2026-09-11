@@ -31,6 +31,12 @@ REVIEWER_OUTPUT_INVALID = "reviewer_output_invalid"
 REVIEWER_RUN_FAILED = "reviewer_run_failed"
 DEFAULT_REVIEW_TIMEOUT_SECONDS = 900.0
 MAX_DIFF_CHARS = 200_000
+# The prompt asks for short evidence; the schema accepts much more. With the
+# two equal, a reviewer that overshoots by a few chars exhausts the CLI's
+# structured-output retries and a correct verdict becomes an escalation.
+EVIDENCE_PROMPT_CHARS = 300
+EVIDENCE_SCHEMA_MAX_CHARS = 1000
+REASON_SCHEMA_MAX_CHARS = 600
 VERDICTS = ("satisfied", "needs_revision", "out_of_mission", "blocked")
 
 # Sem "$schema": o validador do claude 2.1.267 recusa a URI draft 2020-12 e o
@@ -50,11 +56,11 @@ VERDICT_SCHEMA: dict[str, Any] = {
                 "properties": {
                     "id": {"type": "string"},
                     "met": {"type": "boolean"},
-                    "evidence": {"type": "string", "maxLength": 400},
+                    "evidence": {"type": "string", "maxLength": EVIDENCE_SCHEMA_MAX_CHARS},
                 },
             },
         },
-        "reasons": {"type": "array", "items": {"type": "string", "maxLength": 300}, "maxItems": 10},
+        "reasons": {"type": "array", "items": {"type": "string", "maxLength": REASON_SCHEMA_MAX_CHARS}, "maxItems": 10},
         "revisionInstructions": {"type": "string", "maxLength": 1500},
     },
 }
@@ -108,7 +114,7 @@ def build_review_prompt(mission: Mapping[str, Any], diff_text: str) -> str:
         "",
         "## Instruções",
         "Julgue SOMENTE contra os critérios e os não-objetivos acima. Para cada critério, "
-        "diga se está satisfeito e cite a evidência no diff ou no repositório (máx. 400 chars).",
+        f"diga se está satisfeito e cite a evidência no diff ou no repositório (máx. {EVIDENCE_PROMPT_CHARS} chars).",
         "- `satisfied`: todos os critérios estão verdadeiros e nada viola um não-objetivo.",
         "- `needs_revision`: falta algo dentro da intenção; preencha `revisionInstructions` "
         "com o que o próximo ciclo deve fazer, de forma objetiva.",
