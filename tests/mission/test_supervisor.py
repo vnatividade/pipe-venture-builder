@@ -403,6 +403,159 @@ class DelegatedGrantCycleStackingTests(SupervisorTestCase):
         self.assertEqual(cycles, [1, 2, 3])
 
 
+class ReviewerRetryTests(SupervisorTestCase):
+    """PIP-903 review finding #3: these behaviours (§6 of the design) had no
+    test in the repository at all before this fix — only the review's hidden
+    suite covered them."""
+
+    def test_reviewer_infrastructure_failure_is_retried_once_without_a_new_worker(self) -> None:
+        h = self.harness()
+        h.fakes.scenario(
+            worker=[good_worker()],
+            reviewer=[{"mode": "garbage"}, {"structured_output": satisfied_verdict()}],
+        )
+        step = h.supervise()
+        self.assertEqual(step.status, "completed")
+        self.assertEqual(len(h.calls("worker")), 1, "an infra failure never dispatches a new worker")
+        self.assertEqual(len(h.calls("reviewer")), 2)
+        reviewer_runs = [
+            run for run in h.store.list_runs(h.mission_id) if run["executor"].startswith("reviewer")
+        ]
+        self.assertEqual([run["attempt"] for run in reviewer_runs], [1, 2])
+        self.assertEqual({run["cycle"] for run in reviewer_runs}, {1}, "same cycle, no new worker")
+        self.assertEqual(reviewer_runs[0]["status"], "failed")
+        self.assertEqual(reviewer_runs[1]["status"], "collected")
+
+    def test_two_reviewer_infrastructure_failures_escalate(self) -> None:
+        h = self.harness()
+        h.fakes.scenario(worker=[good_worker()], reviewer=[{"mode": "garbage"}, {"mode": "garbage"}])
+        step = h.supervise()
+        self.assertEqual((step.status, step.reason), ("blocked", "review_blocked"))
+        self.assertEqual(len(h.calls("worker")), 1)
+        self.assertEqual(len(h.calls("reviewer")), 2, "a second failure gets no third attempt")
+        [decision] = h.store.pending_decisions(h.mission_id)
+        self.assertEqual(decision["kind"], "escalation")
+        self.assertEqual(set(decision["options"]), {"stop", "grant_cycle"})
+
+    def test_a_legitimate_blocked_verdict_is_not_retried(self) -> None:
+        h = self.harness()
+        blocked_verdict = satisfied_verdict(verdict="blocked", reasons=["diff nao da para julgar"])
+        h.fakes.scenario(worker=[good_worker()], reviewer=[{"structured_output": blocked_verdict}])
+        step = h.supervise()
+        self.assertEqual((step.status, step.reason), ("blocked", "review_blocked"))
+        self.assertEqual(len(h.calls("reviewer")), 1, "a real verdict from the model is never retried")
+
+
+class SupervisorDelegationScopeTests(SupervisorTestCase):
+    """PIP-903 review finding #2: the supervisor must only attempt a
+    delegated grant for ``max_cycles``/``needs_revision_limit`` — never for a
+    legitimate reviewer verdict, the circuit breaker, or an escalated worker
+    failure — even when the mission's rule would otherwise cover it."""
+
+    def test_supervisor_grants_the_cycle_itself_and_completes(self) -> None:
+        constraints = dict(loop_mission(Path("/tmp"))["constraints"], maxCycles=1)
+        delegation = {"grantCycle": {"maxTimes": 1, "maxCostFraction": 0.8, "requireProgress": False}}
+        h = self.harness(schemaVersion="0.2.0", delegation=delegation, constraints=constraints)
+        h.fakes.scenario(
+            worker=[
+                good_worker(),
+                {"write_files": {**GOOD_FILES, "README.md": "# Demo\n\npipe idea v2\n"},
+                 "worker_output": good_worker_output()},
+            ],
+            reviewer=[
+                {"structured_output": needs_revision_verdict("Primeira.")},
+                {"structured_output": satisfied_verdict()},
+            ],
+        )
+        step = h.supervise()
+        self.assertEqual(step.status, "completed")
+        self.assertEqual(h.store.pending_decisions(h.mission_id), [])
+        self.assertEqual(h.events().count("decision.delegated"), 1)
+        self.assertNotIn("decision.resolved", h.events())
+        cycles = [run["cycle"] for run in h.store.list_runs(h.mission_id) if run["executor"].startswith("worker")]
+        self.assertEqual(cycles, [1, 2])
+        status = build_status(h.store, h.mission_id, home=h.home)
+        self.assertEqual(status["delegatedDecisions"], 1)
+
+    def test_no_delegation_without_any_progress(self) -> None:
+        constraints = dict(loop_mission(Path("/tmp"))["constraints"], maxCycles=1)
+        delegation = {"grantCycle": {"maxTimes": 2, "maxCostFraction": 0.8, "requireProgress": True}}
+        h = self.harness(schemaVersion="0.2.0", delegation=delegation, constraints=constraints)
+        # The worker leaves the repository untouched: C1/C2 stay unsatisfied
+        # and the cycle never even reaches the reviewer (deterministic
+        # verification routes straight to "criteria_failed").
+        h.fakes.scenario(worker=[{"write_files": {}, "worker_output": good_worker_output()}])
+        step = h.supervise()
+        self.assertEqual((step.status, step.reason), ("blocked", "needs_revision_limit"))
+        self.assertEqual(h.calls("reviewer"), [])
+        [decision] = h.store.pending_decisions(h.mission_id)
+        self.assertEqual(set(decision["options"]), {"stop", "grant_cycle"})
+
+    def test_second_delegated_grant_requires_progress_since_the_previous_cycle(self) -> None:
+        constraints = dict(loop_mission(Path("/tmp"))["constraints"], maxCycles=1)
+        delegation = {"grantCycle": {"maxTimes": 2, "maxCostFraction": 0.8, "requireProgress": True}}
+        h = self.harness(schemaVersion="0.2.0", delegation=delegation, constraints=constraints)
+        h.fakes.scenario(
+            # Every cycle satisfies C1/C2 (mechanically) and leaves the C3
+            # rubric unmet: the satisfied count never grows past the first
+            # grant, so the second attempt must be refused.
+            worker=[
+                good_worker(),
+                {"write_files": {"README.md": "# Demo\n\npipe idea v2\n"}, "worker_output": good_worker_output()},
+            ],
+            reviewer=[
+                {"structured_output": needs_revision_verdict("Primeira.")},
+                {"structured_output": needs_revision_verdict("Segunda.")},
+            ],
+        )
+        step = h.supervise()
+        self.assertEqual((step.status, step.reason), ("blocked", "needs_revision_limit"))
+        self.assertEqual(h.events().count("decision.delegated"), 1, "only the first grant had progress")
+        [decision] = h.store.pending_decisions(h.mission_id)
+        self.assertEqual(set(decision["options"]), {"stop", "grant_cycle"})
+        cycles = [run["cycle"] for run in h.store.list_runs(h.mission_id) if run["executor"].startswith("worker")]
+        self.assertEqual(cycles, [1, 2])
+
+    def test_delegation_does_not_cover_a_legitimate_blocked_verdict(self) -> None:
+        delegation = {"grantCycle": {"maxTimes": 3, "maxCostFraction": 0.8, "requireProgress": False}}
+        h = self.harness(schemaVersion="0.2.0", delegation=delegation)
+        blocked_verdict = satisfied_verdict(verdict="blocked", reasons=["diff nao da para julgar"])
+        h.fakes.scenario(worker=[good_worker()], reviewer=[{"structured_output": blocked_verdict}])
+        step = h.supervise()
+        self.assertEqual((step.status, step.reason), ("blocked", "review_blocked"))
+        self.assertEqual(h.events().count("decision.delegated"), 0)
+        [decision] = h.store.pending_decisions(h.mission_id)
+        self.assertEqual(set(decision["options"]), {"stop", "grant_cycle"})
+
+    def test_delegation_does_not_cover_no_progress(self) -> None:
+        constraints = dict(loop_mission(Path("/tmp"))["constraints"], maxCycles=2)
+        delegation = {"grantCycle": {"maxTimes": 3, "maxCostFraction": 0.8, "requireProgress": False}}
+        h = self.harness(schemaVersion="0.2.0", delegation=delegation, constraints=constraints)
+        # The same diff twice in a row: the circuit breaker fires on cycle 2
+        # before a reviewer ever runs for it.
+        h.fakes.scenario(
+            worker=[good_worker(), good_worker()],
+            reviewer=[{"structured_output": needs_revision_verdict("Primeira.")}],
+        )
+        step = h.supervise()
+        self.assertEqual((step.status, step.reason), ("blocked", "no_progress"))
+        self.assertEqual(h.events().count("decision.delegated"), 0)
+        self.assertEqual(len(h.calls("reviewer")), 1)
+        [decision] = h.store.pending_decisions(h.mission_id)
+        self.assertEqual(set(decision["options"]), {"stop", "grant_cycle"})
+
+    def test_delegation_does_not_cover_run_failed(self) -> None:
+        constraints = dict(loop_mission(Path("/tmp"))["constraints"], maxCycles=1)
+        delegation = {"grantCycle": {"maxTimes": 3, "maxCostFraction": 0.8, "requireProgress": False}}
+        h = self.harness(schemaVersion="0.2.0", delegation=delegation, constraints=constraints)
+        h.fakes.scenario(worker=[{"mode": "garbage"}])
+        step = h.supervise()
+        self.assertEqual((step.status, step.reason), ("blocked", "run_failed"))
+        self.assertEqual(h.events().count("decision.delegated"), 0)
+        [decision] = h.store.pending_decisions(h.mission_id)
+        self.assertEqual(set(decision["options"]), {"stop", "grant_cycle"})
+
+
 class FailureF6BudgetTests(SupervisorTestCase):
     def test_f6_budget_exhausted_blocks_with_budget_reached_before_dispatch(self) -> None:
         constraints = dict(loop_mission(Path("/tmp"))["constraints"], maxBudgetUsd=4)

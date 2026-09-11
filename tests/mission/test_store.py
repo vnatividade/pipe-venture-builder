@@ -176,6 +176,43 @@ class MissionStoreLifecycleTests(TestCase):
                 store.get("not an id")
 
 
+class LegacyV010DocumentCompatibilityTests(TestCase):
+    """PIP-903 review finding #1: ``validate_mission`` started requiring the
+    ``delegation`` key, so every already-stored v0.1.0 mission (which never
+    had it) failed every transition (``_apply_status`` revalidates). These
+    exercise the real ``MissionStore`` the way the review's repro did."""
+
+    def test_v0_1_0_document_without_delegation_resumes_and_cancels(self) -> None:
+        with new_store() as store:
+            mission = build_mission(mission_input(), created_at=CREATED_AT)
+            self.assertNotIn("delegation", mission, "v0.1.0 documents never carry the key")
+            mission_id = store.create(mission, at=CREATED_AT)
+            store.activate(mission_id, at=LATER)
+            self.assertNotIn("delegation", store.get(mission_id))
+            store.pause(mission_id, at=LATER)
+            store.resume(mission_id, at=LATER)
+            self.assertEqual(store.get(mission_id)["status"], "active")
+            store.block(mission_id, reason_code="review_blocked", at=LATER)
+            store.resume(mission_id, at=LATER)
+            self.assertNotIn("delegation", store.get(mission_id))
+            store.cancel(mission_id, at=EVEN_LATER)
+            self.assertEqual(store.get(mission_id)["status"], "cancelled")
+
+    def test_v0_1_0_missionId_is_stable_across_recreating_the_same_draft(self) -> None:
+        # A mutation that put ``delegation`` back into the fingerprint (via an
+        # unconditional ``setdefault``) would change this id: the same JSON
+        # would stop resolving to the mission already on disk.
+        with new_store() as first_store:
+            first_id = first_store.create(
+                build_mission(mission_input(), created_at=CREATED_AT), at=CREATED_AT
+            )
+        with new_store() as second_store:
+            second_id = second_store.create(
+                build_mission(mission_input(), created_at=CREATED_AT), at=CREATED_AT
+            )
+        self.assertEqual(first_id, second_id)
+
+
 class MissionEventChainTests(TestCase):
     def test_event_allowlist_is_fixed(self) -> None:
         self.assertEqual(

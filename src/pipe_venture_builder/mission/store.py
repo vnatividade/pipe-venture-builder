@@ -98,6 +98,12 @@ DELEGATED_ORCHESTRATOR_SOURCE = "delegated:orchestrator"
 DELEGATED_DECISION_KIND = "escalation"
 DELEGATED_DECISION_OPTION = "grant_cycle"
 DELEGATED_RULE = "grantCycle"
+# Mirrors ``supervisor.DELEGABLE_REASONS``: the only ``context.reason`` values
+# a delegated grant may resolve. Any other reason (a legitimate reviewer
+# verdict, the circuit breaker, an escalated infrastructure failure, a failed
+# delivery check…) is refused here even if the mission declares a rule and a
+# human never opened the decision this way.
+DELEGABLE_REASONS = frozenset({"max_cycles", "needs_revision_limit"})
 DELIVERY_EVENTS = frozenset(
     {"delivery.pr_opened", "delivery.checks_passed", "delivery.checks_failed"}
 )
@@ -740,6 +746,11 @@ class MissionStore:
         if decision["kind"] != DELEGATED_DECISION_KIND or option != DELEGATED_DECISION_OPTION:
             raise ControlPlaneContractError(
                 "delegation only covers an escalation decision's grant_cycle option"
+            )
+        context = json.loads(decision["context_json"])
+        if context.get("reason") not in DELEGABLE_REASONS:
+            raise ControlPlaneContractError(
+                "delegation does not cover this decision's reason"
             )
         mission = json.loads(self._mission_row(decision["mission_id"])["document_json"])
         rule = (mission.get("delegation") or {}).get(DELEGATED_RULE)

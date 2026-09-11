@@ -130,6 +130,19 @@ class MissionCliTests(TestCase):
             )
             self.assertEqual(code, READINESS_BLOCKED)
 
+            # A delegated source is a caminho interno do supervisor: the CLI
+            # (a human, or the chat agent driving it) can never claim it,
+            # even for an option/decision shape the store would otherwise
+            # accept from the real supervisor.
+            code, out, err = run_cli(
+                "mission", "decide", decision_id, "--option", "approve",
+                "--by", "delegated:orchestrator", "--store", str(store_path), "--json",
+            )
+            self.assertEqual(code, READINESS_BLOCKED)
+            self.assertEqual(json.loads(err)["code"], "MISSION_CONTRACT_VIOLATION")
+            with MissionStore(store_path) as store:
+                self.assertEqual(store.get_decision(decision_id)["status"], "pending")
+
             with redirect_stderr(StringIO()):
                 with self.assertRaises(SystemExit) as usage:
                     run_cli(
