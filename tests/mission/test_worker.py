@@ -163,6 +163,7 @@ class RunWorkerTests(TestCase):
             self.assertEqual(denied.status, "collected")
             self.assertEqual(denied.permission_denials, 1)
             self.assertEqual(denied.denied_tools, ["Bash"])
+            self.assertEqual(denied.denied_calls, ["Bash(rm -rf x)"])
 
     def test_timeout_kills_the_worker_and_fails_the_run(self) -> None:
         with TemporaryDirectory() as directory, FakeBinaries(Path(directory)) as fakes:

@@ -431,16 +431,19 @@ class AntiLoopGuardTests(SupervisorTestCase):
     def test_permission_denials_route_to_needs_revision_with_instruction(self) -> None:
         h = self.harness()
         h.fakes.scenario(worker=[good_worker(result={"permission_denials": [
-            {"tool_name": "WebFetch", "tool_input": {"url": "https://example.invalid"}}]}),
+            {"tool_name": "WebFetch", "tool_input": {"url": "https://example.invalid"}},
+            {"tool_name": "Bash", "tool_input": {"command": "npm test"}}]}),
             good_worker()], reviewer=[{"structured_output": satisfied_verdict()}])
         step = h.run_once()
         self.assertEqual((step.status, step.reason), ("active", "permission_denied"))
-        self.assertEqual(h.payloads("run.collected")[0]["permissionDenials"], 1)
+        self.assertEqual(h.payloads("run.collected")[0]["permissionDenials"], 2)
         self.assertEqual(h.events()[-1], "review.needs_revision")
         self.assertEqual(h.calls("reviewer"), [])
         step = h.run_once()
         brief = h.calls("worker")[1]["argv"][1]
-        self.assertIn("WebFetch", brief)
+        self.assertIn("- WebFetch", brief)
+        self.assertIn("- Bash(npm test)", brief, "the denied call is named, not the whole tool")
+        self.assertIn("Bash(git *)", brief, "the allowed tools are listed")
         self.assertIn("negada", brief)
         self.assertEqual(step.status, "completed")
 

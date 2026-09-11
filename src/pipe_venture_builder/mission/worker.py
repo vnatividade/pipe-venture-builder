@@ -36,6 +36,7 @@ MIN_RUN_BUDGET_USD = 1.5
 DEFAULT_WORKER_TIMEOUT_SECONDS = 3600.0
 DEFAULT_POLL_SECONDS = 5.0
 DEFAULT_GRACE_SECONDS = 10.0
+DENIED_COMMAND_PREVIEW_CHARS = 160
 BASE_ALLOWED_TOOLS = ("Read", "Edit", "Write", "Grep", "Glob", "Bash(git *)")
 
 WORKER_FIXED_RULES = (
@@ -74,6 +75,8 @@ class ClaudeResult:
     returncode: int | None
     stdout_bytes: int
     model: str
+    # In memory only (never persisted): "Tool" or "Bash(<command preview>)".
+    denied_calls: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -240,12 +243,14 @@ def build_result(
     subtype = _identifier_or_none(payload.get("subtype")) if payload else None
     denials = payload.get("permission_denials") if payload else None
     denied_tools: list[str] = []
+    denied_calls: list[str] = []
     if isinstance(denials, list):
         for item in denials:
             if isinstance(item, Mapping):
                 tool = item.get("tool_name")
                 if isinstance(tool, str):
                     denied_tools.append(tool)
+                    denied_calls.append(_denied_call(tool, item.get("tool_input")))
     result_text = payload.get("result") if payload else None
     if not isinstance(result_text, str):
         result_text = None
@@ -276,7 +281,19 @@ def build_result(
         returncode=returncode,
         stdout_bytes=len(stdout.encode("utf-8", errors="replace")),
         model=model,
+        denied_calls=denied_calls,
     )
+
+
+def _denied_call(tool: str, tool_input: Any) -> str:
+    """``Bash(<command>)`` for a denied shell call, else the tool name."""
+
+    if tool == "Bash" and isinstance(tool_input, Mapping):
+        command = tool_input.get("command")
+        if isinstance(command, str) and command.strip():
+            preview = " ".join(command.split())[:DENIED_COMMAND_PREVIEW_CHARS]
+            return f"Bash({preview})"
+    return tool
 
 
 def run_claude(

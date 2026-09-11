@@ -139,3 +139,19 @@ class DiffTests(TestCase):
             self.assertNotEqual(committed, with_untracked)
             self.assertIn("brand new", diff_text(repo, "main"))
             self.assertEqual(diff_fingerprint(repo, "main"), with_untracked, "fingerprint is stable")
+
+    def test_fingerprint_does_not_change_when_the_same_content_is_committed(self) -> None:
+        # The circuit breaker compares cycles; the supervisor's delivery commit
+        # must not look like progress.
+        with TemporaryDirectory() as directory:
+            repo = make_repo(Path(directory))
+            git(repo, "checkout", "-q", "-b", "work")
+            (repo / "README.md").write_text("changed\n", encoding="utf-8")
+            (repo / "docs" / "guide.md").write_text("also changed\n", encoding="utf-8")
+            git(repo, "add", "docs/guide.md")
+            git(repo, "commit", "-q", "-m", "partial")
+            (repo / "docs" / "guide.md").write_text("also changed, twice\n", encoding="utf-8")
+            uncommitted = diff_fingerprint(repo, "main")
+            git(repo, "commit", "-q", "-am", "rest")
+            self.assertEqual(diff_fingerprint(repo, "main"), uncommitted)
+            self.assertIn("also changed, twice", diff_text(repo, "main"))

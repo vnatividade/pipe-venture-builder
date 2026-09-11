@@ -171,12 +171,12 @@ def verify_criteria(
 
 
 def diff_text(worktree: str | Path, base_ref: str) -> str:
-    """Committed diff since ``base_ref`` plus working-tree changes and untracked files."""
+    """One diff from the merge base with ``base_ref`` to the working tree, plus
+    untracked files. Committing the same content does not change it, so the
+    circuit breaker never mistakes a commit for progress."""
 
-    parts = [
-        _git(worktree, "diff", f"{base_ref}...HEAD"),
-        _git(worktree, "diff", "HEAD"),
-    ]
+    merge_base = _git(worktree, "merge-base", base_ref, "HEAD").strip()
+    parts = [_git(worktree, "diff", merge_base)]
     untracked = _git(worktree, "ls-files", "--others", "--exclude-standard")
     for line in untracked.splitlines():
         path = line.strip()

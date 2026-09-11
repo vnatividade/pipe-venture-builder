@@ -72,6 +72,7 @@ from .worker import (
     DEFAULT_WORKER_TIMEOUT_SECONDS,
     MIN_RUN_BUDGET_USD,
     ClaudeProcess,
+    allowed_tools,
     run_worker,
 )
 
@@ -444,13 +445,15 @@ class _Cycle:
             )
         if result.permission_denials:
             self.store.record_verdict(run_id, verdict="needs_revision", at=self.now())
-            tools = ", ".join(sorted(set(result.denied_tools))) or "(não identificada)"
+            denied = "\n".join(f"- {call}" for call in sorted(set(result.denied_calls))) or "- (não identificada)"
             _save_revision(
                 self.home,
                 self.mission_id,
                 cycle,
-                f"A ferramenta {tools} foi negada pelas permissões da missão; não a use. "
-                "Cumpra os critérios só com as ferramentas permitidas.",
+                "Estas chamadas foram negadas pelas permissões da missão; não as repita:\n"
+                f"{denied}\n"
+                f"Ferramentas permitidas: {allowed_tools(self.mission)}. "
+                "Cumpra os critérios só com elas.",
             )
             return self._needs_revision(cycle, run_id, "permission_denied")
         return self._verify_and_review(cycle, run_id, worktree)
