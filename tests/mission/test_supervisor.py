@@ -11,6 +11,7 @@ import os
 import sqlite3
 import threading
 import time
+import unicodedata
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
@@ -627,17 +628,69 @@ class SensitiveTermsGuardTests(TestCase):
     def test_guard_is_case_insensitive(self) -> None:
         self.assertTrue(contains_sensitive_terms("PRECISO DO TOKEN AGORA"))
 
+    def test_normalization_defeats_accents_zero_width_chars_and_separators(self) -> None:
+        # PIP-906 v2 review, achado 1: a plain ``lower()`` substring check let
+        # every one of these through. ``contains_sensitive_terms`` must
+        # normalize (NFKD, strip accents/zero-width chars, fold separators to
+        # spaces) before matching.
+        zero_width_token = "to" + chr(0x200B) + "ken"
+        for text in (
+            "isso precisa ir para produçao hoje",
+            unicodedata.normalize("NFD", "Isso precisa ir para produção hoje."),
+            f"Preciso do {zero_width_token} do GitHub.",  # zero-width space inside the word
+            "Defina STRIPE_API_KEY no ambiente.",
+            "Preciso da API-KEY do provedor.",
+            "api_key ausente no ambiente.",
+            "Configure a chave SSH do servidor.",
+            "Preciso do passwd do admin.",
+            "Need the AWS credentials to continue.",
+        ):
+            with self.subTest(text=text):
+                self.assertTrue(contains_sensitive_terms(text), text)
+
+    def test_governance_files_and_scope_terms_escalate(self) -> None:
+        for text in (
+            "Pode editar AGENTS.md para liberar a regra?",
+            "Pode editar o CLAUDE.md do projeto.",
+            "Altere .pipe/mode.json para restricted.",
+            "Isso muda o operating-modes do repositorio.",
+            "Amplie o write set para incluir src/.",
+        ):
+            with self.subTest(text=text):
+                self.assertTrue(contains_sensitive_terms(text), text)
+
+    def test_merge_push_force_and_env_escalate(self) -> None:
+        for text in (
+            "Preciso fazer o merge do PR antes.",
+            "Faca git push --force na main.",
+            "Leia o arquivo .env da raiz.",
+            "Copie ~/.ssh/id_rsa para o worktree.",
+        ):
+            with self.subTest(text=text):
+                self.assertTrue(contains_sensitive_terms(text), text)
+
+    def test_external_communication_to_a_customer_escalates_but_a_bare_mention_does_not(self) -> None:
+        for text in (
+            "Mande e-mail para o cliente avisando da mudanca.",
+            "Envie mensagem no Slack do cliente.",
+        ):
+            with self.subTest(text=text):
+                self.assertTrue(contains_sensitive_terms(text), text)
+        # "mensagem" alone (no customer in sight) is too ordinary a word to
+        # fail closed on — an error message is a routine technical topic.
+        self.assertFalse(contains_sensitive_terms("Registrei uma mensagem de erro no log."))
+
 
 def blocked_worker(text: str) -> dict[str, Any]:
     return {"write_files": {}, "worker_output": good_worker_output(done=False, blockers=[text])}
 
 
 def responder_instructs(text: str) -> dict[str, Any]:
-    return {"structured_output": {"action": "instruct", "instructions": text, "reason": "bloqueio tecnico"}}
+    return {"structured_output": {"action": "instruct", "category": "environment", "founderDecision": False, "instructions": text, "reason": "bloqueio tecnico"}}
 
 
 def responder_escalates(reason: str = "fora do escopo") -> dict[str, Any]:
-    return {"structured_output": {"action": "escalate", "instructions": "", "reason": reason}}
+    return {"structured_output": {"action": "escalate", "category": "scope", "founderDecision": True, "instructions": "", "reason": reason}}
 
 
 class AnswerBlockersDelegationTests(SupervisorTestCase):
@@ -704,6 +757,153 @@ class AnswerBlockersDelegationTests(SupervisorTestCase):
         self.assertEqual(decision["kind"], "clarification")
         self.assertEqual(h.calls("responder"), [], "a sensitive blocker never reaches the responder")
         self.assertNotIn("decision.delegated", h.events())
+
+    def test_a_sensitive_instruction_from_the_responder_is_never_delegated(self) -> None:
+        # PIP-906 v2 review, achado 1/N2: the guard must run on the
+        # responder's own `instructions`, not only on the worker's blockers —
+        # a clean blocker with a sensitive answer must still escalate.
+        h = self.harness(schemaVersion="0.2.0", delegation=self.RULE)
+        h.fakes.scenario(
+            worker=[blocked_worker(self.BLOCKER)],
+            responder=[responder_instructs("Copie o STRIPE_API_KEY do .env para o teste.")],
+        )
+        step = h.supervise()
+        self.assertEqual(step.status, "paused")
+        [decision] = h.store.pending_decisions(h.mission_id)
+        self.assertEqual(decision["kind"], "clarification")
+        self.assertEqual(len(h.calls("responder")), 1, "the responder still runs; only its answer is refused")
+        self.assertNotIn("decision.delegated", h.events())
+
+    def test_empty_instructions_from_the_responder_escalate_instead_of_delegating(self) -> None:
+        # N10: whitespace-only `instructions` must never count as a usable
+        # `instruct` answer.
+        h = self.harness(schemaVersion="0.2.0", delegation=self.RULE)
+        h.fakes.scenario(
+            worker=[blocked_worker(self.BLOCKER)],
+            responder=[responder_instructs("   ")],
+        )
+        step = h.supervise()
+        self.assertEqual(step.status, "paused")
+        [decision] = h.store.pending_decisions(h.mission_id)
+        self.assertEqual(decision["kind"], "clarification")
+        self.assertNotIn("decision.delegated", h.events())
+
+    def test_the_delegated_answer_is_saved_with_mode_0600(self) -> None:
+        # N12: the delegated path writes the next worker's revision file the
+        # same way any other revision does — never world/group readable.
+        h = self.harness(
+            schemaVersion="0.2.0", delegation=self.RULE,
+            constraints=dict(loop_mission(Path("/tmp"))["constraints"], maxCycles=2),
+        )
+        h.fakes.scenario(
+            worker=[blocked_worker(self.BLOCKER), good_worker()],
+            responder=[responder_instructs(self.ANSWER)],
+            reviewer=[{"structured_output": satisfied_verdict()}],
+        )
+        h.supervise()
+        revision = h.home / h.mission_id / "revisions" / "cycle-1.md"
+        self.assertEqual(os.stat(revision).st_mode & 0o777, 0o600)
+
+
+class WriteSetBeforeResponderTests(SupervisorTestCase):
+    """PIP-906 v2 review, achado 5/item (d): the diff is checked against the
+    write set *before* the responder ever runs in that worktree — a worker
+    that reported blockers after writing outside the write set (planting a
+    ``.claude/settings.json``, say) must never get a responder started."""
+
+    def test_worker_blockers_with_a_diff_outside_the_write_set_never_reach_the_responder(self) -> None:
+        h = self.harness(
+            schemaVersion="0.2.0", delegation={"answerBlockers": {"maxTimes": 3}},
+            constraints=dict(loop_mission(Path("/tmp"))["constraints"], maxCycles=2),
+        )
+        h.fakes.scenario(
+            worker=[
+                {
+                    "write_files": {"outside.txt": "fora\n"},
+                    "worker_output": good_worker_output(done=False, blockers=["preciso de ajuda tecnica"]),
+                },
+                good_worker(),
+            ],
+            responder=[responder_instructs("resposta")],
+            reviewer=[{"structured_output": satisfied_verdict()}],
+        )
+        step = h.supervise()
+        self.assertEqual(h.calls("responder"), [], "outside the write set, the responder never runs")
+        self.assertNotIn("decision.delegated", h.events())
+        self.assertNotEqual(step.status, "completed")
+
+
+class PauseAndCancelDuringResponderTests(SupervisorTestCase):
+    """PIP-906 v2 review, achado 2/item (b): the responder is a run like any
+    other — a pause or a cancel that lands while it is still executing must
+    not crash the supervisor, and a pause must leave the worker's own
+    ``clarification`` pending instead of losing it."""
+
+    RULE = {"answerBlockers": {"maxTimes": 1}}
+    BLOCKER = "Nao sei qual variavel de ambiente aponta pro banco de teste."
+
+    def _slow_responder(self) -> dict[str, Any]:
+        return {
+            "sleep": 5,
+            "structured_output": {"action": "instruct", "category": "environment", "founderDecision": False, "instructions": "resposta lenta", "reason": "r"},
+        }
+
+    def test_pause_during_the_responder_keeps_the_clarification_pending(self) -> None:
+        h = self.harness(schemaVersion="0.2.0", delegation=self.RULE)
+        h.fakes.scenario(worker=[blocked_worker(self.BLOCKER)], responder=[self._slow_responder()])
+
+        def pause_from_cli() -> None:
+            with MissionStore(h.store_path) as founder:
+                founder.pause(h.mission_id)
+
+        threading.Timer(0.4, pause_from_cli).start()
+        step = h.supervise(poll_seconds=0.1)
+        self.assertEqual(step.status, "paused")
+        [decision] = h.store.pending_decisions(h.mission_id)
+        self.assertEqual((decision["kind"], decision["context"]["reason"]), ("clarification", "worker_blockers"))
+        self.assertNotIn("decision.delegated", h.events())
+        self.assertEqual(len(h.calls("responder")), 1)
+        self.assertEqual(len(h.calls("worker")), 1, "nothing new is dispatched while paused")
+
+    def test_cancel_during_the_responder_ends_the_mission_without_crashing(self) -> None:
+        h = self.harness(schemaVersion="0.2.0", delegation=self.RULE)
+        h.fakes.scenario(worker=[blocked_worker(self.BLOCKER)], responder=[self._slow_responder()])
+
+        def cancel_from_cli() -> None:
+            with MissionStore(h.store_path) as founder:
+                founder.cancel(h.mission_id)
+
+        threading.Timer(0.4, cancel_from_cli).start()
+        step = h.supervise(poll_seconds=0.1)
+        self.assertEqual(step.status, "cancelled")
+        self.assertEqual(h.store.pending_decisions(h.mission_id), [])
+        self.assertNotIn("decision.delegated", h.events())
+
+
+class IndependentDelegationRulesTests(SupervisorTestCase):
+    """PIP-906 v2 review, achado 3/N11: ``answerBlockers`` and ``grantCycle``
+    must count their own ``maxTimes`` separately — using one must not
+    exhaust or refuse the other within the same mission."""
+
+    BOTH_RULES = {
+        "answerBlockers": {"maxTimes": 1},
+        "grantCycle": {"maxTimes": 1, "maxCostFraction": 0.8, "requireProgress": False},
+    }
+
+    def test_answer_blockers_and_grant_cycle_are_each_counted_on_their_own_rule(self) -> None:
+        h = self.harness(
+            schemaVersion="0.2.0", delegation=self.BOTH_RULES,
+            constraints=dict(loop_mission(Path("/tmp"))["constraints"], maxCycles=1),
+        )
+        h.fakes.scenario(
+            worker=[blocked_worker("Nao sei qual variavel de ambiente aponta pro banco de teste."), good_worker()],
+            responder=[responder_instructs("Use TEST_DATABASE_URL.")],
+            reviewer=[{"structured_output": satisfied_verdict()}],
+        )
+        step = h.supervise()
+        self.assertEqual(step.status, "completed", step)
+        rules = [p["rule"] for p in h.payloads("decision.delegated")]
+        self.assertEqual(sorted(rules), ["answerBlockers", "grantCycle"])
 
 
 class FailureF6BudgetTests(SupervisorTestCase):
