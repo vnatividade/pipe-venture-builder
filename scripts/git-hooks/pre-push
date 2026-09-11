@@ -1,19 +1,42 @@
 #!/bin/bash
-# Hook de pre-push (PIP-835). Instale com:
+# Hook de pre-push (PIP-835, revisado em PIP-904). Instale com:
 #   git config core.hooksPath scripts/git-hooks
 #
 # Roda o que é rápido e local. NÃO roda `pipe ticket check`: esse comando valida o
 # corpo de um ticket, e o repositório não guarda corpo de ticket — eles vivem no
 # Linear. Inventar uma convenção de arquivo só para o hook ter o que checar seria
 # cerimônia. O que dá para verificar aqui é suíte verde e governança em sincronia.
+#
+# Não usa pytest: não é dependência do Pipe, e depender dele produz vermelho
+# falso (PYTHONPATH herdado do processo que disparou o push) ou pulo silencioso
+# (sem PYTHONPATH, `import pipe_venture_builder` falha e a suíte nem roda).
+# `unittest` é stdlib e a suíte já é só TestCase — sem fixtures/marks de pytest.
 set -uo pipefail
 
 falhou=0
 aviso() { printf '\n\033[33m%s\033[0m\n' "$1"; }
 erro()  { printf '\n\033[31m%s\033[0m\n' "$1"; falhou=1; }
 
-raiz="$(git rev-parse --show-toplevel)"
+cwd_inicial="$(pwd)"
+raiz="$(git rev-parse --show-toplevel)" || exit 1
+dir_comum="$(git rev-parse --git-common-dir)" || exit 1
+case "$dir_comum" in
+  /*) : ;;
+  *) dir_comum="$cwd_inicial/$dir_comum" ;;
+esac
+dir_comum="$(cd "$dir_comum" && pwd)" || exit 1
+
 cd "$raiz" || exit 1
+
+# A suíte cria repositórios git temporários e roda `git` dentro deles (push,
+# worktree, etc). Se GIT_DIR e companhia continuarem no ambiente — como o git
+# exporta para hooks de worktrees vinculados — esses filhos agem no
+# repositório real em vez do temporário deles: foi assim que a entrega de
+# 11/09 marcou core.bare=true na config compartilhada e moveu a branch da
+# missão. Limpa só DEPOIS de já ter usado o git acima para achar raiz/comum.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
+      GIT_COMMON_DIR GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_PREFIX \
+      GIT_QUARANTINE_PATH GIT_NAMESPACE
 
 if command -v node >/dev/null 2>&1; then
   node --test runtime/tests/*.test.mjs >/dev/null 2>&1 \
@@ -22,17 +45,58 @@ else
   aviso "node ausente — suíte do runtime não verificada."
 fi
 
-if python3 -c "import pipe_venture_builder" >/dev/null 2>&1; then
-  python3 -m pytest -q >/dev/null 2>&1 \
-    || erro "Suíte Python vermelha. Rode: python3 -m pytest -q"
+# Worktrees não têm .venv própria. Usa a deste worktree se existir, senão a do
+# checkout principal (pai do diretório comum do git, resolvido para caminho
+# absoluto), senão o python3 do PATH — com aviso explícito, porque nesse
+# último caso o toolkit pode não estar instalado nesse interpretador.
+python=""
+if [ -x "$raiz/.venv/bin/python3" ]; then
+  python="$raiz/.venv/bin/python3"
+else
+  checkout_principal="$(cd "$dir_comum/.." && pwd)"
+  if [ -x "$checkout_principal/.venv/bin/python3" ]; then
+    python="$checkout_principal/.venv/bin/python3"
+  elif command -v python3 >/dev/null 2>&1; then
+    aviso "Nenhuma .venv encontrada (nem em $raiz nem em $checkout_principal) — usando python3 do PATH. O toolkit pode não estar instalado nesse interpretador."
+    python="$(command -v python3)"
+  fi
+fi
 
-  # Deriva da governança gerada: mesmo check da CI, antes de sair da máquina.
-  if python3 -m pipe_venture_builder.cli ticket matrix --emit-markdown >/dev/null 2>&1; then
-    git diff --quiet -- execution/ticket-type-field-matrix.md \
-      || erro "Matriz de campos fora de sincronia. Rode: pipe ticket matrix --emit-markdown"
+if [ -n "$python" ]; then
+  # O código testado é sempre o deste worktree, nunca o de um `pip install -e`
+  # de outro checkout.
+  export PYTHONPATH="$raiz/src"
+
+  falhou_py=0
+
+  # `discover` por subpacote (cada diretório de tests/ com __init__.py), não
+  # em tests/ inteiro: tests/fixtures guarda repositórios de exemplo com seus
+  # próprios arquivos de teste, e coletá-los quebra a suíte com
+  # ModuleNotFoundError — eles são dado, não teste (mesmo motivo do
+  # norecursedirs do pytest em pyproject.toml).
+  for pacote in "$raiz"/tests/*/; do
+    [ -f "${pacote}__init__.py" ] || continue
+    "$python" -m unittest discover -s "$pacote" -t "$raiz" -q >/dev/null 2>&1 \
+      || falhou_py=1
+  done
+
+  for arquivo in "$raiz"/tests/test_*.py; do
+    [ -e "$arquivo" ] || continue
+    "$python" -m unittest "tests.$(basename "$arquivo" .py)" >/dev/null 2>&1 \
+      || falhou_py=1
+  done
+
+  if [ "$falhou_py" -ne 0 ]; then
+    erro "Suíte Python vermelha. Rode: PYTHONPATH=src $python -m unittest discover -s tests/<pacote>"
+  else
+    # Deriva da governança gerada: mesmo check da CI, antes de sair da máquina.
+    if "$python" -m pipe_venture_builder.cli ticket matrix --emit-markdown >/dev/null 2>&1; then
+      git diff --quiet -- execution/ticket-type-field-matrix.md \
+        || erro "Matriz de campos fora de sincronia. Rode: pipe ticket matrix --emit-markdown"
+    fi
   fi
 else
-  aviso "pipe_venture_builder não importável neste Python — checks do toolkit pulados."
+  aviso "python3 indisponível — suíte Python não verificada."
 fi
 
 if [ "$falhou" -ne 0 ]; then
