@@ -1,4 +1,8 @@
-"""``pipe mission`` subcommands. Offline by construction: no network, no secret.
+"""``pipe mission`` subcommands.
+
+The store verbs are offline. ``supervise``/``run-once`` run the Mission Loop
+supervisor, which executes ``claude`` and ``gh`` (injectable with
+``--claude-bin``/``--gh-bin``); nothing here reads or passes a secret.
 
 Handlers return the same payload shape as the main CLI and raise ``PipeError``
 with fixed messages. Contract and state failures never echo the input.
@@ -7,6 +11,10 @@ with fixed messages. Contract and state failures never echo the input.
 from __future__ import annotations
 
 import argparse
+import os
+import subprocess
+import sys
+from pathlib import Path
 from typing import Any, Callable
 
 from pipe_venture_builder.control_plane.model import (
@@ -18,13 +26,28 @@ from pipe_venture_builder.exit_codes import INPUT_UNAVAILABLE, READINESS_BLOCKED
 from pipe_venture_builder.validation import load_json_document
 
 from .contract import build_mission
-from .status import build_status, render_status_text
+from .status import build_status, default_mission_home, render_status_text
 from .store import MissionStore
+from .supervisor import (
+    Step,
+    SupervisorRefusal,
+    claim_supervisor,
+    live_supervisor_pid,
+    reconcile,
+    run_once,
+    stop_on_signals,
+    supervise,
+    supervisor_log_path,
+    supervisor_pid_path,
+)
+from .worker import DEFAULT_MODEL, DEFAULT_POLL_SECONDS
 
 
 CONTRACT_VIOLATION = "MISSION_CONTRACT_VIOLATION"
 STATE_CONFLICT = "MISSION_STATE_CONFLICT"
 NOT_FOUND = "MISSION_NOT_FOUND"
+SUPERVISOR_REFUSED = "MISSION_SUPERVISOR_REFUSED"
+SUPERVISOR_ERROR = "MISSION_SUPERVISOR_ERROR"
 _NOT_FOUND_MESSAGES = frozenset(
     {"mission is not registered", "run is not registered", "decision is not registered"}
 )
@@ -33,7 +56,7 @@ _NOT_FOUND_MESSAGES = frozenset(
 def register_mission_commands(commands: argparse._SubParsersAction) -> None:
     mission_parser = commands.add_parser(
         "mission",
-        help="Create and steer durable missions (Mission Loop). Offline; no worker here.",
+        help="Create, steer and supervise durable missions (Mission Loop).",
     )
     subcommands = mission_parser.add_subparsers(dest="mission_command", required=True)
 
@@ -50,6 +73,7 @@ def register_mission_commands(commands: argparse._SubParsersAction) -> None:
         subcommands, "status", "Where we are, why, and what depends on you.", _handle_status
     )
     status.add_argument("mission_id")
+    _home_option(status)
 
     for verb, help_text in (
         ("activate", "draft -> active."),
@@ -81,6 +105,71 @@ def register_mission_commands(commands: argparse._SubParsersAction) -> None:
     )
     decide.add_argument("--at", help="Decision timestamp (RFC 3339). Defaults to now.")
 
+    supervise_parser = _subcommand(
+        subcommands,
+        "supervise",
+        "Run the supervisor until the mission is terminal, paused, blocked or waits on a decision.",
+        _handle_supervise,
+    )
+    supervise_parser.add_argument("mission_id")
+    supervise_parser.add_argument(
+        "--detach",
+        action="store_true",
+        help="Start the supervisor in its own session (survives the chat); pid and log in --home.",
+    )
+    _supervisor_options(supervise_parser)
+
+    once = _subcommand(
+        subcommands, "run-once", "Run exactly one supervisor cycle and print the next state.", _handle_run_once
+    )
+    once.add_argument("mission_id")
+    _supervisor_options(once)
+
+    reconcile_parser = _subcommand(
+        subcommands,
+        "reconcile",
+        "Mark runs left running by a dead supervisor as unknown (opens a decision).",
+        _handle_reconcile,
+    )
+    reconcile_parser.add_argument("mission_id")
+    _home_option(reconcile_parser)
+    reconcile_parser.add_argument(
+        "--claude-bin",
+        default="claude",
+        help="Executable the worker ran (default: claude); a live worker running it is killed first.",
+    )
+
+
+def _home_option(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--home",
+        help="Mission home root (pid, log, worktree). Defaults to ~/.pipe/mission.",
+    )
+
+
+def _positive_seconds(value: str) -> float:
+    try:
+        seconds = float(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be a number of seconds") from exc
+    if not seconds > 0:
+        raise argparse.ArgumentTypeError("must be positive")
+    return seconds
+
+
+def _supervisor_options(parser: argparse.ArgumentParser) -> None:
+    _home_option(parser)
+    parser.add_argument("--claude-bin", default="claude", help="Claude Code executable (default: claude).")
+    parser.add_argument("--gh-bin", default="gh", help="GitHub CLI executable (default: gh).")
+    parser.add_argument(
+        "--poll-seconds",
+        type=_positive_seconds,
+        default=DEFAULT_POLL_SECONDS,
+        help="How often the store is read while a worker runs (pause/cancel latency).",
+    )
+    parser.add_argument("--worker-model", default=DEFAULT_MODEL, help="--model for the worker.")
+    parser.add_argument("--reviewer-model", default=DEFAULT_MODEL, help="--model for the reviewer.")
+
 
 def _subcommand(
     subcommands: argparse._SubParsersAction,
@@ -104,6 +193,13 @@ def _guarded(
     def run(args: argparse.Namespace) -> dict[str, Any]:
         try:
             return handler(args)
+        except SupervisorRefusal as exc:
+            raise PipeError(
+                code=SUPERVISOR_REFUSED,
+                message="The supervisor refuses to act on this mission.",
+                exit_code=READINESS_BLOCKED,
+                details=[{"path": "-", "message": str(exc), "rule": "mission-supervisor"}],
+            ) from exc
         except ControlPlaneContractError as exc:
             raise PipeError(
                 code=CONTRACT_VIOLATION,
@@ -124,6 +220,15 @@ def _guarded(
                 message="Durable mission state refuses this transition.",
                 exit_code=READINESS_BLOCKED,
                 details=[{"path": "-", "message": str(exc), "rule": "mission-state"}],
+            ) from exc
+        except (RuntimeError, OSError) as exc:
+            # git/gh/claude failures carry fixed messages (command + exit code).
+            raise PipeError(
+                code=SUPERVISOR_ERROR,
+                message="The supervisor stopped on a git, gh or process error.",
+                exit_code=READINESS_BLOCKED,
+                details=[{"path": "-", "message": type(exc).__name__ + ": " + str(exc)[:200],
+                          "rule": "mission-supervisor"}],
             ) from exc
 
     return run
@@ -165,9 +270,13 @@ def _handle_show(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def _home(args: argparse.Namespace) -> Path:
+    return Path(args.home).expanduser().resolve() if args.home else default_mission_home()
+
+
 def _handle_status(args: argparse.Namespace) -> dict[str, Any]:
     with _open_store(args) as store:
-        status = build_status(store, args.mission_id)
+        status = build_status(store, args.mission_id, home=_home(args))
     return {
         "ok": True,
         "command": "mission.status",
@@ -251,3 +360,143 @@ def _render_document(mission: dict[str, Any]) -> str:
         f"criteria:\n{criteria}\n"
         f"fingerprint: {mission['fingerprint']}"
     )
+
+
+# -- supervisor ----------------------------------------------------------------
+
+
+def _supervisor_kwargs(args: argparse.Namespace) -> dict[str, Any]:
+    return {
+        "claude_bin": args.claude_bin,
+        "gh_bin": args.gh_bin,
+        "home": _home(args),
+        "worker_model": args.worker_model,
+        "reviewer_model": args.reviewer_model,
+        "poll_seconds": args.poll_seconds,
+    }
+
+
+def _step_payload(command: str, mission_id: str, step: Step) -> dict[str, Any]:
+    return {
+        "ok": True,
+        "command": command,
+        "missionId": mission_id,
+        "status": step.status,
+        "reason": step.reason,
+        "cycle": step.cycle,
+        "message": f"Mission {mission_id} is {step.status} ({step.reason}, cycle {step.cycle}).",
+    }
+
+
+def _handle_supervise(args: argparse.Namespace) -> dict[str, Any]:
+    if args.detach:
+        return _detach_supervisor(args)
+    with _open_store(args) as store:
+        step = supervise(args.mission_id, store=store, **_supervisor_kwargs(args))
+    return _step_payload("mission.supervise", args.mission_id, step)
+
+
+def _handle_run_once(args: argparse.Namespace) -> dict[str, Any]:
+    home = _home(args)
+    with _open_store(args) as store:
+        store.get(args.mission_id)
+        claim_supervisor(home, args.mission_id)
+        with stop_on_signals() as stop:
+            step = run_once(args.mission_id, store=store, stop_event=stop, **_supervisor_kwargs(args))
+    return _step_payload("mission.run-once", args.mission_id, step)
+
+
+def _handle_reconcile(args: argparse.Namespace) -> dict[str, Any]:
+    with _open_store(args) as store:
+        reconciled = reconcile(
+            args.mission_id, store=store, home=_home(args), claude_bin=args.claude_bin
+        )
+        status = store.get(args.mission_id)["status"]
+    return {
+        "ok": True,
+        "command": "mission.reconcile",
+        "missionId": args.mission_id,
+        "reconciled": reconciled,
+        "status": status,
+        "message": (
+            f"{len(reconciled)} orphan run(s) marked unknown; mission is {status}."
+            if reconciled
+            else f"No orphan runs; mission is {status}."
+        ),
+    }
+
+
+def _detach_supervisor(args: argparse.Namespace) -> dict[str, Any]:
+    """``supervise`` without ``--detach`` in its own session; stdout/stderr to the log."""
+
+    home = _home(args)
+    store_path = str(Path(args.store).expanduser().resolve()) if args.store else None
+    with _open_store(args) as store:
+        document = store.get(args.mission_id)
+        if not store.verify_chain(args.mission_id):
+            raise SupervisorRefusal("mission audit chain is invalid; the supervisor refuses to continue")
+        if document["status"] != "active":
+            raise ControlPlaneStateError("only an active mission can be supervised")
+    if live_supervisor_pid(home, args.mission_id) is not None:
+        raise SupervisorRefusal("another supervisor is alive for this mission")
+
+    command = [
+        sys.executable, "-m", "pipe_venture_builder", "mission", "supervise", args.mission_id,
+        "--home", str(home),
+        "--claude-bin", _executable(args.claude_bin),
+        "--gh-bin", _executable(args.gh_bin),
+        "--poll-seconds", repr(args.poll_seconds),
+        "--worker-model", args.worker_model,
+        "--reviewer-model", args.reviewer_model,
+        "--json",
+    ]
+    if store_path:
+        command += ["--store", store_path]
+    log_path = supervisor_log_path(home, args.mission_id)
+    pid_path = supervisor_pid_path(home, args.mission_id)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    os.chmod(log_path.parent, 0o700)
+    descriptor = os.open(log_path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+    with os.fdopen(descriptor, "ab") as log, open(os.devnull, "rb") as devnull:
+        process = subprocess.Popen(
+            command,
+            stdin=devnull,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+            close_fds=True,
+            env=_child_env(),
+        )
+    pid_descriptor = os.open(pid_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(pid_descriptor, "w", encoding="utf-8") as handle:
+        handle.write(f"{process.pid}\n")
+    return {
+        "ok": True,
+        "command": "mission.supervise",
+        "missionId": args.mission_id,
+        "detached": True,
+        "pid": process.pid,
+        "pidFile": str(pid_path),
+        "log": str(log_path),
+        "message": (
+            f"Supervisor for {args.mission_id} started in background (pid {process.pid}). "
+            f"Follow with: pipe mission status {args.mission_id}"
+        ),
+    }
+
+
+def _executable(value: str) -> str:
+    """Resolve a path-like executable; keep a bare name for PATH lookup."""
+
+    return str(Path(value).expanduser().resolve()) if os.sep in value else value
+
+
+def _child_env() -> dict[str, str]:
+    """The inherited environment, with this package's source root first on
+    PYTHONPATH so the detached supervisor runs the same code as this process."""
+
+    env = dict(os.environ)
+    source_root = str(Path(__file__).resolve().parents[2])
+    existing = env.get("PYTHONPATH")
+    env["PYTHONPATH"] = source_root + (os.pathsep + existing if existing else "")
+    return env

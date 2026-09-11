@@ -11,8 +11,9 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Iterator, Mapping
 
 from pipe_venture_builder.control_plane.model import (
     ControlPlaneContractError,
@@ -41,6 +42,7 @@ from .events import (
 
 DATABASE_SCHEMA_VERSION = 1
 RUN_ID_PREFIX = "MRUN"
+RUN_DEFAULT_ROLE = "worker"
 DECISION_ID_PREFIX = "DEC"
 
 # Allowed transitions. ``unknown`` is deliberately absent: it is reachable only
@@ -76,7 +78,12 @@ BLOCK_REASONS = frozenset(
         "run_unknown",
         "run_failed",
         "delivery_checks_failed",
+        "delivery_checks_timeout",
+        "no_progress",
         "audit_chain_invalid",
+        "git_config_tampered",
+        "branch_mismatch",
+        "delivery_outside_write_set",
     }
 )
 DECISION_KINDS = frozenset(
@@ -105,7 +112,10 @@ class MissionStore:
                 raise ControlPlaneStateError("mission directory cannot be a symlink")
             database = str(database_path)
             self.path = database
-        self._connection = sqlite3.connect(database)
+        # Explicit transactions only: every mutating method opens ``BEGIN
+        # IMMEDIATE`` through ``_write`` so the state it validates is read under
+        # the write lock (supervisor and CLI are separate writers).
+        self._connection = sqlite3.connect(database, isolation_level=None)
         self._connection.row_factory = sqlite3.Row
         self._connection.execute("PRAGMA foreign_keys = ON")
         self._connection.execute("PRAGMA busy_timeout = 5000")
@@ -144,7 +154,7 @@ class MissionStore:
         occurred_at = at or utc_now()
         parse_datetime(occurred_at)
         mission_id = mission["missionId"]
-        with self._connection:
+        with self._write():
             existing = self._connection.execute(
                 "SELECT fingerprint FROM missions WHERE mission_id = ?", (mission_id,)
             ).fetchone()
@@ -203,20 +213,23 @@ class MissionStore:
         self._transition(mission_id, "paused", event_type="mission.paused", at=at)
 
     def resume(self, mission_id: str, *, at: str | None = None) -> None:
-        row = self._mission_row(mission_id)
-        if row["status"] not in {"paused", "blocked"}:
-            raise ControlPlaneStateError("mission status transition is not allowed")
-        if row["status"] == "blocked" and self.pending_decisions(mission_id):
-            raise ControlPlaneStateError(
-                "blocked mission cannot resume with pending decisions"
+        occurred_at = at or utc_now()
+        parse_datetime(occurred_at)
+        with self._write():
+            row = self._mission_row(mission_id)
+            if row["status"] not in {"paused", "blocked"}:
+                raise ControlPlaneStateError("mission status transition is not allowed")
+            if row["status"] == "blocked" and self.pending_decisions(mission_id):
+                raise ControlPlaneStateError(
+                    "blocked mission cannot resume with pending decisions"
+                )
+            self._apply_status(
+                row,
+                "active",
+                event_type="mission.resumed",
+                occurred_at=occurred_at,
+                payload={"from": row["status"]},
             )
-        self._transition(
-            mission_id,
-            "active",
-            event_type="mission.resumed",
-            at=at,
-            payload={"from": row["status"]},
-        )
 
     def cancel(self, mission_id: str, *, at: str | None = None) -> None:
         self._transition(mission_id, "cancelled", event_type="mission.cancelled", at=at)
@@ -226,7 +239,7 @@ class MissionStore:
             raise ControlPlaneContractError("block reason code is not allowed")
         occurred_at = at or utc_now()
         parse_datetime(occurred_at)
-        with self._connection:
+        with self._write():
             row = self._mission_row(mission_id)
             self._require_transition(row["status"], "blocked")
             if reason_code == "budget_reached":
@@ -254,7 +267,7 @@ class MissionStore:
 
         occurred_at = at or utc_now()
         parse_datetime(occurred_at)
-        with self._connection:
+        with self._write():
             row = self._mission_row(mission_id)
             if row["status"] not in UNKNOWN_SOURCES:
                 raise ControlPlaneStateError("mission status transition is not allowed")
@@ -271,7 +284,7 @@ class MissionStore:
 
         occurred_at = at or utc_now()
         parse_datetime(occurred_at)
-        with self._connection:
+        with self._write():
             row = self._mission_row(mission_id)
             self._require_transition(row["status"], "completed")
             if not self.verify_chain(mission_id):
@@ -358,7 +371,7 @@ class MissionStore:
             raise ControlPlaneContractError("delivery event type is not allowed")
         occurred_at = at or utc_now()
         parse_datetime(occurred_at)
-        with self._connection:
+        with self._write():
             row = self._mission_row(mission_id)
             if row["status"] != "active":
                 raise ControlPlaneStateError("delivery events require an active mission")
@@ -378,21 +391,26 @@ class MissionStore:
         cycle: int,
         attempt: int,
         executor: str,
+        role: str = RUN_DEFAULT_ROLE,
         at: str | None = None,
     ) -> str:
+        """Open a run. ``role`` separates the reviewer's run from the worker's
+        in the same cycle/attempt; the default role keeps the historical id."""
+
         _positive_int(cycle, "run cycle")
         _positive_int(attempt, "run attempt")
         safe_identifier(executor)
+        safe_identifier(role)
         occurred_at = at or utc_now()
         parse_datetime(occurred_at)
-        with self._connection:
+        identity: dict[str, Any] = {"missionId": mission_id, "cycle": cycle, "attempt": attempt}
+        if role != RUN_DEFAULT_ROLE:
+            identity["role"] = role
+        with self._write():
             row = self._mission_row(mission_id)
             if row["status"] != "active":
                 raise ControlPlaneStateError("runs can only be opened on an active mission")
-            run_id = stable_id(
-                RUN_ID_PREFIX,
-                {"missionId": mission_id, "cycle": cycle, "attempt": attempt},
-            )
+            run_id = stable_id(RUN_ID_PREFIX, identity)
             existing = self._connection.execute(
                 "SELECT run_id FROM mission_runs WHERE run_id = ?", (run_id,)
             ).fetchone()
@@ -432,9 +450,14 @@ class MissionStore:
         result_fingerprint: str | None,
         status: str,
         at: str | None = None,
+        extra: Mapping[str, Any] | None = None,
     ) -> None:
+        """Close a run. ``extra`` adds short fields to the ``run.*`` event
+        (reason code, model, counts); it cannot override the fixed ones."""
+
         if status not in RUN_FINAL_STATUSES:
             raise ControlPlaneContractError("run status is not allowed")
+        additional = validate_short_mapping(dict(extra or {}), what="run payload")
         if session_id is not None:
             safe_identifier(session_id)
         if result_ref is not None:
@@ -445,7 +468,7 @@ class MissionStore:
             raise ControlPlaneContractError("run turns must be a non-negative integer")
         occurred_at = at or utc_now()
         parse_datetime(occurred_at)
-        with self._connection:
+        with self._write():
             run = self._run_row(run_id)
             if run["status"] != RUN_OPEN_STATUS:
                 raise ControlPlaneStateError("run is not running")
@@ -472,6 +495,7 @@ class MissionStore:
                 event_type=RUN_EVENT_BY_STATUS[status],
                 occurred_at=occurred_at,
                 payload={
+                    **additional,
                     "runId": run_id,
                     "cycle": run["cycle"],
                     "attempt": run["attempt"],
@@ -500,7 +524,7 @@ class MissionStore:
         occurred_at = at or utc_now()
         parse_datetime(occurred_at)
         payload = validate_short_mapping(dict(extra or {}), what="verification payload")
-        with self._connection:
+        with self._write():
             run = self._run_row(run_id)
             return self._append_event(
                 run["mission_id"],
@@ -516,7 +540,7 @@ class MissionStore:
             raise ControlPlaneContractError("review verdict is not allowed")
         occurred_at = at or utc_now()
         parse_datetime(occurred_at)
-        with self._connection:
+        with self._write():
             run = self._run_row(run_id)
             self._connection.execute(
                 "UPDATE mission_runs SET verdict = ? WHERE run_id = ?", (verdict, run_id)
@@ -591,7 +615,7 @@ class MissionStore:
             parse_datetime(deadline)
         occurred_at = at or utc_now()
         parse_datetime(occurred_at)
-        with self._connection:
+        with self._write():
             row = self._mission_row(mission_id)
             if row["status"] not in {"active", "paused", "blocked"}:
                 raise ControlPlaneStateError("decisions require a live mission")
@@ -661,7 +685,7 @@ class MissionStore:
             raise ControlPlaneContractError("decisions are resolved by a named human source")
         occurred_at = at or utc_now()
         parse_datetime(occurred_at)
-        with self._connection:
+        with self._write():
             decision = self._decision_row(decision_id)
             if decision["status"] != "pending":
                 raise ControlPlaneStateError("decision is already resolved")
@@ -725,7 +749,7 @@ class MissionStore:
         require_fingerprint(evidence_fingerprint, nullable=True)
         occurred_at = at or utc_now()
         parse_datetime(occurred_at)
-        with self._connection:
+        with self._write():
             row = self._mission_row(mission_id)
             if row["status"] not in {"active", "paused", "blocked"}:
                 raise ControlPlaneStateError("evidence requires a live mission")
@@ -785,6 +809,26 @@ class MissionStore:
 
     # -- internals ----------------------------------------------------------
 
+    @contextmanager
+    def _write(self) -> Iterator[None]:
+        """One ``BEGIN IMMEDIATE`` transaction; joins an already open one.
+
+        The write lock is taken before any read, so a concurrent writer (the
+        founder's CLI while the supervisor runs) waits on ``busy_timeout``
+        instead of committing between this method's check and its write.
+        """
+
+        if self._connection.in_transaction:
+            yield
+            return
+        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            yield
+        except BaseException:
+            self._connection.rollback()
+            raise
+        self._connection.commit()
+
     def _transition(
         self,
         mission_id: str,
@@ -796,7 +840,7 @@ class MissionStore:
     ) -> None:
         occurred_at = at or utc_now()
         parse_datetime(occurred_at)
-        with self._connection:
+        with self._write():
             row = self._mission_row(mission_id)
             self._require_transition(row["status"], target)
             self._apply_status(
@@ -936,75 +980,77 @@ class MissionStore:
         return row
 
     def _initialize(self) -> None:
-        with self._connection:
-            self._connection.executescript(
-                """
-                CREATE TABLE IF NOT EXISTS metadata(
-                    key TEXT PRIMARY KEY,
-                    value TEXT NOT NULL
-                );
-                CREATE TABLE IF NOT EXISTS missions(
-                    mission_id TEXT PRIMARY KEY,
-                    version INTEGER NOT NULL,
-                    status TEXT NOT NULL,
-                    document_json TEXT NOT NULL,
-                    fingerprint TEXT NOT NULL,
-                    created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL
-                );
-                CREATE TABLE IF NOT EXISTS mission_events(
-                    mission_id TEXT NOT NULL REFERENCES missions(mission_id),
-                    sequence INTEGER NOT NULL,
-                    event_id TEXT NOT NULL UNIQUE,
-                    event_type TEXT NOT NULL,
-                    event_json TEXT NOT NULL,
-                    event_hash TEXT NOT NULL,
-                    previous_hash TEXT,
-                    PRIMARY KEY(mission_id, sequence)
-                );
-                CREATE TABLE IF NOT EXISTS mission_runs(
-                    run_id TEXT PRIMARY KEY,
-                    mission_id TEXT NOT NULL REFERENCES missions(mission_id),
-                    attempt INTEGER NOT NULL,
-                    cycle INTEGER NOT NULL,
-                    executor TEXT NOT NULL,
-                    session_id TEXT,
-                    status TEXT NOT NULL,
-                    started_at TEXT NOT NULL,
-                    ended_at TEXT,
-                    cost_usd REAL NOT NULL DEFAULT 0,
-                    num_turns INTEGER NOT NULL DEFAULT 0,
-                    result_ref TEXT,
-                    result_fingerprint TEXT,
-                    verdict TEXT
-                );
-                CREATE TABLE IF NOT EXISTS decisions(
-                    decision_id TEXT PRIMARY KEY,
-                    mission_id TEXT NOT NULL REFERENCES missions(mission_id),
-                    kind TEXT NOT NULL,
-                    status TEXT NOT NULL,
-                    context_json TEXT NOT NULL,
-                    options_json TEXT NOT NULL,
-                    safe_default TEXT NOT NULL,
-                    blocked_scope TEXT NOT NULL,
-                    deadline TEXT,
-                    opened_at TEXT NOT NULL,
-                    decided_by TEXT,
-                    decided_option TEXT,
-                    decided_at TEXT
-                );
-                CREATE TABLE IF NOT EXISTS criteria_evidence(
-                    evidence_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    mission_id TEXT NOT NULL REFERENCES missions(mission_id),
-                    criterion_id TEXT NOT NULL,
-                    run_id TEXT REFERENCES mission_runs(run_id),
-                    satisfied INTEGER NOT NULL,
-                    evidence_ref TEXT,
-                    evidence_fingerprint TEXT,
-                    at TEXT NOT NULL
-                );
-                """
-            )
+        # DDL is idempotent (IF NOT EXISTS) and ``executescript`` manages its
+        # own transaction; the version row is written under the write lock.
+        self._connection.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS metadata(
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS missions(
+                mission_id TEXT PRIMARY KEY,
+                version INTEGER NOT NULL,
+                status TEXT NOT NULL,
+                document_json TEXT NOT NULL,
+                fingerprint TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS mission_events(
+                mission_id TEXT NOT NULL REFERENCES missions(mission_id),
+                sequence INTEGER NOT NULL,
+                event_id TEXT NOT NULL UNIQUE,
+                event_type TEXT NOT NULL,
+                event_json TEXT NOT NULL,
+                event_hash TEXT NOT NULL,
+                previous_hash TEXT,
+                PRIMARY KEY(mission_id, sequence)
+            );
+            CREATE TABLE IF NOT EXISTS mission_runs(
+                run_id TEXT PRIMARY KEY,
+                mission_id TEXT NOT NULL REFERENCES missions(mission_id),
+                attempt INTEGER NOT NULL,
+                cycle INTEGER NOT NULL,
+                executor TEXT NOT NULL,
+                session_id TEXT,
+                status TEXT NOT NULL,
+                started_at TEXT NOT NULL,
+                ended_at TEXT,
+                cost_usd REAL NOT NULL DEFAULT 0,
+                num_turns INTEGER NOT NULL DEFAULT 0,
+                result_ref TEXT,
+                result_fingerprint TEXT,
+                verdict TEXT
+            );
+            CREATE TABLE IF NOT EXISTS decisions(
+                decision_id TEXT PRIMARY KEY,
+                mission_id TEXT NOT NULL REFERENCES missions(mission_id),
+                kind TEXT NOT NULL,
+                status TEXT NOT NULL,
+                context_json TEXT NOT NULL,
+                options_json TEXT NOT NULL,
+                safe_default TEXT NOT NULL,
+                blocked_scope TEXT NOT NULL,
+                deadline TEXT,
+                opened_at TEXT NOT NULL,
+                decided_by TEXT,
+                decided_option TEXT,
+                decided_at TEXT
+            );
+            CREATE TABLE IF NOT EXISTS criteria_evidence(
+                evidence_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                mission_id TEXT NOT NULL REFERENCES missions(mission_id),
+                criterion_id TEXT NOT NULL,
+                run_id TEXT REFERENCES mission_runs(run_id),
+                satisfied INTEGER NOT NULL,
+                evidence_ref TEXT,
+                evidence_fingerprint TEXT,
+                at TEXT NOT NULL
+            );
+            """
+        )
+        with self._write():
             row = self._connection.execute(
                 "SELECT value FROM metadata WHERE key = 'schema_version'"
             ).fetchone()

@@ -6,12 +6,49 @@ state only. It never includes the founder's intent text, prompts, or outputs.
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
 from typing import Any
 
 from .store import MissionStore
 
 
-def build_status(store: MissionStore, mission_id: str) -> dict[str, Any]:
+SUPERVISOR_PID_FILE = "supervisor.pid"
+
+
+def default_mission_home() -> Path:
+    """Per-mission working directory root: ``~/.pipe/mission/<missionId>/``."""
+
+    return Path.home() / ".pipe" / "mission"
+
+
+def pid_is_alive(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def supervisor_liveness(mission_id: str, home: Path | None = None) -> dict[str, Any]:
+    """``{"alive": None}`` without a pid file; otherwise the pid and a probe."""
+
+    root = Path(home) if home is not None else default_mission_home()
+    pid_file = root / mission_id / SUPERVISOR_PID_FILE
+    try:
+        pid = int(pid_file.read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):
+        return {"alive": None}
+    return {"alive": pid_is_alive(pid), "pid": pid}
+
+
+def build_status(
+    store: MissionStore, mission_id: str, *, home: Path | None = None
+) -> dict[str, Any]:
     document = store.get(mission_id)
     runs = store.list_runs(mission_id)
     current = max(runs, key=lambda run: (run["cycle"], run["attempt"]), default=None)
@@ -44,9 +81,24 @@ def build_status(store: MissionStore, mission_id: str) -> dict[str, Any]:
         ),
         "auditChainValid": store.verify_chain(mission_id),
         "updatedAt": document["updatedAt"],
-        # Placeholder for the supervisor liveness probe (Mission Loop ticket B).
-        "supervisor": {"alive": None},
+        "supervisor": supervisor_liveness(document["missionId"], home),
+        "delivery": delivery_state(store, mission_id),
     }
+
+
+def delivery_state(store: MissionStore, mission_id: str) -> dict[str, Any]:
+    """The PR the supervisor opened (its URL is a ref) and the latest checks result."""
+
+    pull_request = None
+    checks = None
+    for event in store.list_events(mission_id):
+        if event["eventType"] == "delivery.pr_opened":
+            pull_request, checks = event["payload"].get("ref"), None
+        elif event["eventType"] == "delivery.checks_passed":
+            checks = "passed"
+        elif event["eventType"] == "delivery.checks_failed":
+            checks = "failed"
+    return {"pullRequest": pull_request, "checks": checks}
 
 
 def render_status_text(status: dict[str, Any]) -> str:
@@ -70,6 +122,13 @@ def render_status_text(status: dict[str, Any]) -> str:
     runs = status["runs"]
     if runs:
         why += " Runs: " + ", ".join(f"{count} {name}" for name, count in sorted(runs.items())) + "."
+
+    delivery = status.get("delivery") or {}
+    if delivery.get("pullRequest"):
+        why += f" PR: {delivery['pullRequest']} (checks: {delivery.get('checks') or 'aguardando'})."
+    supervisor = status.get("supervisor") or {}
+    if supervisor.get("alive") is not None:
+        why += " Supervisor: " + ("vivo" if supervisor["alive"] else "parado") + f" (pid {supervisor['pid']})."
 
     pending = status["pendingDecisions"]
     if not pending:
