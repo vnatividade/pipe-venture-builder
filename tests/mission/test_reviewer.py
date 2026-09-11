@@ -9,6 +9,7 @@ from unittest import TestCase
 
 from pipe_venture_builder.mission.contract import build_mission
 from pipe_venture_builder.mission.reviewer import (
+    EVIDENCE_PROMPT_CHARS,
     MAX_DIFF_CHARS,
     REVIEWER_ALLOWED_TOOLS,
     REVIEWER_OUTPUT_INVALID,
@@ -84,6 +85,26 @@ class VerdictParsingTests(TestCase):
         self.assertNotIn("$schema", schema)
         self.assertNotIn("$schema", VERDICT_SCHEMA)
         self.assertEqual(schema["required"], ["verdict", "criteria", "reasons"])
+
+    def test_schema_leaves_slack_over_the_evidence_length_the_prompt_asks_for(self) -> None:
+        # Medido na missão do PIP-903 (11/09, ciclo 3): o revisor respondeu
+        # "satisfied" nas 5 tentativas com evidência de 409 a 708 chars; o
+        # schema (400) recusou todas e o CLI saiu com
+        # error_max_structured_output_retries — veredito certo virou escalada.
+        from jsonschema import Draft202012Validator
+
+        with TemporaryDirectory() as directory:
+            mission = build_mission(loop_mission(make_repo(Path(directory))), created_at=CREATED_AT)
+        prompt = build_review_prompt(mission, "diff --git a/README.md b/README.md\n+pipe idea\n")
+        self.assertIn(f"(máx. {EVIDENCE_PROMPT_CHARS} chars)", prompt)
+        schema_limit = VERDICT_SCHEMA["properties"]["criteria"]["items"]["properties"]["evidence"]["maxLength"]
+        self.assertGreaterEqual(schema_limit, 3 * EVIDENCE_PROMPT_CHARS)
+
+        verdict = satisfied_verdict()
+        verdict["criteria"][0]["evidence"] = "e" * 708
+        verdict["reasons"] = ["r" * 450]
+        errors = [error.message for error in Draft202012Validator(VERDICT_SCHEMA).iter_errors(verdict)]
+        self.assertEqual(errors, [])
 
     def test_parse_verdict_prefers_structured_output_then_result_text(self) -> None:
         verdict = satisfied_verdict(revisionInstructions="none")
