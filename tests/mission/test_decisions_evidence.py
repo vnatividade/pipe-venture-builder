@@ -179,6 +179,42 @@ class DelegatedDecisionTests(TestCase):
             self.assertEqual(event["eventType"], "decision.delegated")
             self.assertEqual(event["payload"], {"decisionId": decision_id, "rule": "grantCycle"})
 
+    # Revisão 2 do PIP-903, achado #3: cada checagem do store (opção, kind,
+    # regra) tem um teste que só ela reprova — as outras passam.
+
+    def test_delegated_source_cannot_choose_any_option_but_grant_cycle(self) -> None:
+        with MissionStore(":memory:") as store:
+            mission_id = delegated_mission(store)
+            decision_id = self._open_grant_cycle_decision(store, mission_id)
+            with self.assertRaises(ControlPlaneContractError):
+                store.resolve_decision(decision_id, option="stop", decided_by="delegated:orchestrator", at=EVEN_LATER)
+            self.assertEqual(store.get_decision(decision_id)["status"], "pending")
+
+    def test_delegated_grant_cycle_refused_on_a_non_escalation_decision(self) -> None:
+        with MissionStore(":memory:") as store:
+            mission_id = delegated_mission(store)
+            store.block(mission_id, reason_code="max_cycles", at=LATER)
+            decision_id = store.open_decision(
+                mission_id, kind="clarification", context={"reason": "max_cycles", "cycle": 1},
+                options=["pause", "grant_cycle"], safe_default="pause", blocked_scope="mission",
+                deadline=None, at=LATER,
+            )
+            with self.assertRaises(ControlPlaneContractError):
+                store.resolve_decision(
+                    decision_id, option="grant_cycle", decided_by="delegated:orchestrator", at=EVEN_LATER
+                )
+            self.assertEqual(store.get_decision(decision_id)["status"], "pending")
+
+    def test_delegated_grant_refused_when_the_mission_has_no_rule(self) -> None:
+        with MissionStore(":memory:") as store:
+            mission_id = active_mission(store)
+            decision_id = self._open_grant_cycle_decision(store, mission_id)
+            with self.assertRaises((ControlPlaneContractError, ControlPlaneStateError)):
+                store.resolve_decision(
+                    decision_id, option="grant_cycle", decided_by="delegated:orchestrator", at=EVEN_LATER
+                )
+            self.assertEqual(store.get_decision(decision_id)["status"], "pending")
+
     def test_delegated_grant_refused_for_a_decision_kind_delegation_never_covers(self) -> None:
         with MissionStore(":memory:") as store:
             mission_id = delegated_mission(store)

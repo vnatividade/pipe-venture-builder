@@ -288,6 +288,17 @@ class MissionContractTests(TestCase):
         self.assertNotIn("delegation", second)
         self.assertEqual(first["missionId"], second["missionId"])
 
+    def test_v0_1_0_identity_is_pinned_to_the_value_before_pip_903(self) -> None:
+        # Valores calculados com o código de main antes do PIP-903 (927625a).
+        # Comparar dois ids do mesmo código não pega mudança de identidade;
+        # o literal pega (revisão 2 do PIP-903, achado #4 / mutação M35).
+        mission = build_mission(mission_input(), created_at=CREATED_AT)
+        self.assertEqual(mission["missionId"], "MSN-ad14c130266c")
+        self.assertEqual(
+            mission["fingerprint"],
+            "sha256:a76cf3a5bd9c001a04f882e46047d2b4cf459a9e1ab6515fa31d9caf69d4b475",
+        )
+
     def test_legacy_v0_1_0_document_without_delegation_key_still_validates(self) -> None:
         """A document written to disk before the delegation key existed at
         all (no ``delegation`` key, whatever the code once defaulted): the

@@ -477,6 +477,38 @@ class SupervisorDelegationScopeTests(SupervisorTestCase):
         status = build_status(h.store, h.mission_id, home=h.home)
         self.assertEqual(status["delegatedDecisions"], 1)
 
+    def test_max_cycles_is_delegated_measuring_progress_on_the_cycle_that_ended(self) -> None:
+        # Revisão 2 do PIP-903, achado #1: ``max_cycles`` abre a decisão para
+        # o ciclo que AINDA NÃO rodou; medir progresso nele (vazio) fazia
+        # ``requireProgress: true`` — o padrão da skill — nunca conceder.
+        constraints = dict(loop_mission(Path("/tmp"))["constraints"], maxCycles=1)
+        delegation = {"grantCycle": {"maxTimes": 1, "maxCostFraction": 0.8, "requireProgress": True}}
+        h = self.harness(schemaVersion="0.2.0", delegation=delegation, constraints=constraints)
+        h.fakes.scenario(
+            worker=[
+                good_worker(),
+                {"write_files": {**GOOD_FILES, "README.md": "# Demo\n\npipe idea v2\n"},
+                 "worker_output": good_worker_output()},
+            ],
+            reviewer=[
+                {"structured_output": satisfied_verdict(verdict="out_of_mission")},
+                {"structured_output": satisfied_verdict()},
+            ],
+        )
+        step = h.supervise()
+        self.assertEqual((step.status, step.reason), ("paused", "out_of_mission"))
+        [decision] = h.store.pending_decisions(h.mission_id)
+        h.store.resolve_decision(decision["decisionId"], option="retry_within_mission", decided_by="human:cli:vitor")
+        h.store.resume(h.mission_id)
+        step = h.supervise()
+        self.assertEqual(step.status, "completed")
+        self.assertEqual(h.events().count("decision.delegated"), 1)
+        delegated = [e for e in h.store.list_events(h.mission_id) if e["eventType"] == "decision.delegated"]
+        [grant] = [d for d in h.store.list_decisions(h.mission_id) if d["decisionId"] == delegated[0]["payload"]["decisionId"]]
+        self.assertEqual(grant["context"]["reason"], "max_cycles")
+        cycles = [run["cycle"] for run in h.store.list_runs(h.mission_id) if run["executor"].startswith("worker")]
+        self.assertEqual(cycles, [1, 2])
+
     def test_no_delegation_without_any_progress(self) -> None:
         constraints = dict(loop_mission(Path("/tmp"))["constraints"], maxCycles=1)
         delegation = {"grantCycle": {"maxTimes": 2, "maxCostFraction": 0.8, "requireProgress": True}}

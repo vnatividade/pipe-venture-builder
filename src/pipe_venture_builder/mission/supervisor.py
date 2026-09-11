@@ -845,7 +845,10 @@ class _Cycle:
             deadline=None,
             at=self.now(),
         )
-        if delegable and self._delegate_grant_cycle(decision_id, cycle):
+        # ``max_cycles`` is raised by ``_dispatch`` for the cycle that has not
+        # run yet; progress is measured on the one that ended.
+        ended = cycle - 1 if reason_code == "max_cycles" else cycle
+        if delegable and self._delegate_grant_cycle(decision_id, ended):
             return Step("active", reason_code, cycle)
         return Step("blocked", reason_code, cycle)
 
