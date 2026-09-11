@@ -185,6 +185,9 @@ class DeepSeekHarnessRuntimeAdapter:
             raise DeepSeekHarnessContractError("plan_mismatch") from None
         self._require_resumable(binding, run)
         self._require_unmarked(stream)
+        if stream.sequence.blocked_code is not None:
+            raise DeepSeekHarnessContractError("stream_blocked") from None
+        self._require_current(stream)
 
         refused = None
         try:
@@ -385,6 +388,8 @@ class DeepSeekHarnessRuntimeAdapter:
         ):
             raise DeepSeekHarnessContractError("proposal_mismatch") from None
         digest = proposal["proposalFingerprint"].split(":", 1)[1]
+        failed = False
+        event: dict[str, Any] = {}
         try:
             event = self._store.record_run_event(
                 binding.pipe_run_id,
@@ -397,7 +402,10 @@ class DeepSeekHarnessRuntimeAdapter:
                 idempotency_key=f"{stream.dispatch_id}:{digest}",
                 attempt=binding.attempt,
             )
-        except (ControlPlaneContractError, ControlPlaneStateError):
+        except Exception:
+            # Any storage failure, not only contract errors, fails closed.
+            failed = True
+        if failed:
             raise DeepSeekHarnessContractError("audit_write_failed") from None
         if stream.checkpoint is not None:
             stream.checkpoint = self._checkpoints.save(
@@ -426,6 +434,7 @@ class DeepSeekHarnessRuntimeAdapter:
         self._require_unmarked(stream)
         if stream.sequence.blocked_code is not None:
             raise DeepSeekHarnessContractError("stream_blocked") from None
+        self._require_current(stream)
         if not _at_rest(stream.sequence.records()):
             raise DeepSeekHarnessContractError("stream_not_quiescent") from None
         return stream
@@ -596,6 +605,27 @@ class DeepSeekHarnessRuntimeAdapter:
     def _marker(stream: _Stream) -> str:
         return f"{stream.dispatch_id}:{BLOCK_MARKER}"
 
+    def _require_current(self, stream: _Stream) -> None:
+        """Refuse a stale view: the audit and the checkpoint must match this stream.
+
+        Another adapter instance may have advanced, blocked or completed the
+        attempt; acting on this in-memory view would then tolerate a gap or
+        complete an unknown outcome.
+        """
+
+        audited = {key for key in self._audit_keys(stream.binding) if key.startswith("DHE-")}
+        if audited != {record["eventId"] for record in stream.sequence.records()}:
+            stream.sequence.block_quietly("checkpoint_stale")
+            raise DeepSeekHarnessContractError("checkpoint_stale") from None
+        if stream.checkpoint is not None:
+            stored = self._checkpoints.load(stream.binding.pipe_run_id)
+            if stored is not None and stored["state"] == "blocked":
+                stream.sequence.block_quietly("stream_blocked")
+                raise DeepSeekHarnessContractError("stream_blocked") from None
+            if stored != stream.checkpoint or stored["state"] != "running":
+                stream.sequence.block_quietly("checkpoint_stale")
+                raise DeepSeekHarnessContractError("checkpoint_stale") from None
+
     def _require_unmarked(self, stream: _Stream) -> None:
         """Refuse a stream whose attempt carries the audit block marker."""
 
@@ -682,6 +712,7 @@ class DeepSeekHarnessRuntimeAdapter:
         event_status: str,
         idempotency_key: str,
     ) -> None:
+        failed = False
         try:
             self._store.record_run_event(
                 binding.pipe_run_id,
@@ -694,7 +725,10 @@ class DeepSeekHarnessRuntimeAdapter:
                 idempotency_key=idempotency_key,
                 attempt=binding.attempt,
             )
-        except (ControlPlaneContractError, ControlPlaneStateError):
+        except Exception:
+            # Any storage failure, not only contract errors, fails closed.
+            failed = True
+        if failed:
             raise DeepSeekHarnessContractError("audit_write_failed") from None
 
     def _dispatch_result(

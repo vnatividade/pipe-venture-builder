@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 from typing import Any
 from unittest import TestCase, mock
 
@@ -575,3 +576,14 @@ class RefusalBoundaryTests(RecoveryTestCase):
             self.assertEqual(h.checkpoint()["state"], "blocked")
             h.restart()
             assert_blocked(self, "stream_blocked", h.begin)
+
+    def test_raw_storage_error_on_completion_maps_to_a_fixed_code(self) -> None:
+        with recovery_harness() as h:
+            h.begin()
+            h.record(1, kind="turn.started")
+            h.record(2, kind="turn.ended")
+            proposal = propose(h)
+            failure = sqlite3.OperationalError("database is locked")
+            with mock.patch.object(h.store, "record_run_event", side_effect=failure):
+                assert_blocked(self, "audit_write_failed", complete, h, proposal)
+            self.assertEqual(h.store.get_run(h.run_id)["status"], "running")

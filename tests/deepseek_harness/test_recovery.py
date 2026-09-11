@@ -572,3 +572,72 @@ class AuditAuthorityTests(RecoveryTestCase):
             self.assertEqual(h.checkpoint()["blockerCode"], "sequence_gap")
             h.restart()
             self.assert_refused_unchanged(h, "stream_blocked", h.begin)
+
+    def two_adapters(self, h: RecoveryHarness) -> tuple[Any, Any]:
+        first = h.adapter
+        h.adapter = DeepSeekHarnessRuntimeAdapter(h.store, h.sessions, checkpoints=h.checkpoints)
+        self.assertIs(h.begin()["recovered"], True)
+        second, h.adapter = h.adapter, first
+        return first, second
+
+    def propose_with(self, h: RecoveryHarness, adapter: Any) -> dict[str, Any]:
+        return adapter.propose(
+            binding=h.binding,
+            context=h.context,
+            result_ref="review:PIP-899:notes",
+            result_fingerprint="sha256:" + "9" * 64,
+            occurred_at="2026-09-10T12:31:00Z",
+        )
+
+    def test_a_stale_adapter_view_cannot_complete_or_move_the_checkpoint_back(self) -> None:
+        with recovery_harness() as h:
+            h.begin()
+            h.record(1, kind="turn.started")
+            h.record(2, kind="turn.ended")
+            _, second = self.two_adapters(h)
+            h.record(3, kind="turn.started")
+            checkpoint = h.checkpoint()
+            assert_blocked(self, "checkpoint_stale", self.propose_with, h, second)
+            h.adapter = second
+            assert_blocked(self, "stream_blocked", h.record, 4, kind="turn.ended")
+            self.assertEqual(h.checkpoint(), checkpoint)
+            self.assertEqual(len(h.checkpoint()["processedEvents"]), 3)
+            self.assertNotIn("run.completed", [item["eventType"] for item in h.audit()])
+
+    def test_a_checkpoint_only_block_stops_every_other_adapter(self) -> None:
+        with recovery_harness() as h:
+            h.begin()
+            h.record(1, kind="turn.started")
+            h.record(2, kind="turn.ended")
+            _, second = self.two_adapters(h)
+            failure = sqlite3.OperationalError("database is locked")
+            with mock.patch.object(h.store, "record_run_event", side_effect=failure):
+                assert_blocked(self, "audit_write_failed", h.record, 4, kind="session.idle")
+            self.assertEqual(h.checkpoint()["state"], "blocked")
+            assert_blocked(self, "stream_blocked", self.propose_with, h, second)
+            self.assertEqual(h.checkpoint()["state"], "blocked")
+            self.assertNotIn("run.completed", [item["eventType"] for item in h.audit()])
+
+    def test_raw_storage_errors_on_audit_writes_map_to_a_fixed_code(self) -> None:
+        with recovery_harness() as h:
+            failure = sqlite3.OperationalError("database is locked")
+            with mock.patch.object(h.store, "record_run_event", side_effect=failure):
+                assert_blocked(self, "audit_write_failed", h.begin)
+            h.restart()
+            h.begin()
+            h.record(1, kind="turn.started")
+            with mock.patch.object(h.store, "record_run_event", side_effect=failure):
+                assert_blocked(self, "audit_write_failed", h.record, 2, kind="turn.ended")
+
+    def test_a_stale_adapter_view_cannot_record_a_conflicting_event(self) -> None:
+        with recovery_harness() as h:
+            h.begin()
+            h.record(1, kind="turn.started")
+            h.record(2, kind="turn.ended")
+            _, second = self.two_adapters(h)
+            h.record(3, kind="turn.started")
+            h.adapter = second
+            audit = h.audit()
+            assert_blocked(self, "checkpoint_stale", h.record, 3, kind="session.idle")
+            self.assertEqual(h.audit(), audit)
+            self.assertEqual(h.runtime_keys(), [item["eventId"] for item in h.checkpoint()["processedEvents"]])
