@@ -770,7 +770,13 @@ class MissionStore:
             raise ControlPlaneContractError(
                 "delegation does not cover this decision's reason"
             )
-        mission = json.loads(self._mission_row(decision["mission_id"])["document_json"])
+        row = self._mission_row(decision["mission_id"])
+        # Inside this write's transaction: a mission the founder cancelled (or
+        # completed) never gets a delegated resolution recorded after the fact
+        # (PIP-906 review 4, achado 2).
+        if row["status"] not in {"active", "paused", "blocked"}:
+            raise ControlPlaneStateError("delegation requires a live mission")
+        mission = json.loads(row["document_json"])
         rule = (mission.get("delegation") or {}).get(rule_name)
         if rule is None:
             raise ControlPlaneContractError(f"mission has no {rule_name} delegation rule")

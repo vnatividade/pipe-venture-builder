@@ -40,7 +40,14 @@ from __future__ import annotations
 import re
 import unicodedata
 
-_ZERO_WIDTH = dict.fromkeys(map(ord, "\u200b\u200c\u200d\u2060\ufeff\u00ad"), None)
+# Every invisible/format character, not a fixed list: zero-width spaces and
+# joiners, invisible operators (U+2061..U+2064), the Mongolian vowel separator,
+# bidi overrides, soft hyphen, and C0/C1 controls (PIP-906 review 4, achado 10).
+_ZERO_WIDTH = {
+    code: None
+    for code in range(0x110000)
+    if unicodedata.category(chr(code)) in {"Cf", "Cc"} or chr(code) in "\u180e\u00ad"
+}
 # Lower-case Cyrillic letters that render like Latin ones (after casefold).
 _LOOKALIKES = str.maketrans({
     "а": "a", "в": "b", "е": "e", "к": "k", "м": "m", "н": "h", "о": "o", "р": "p",
@@ -65,6 +72,12 @@ _WORDS = frozenset({
     # customers' data and communication
     "cpf", "cpfs", "cnpj", "pii", "lgpd", "gdpr", "newsletter", "newsletters", "intercom",
     "zendesk", "hubspot", "mailchimp", "sendgrid", "twilio",
+    # release and operations
+    "hotfix", "canary", "rollout", "dns", "cloudflare", "testflight",
+    # credentials (other shapes)
+    "passphrase", "bearer", "keystore", "truststore", "p12", "pem", "jks", "netrc",
+    # billing (other shapes)
+    "reembolso", "reembolsos", "cupom", "cupons", "fiscal",
     # governance
     "sudo", "writeset", "pypi", "exploration",
 })
@@ -122,6 +135,14 @@ _PAIRS: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = (
     (("rebase", "reset", "force", "mescla*", "merge*", "pr", "integra*"), ("main", "master")),
     (("pat", "pats"), ("gera*", "novo", "nova", "escopo", "scope", "generate*", "create*")),
     (("dump*",), ("postgres*", "mysql", "banco", "database", "db", "rds", "supabase", "railway")),
+    (("push",), ("notification*", "notificac*")),
+    (("dados", "tabela", "registros", "linhas", "rows"), ("cliente*", "customer*", "usuario*", "producao",
+                                                          "production", "prod", "reais", "real")),
+    (("apaga*", "deleta*", "delete*", "remove*", "drop*", "truncate*"), ("banco", "database", "db", "tabela",
+                                                                          "producao", "production", "prod", "rds")),
+    (("reembols*", "estorna*"), ("cliente*", "customer*", "valor", "pagamento*", "cobranc*")),
+    (("feature",), ("flag", "flags")),
+    (("claim*", "afirma*", "promete*"), ("cliente*", "customer*", "juridic*", "legal", "compliance")),
     (("reais", "real", "verdadeiros"), ("cpf*", "cliente*", "customer*", "dados", "data")),
 )
 # A message word and a customer word anywhere in the same text (no window):
@@ -190,8 +211,18 @@ _TECH_AFFIXES = frozenset({
 })
 
 
+# A credential word inside an identifier is never exempt: ``STRIPE_SECRET_KEY_TEST``
+# and ``github_token_config`` are requests, not code (PIP-906 review 4, achado 3).
+_NEVER_EXEMPT = frozenset({
+    "key", "keys", "token", "tokens", "secret", "secrets", "password", "passwords", "passwd",
+    "senha", "senhas", "creds", "cred", "pat", "credential", "credentials", "apikey", "sk",
+})
+
+
 def _technical_identifier(identifier: str) -> bool:
     parts = [part.casefold() for part in re.split(r"_+|(?<=[a-z0-9])(?=[A-Z])", identifier) if part]
+    if any(part in _NEVER_EXEMPT for part in parts):
+        return False
     return "".join(parts) == "writeset" or any(part in _TECH_AFFIXES for part in parts)
 
 

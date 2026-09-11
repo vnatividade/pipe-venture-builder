@@ -942,20 +942,26 @@ class _Cycle:
         dropped the mission's own blocker). Returns ``None``, opening nothing,
         when the mission is no longer live: there is nothing left to decide."""
 
-        if self._status() == "active":
-            self.store.pause(self.mission_id, at=self.now())
-        if self._status() not in {"paused", "blocked"}:
+        try:
+            if self._status() == "active":
+                self.store.pause(self.mission_id, at=self.now())
+            if self._status() not in {"paused", "blocked"}:
+                return None
+            return self._open_decision_now(
+                kind=kind,
+                context={"reason": reason, "cycle": cycle, "runId": run_id, **dict(extra or {})},
+                options=options,
+                safe_default="pause",
+                blocked_scope="mission",
+                deadline=None,
+                at=self.now(),
+            )
+        except ControlPlaneStateError:
+            # A cancel from the founder landed in between: nothing left to decide.
             return None
-        return self.store.open_decision(
-            self.mission_id,
-            kind=kind,
-            context={"reason": reason, "cycle": cycle, "runId": run_id, **dict(extra or {})},
-            options=options,
-            safe_default="pause",
-            blocked_scope="mission",
-            deadline=None,
-            at=self.now(),
-        )
+
+    def _open_decision_now(self, *args: Any, **kwargs: Any) -> str:
+        return self.store.open_decision(self.mission_id, *args, **kwargs)
 
     # -- worker blockers: the delegated responder (PIP-906) ------------------
 
@@ -989,11 +995,13 @@ class _Cycle:
             outside = outside_write_set(files, self.mission["workspace"]["writeSet"])
             if not outside:
                 instructions = self._answer_blockers(cycle, blockers, worktree)
-        founder_stopped = self._status() != "active"
         extra: dict[str, Any] = {"blockers": len(blockers)}
         if outside:
             extra["outsideWriteSet"] = len(outside)
-        decision_id = self._open_pause_decision(
+        if instructions is not None and self._status() == "active":
+            if self._delegate_answer_blockers(cycle, run_id, instructions, extra):
+                return Step("active", ANSWER_BLOCKERS_REASON, cycle)
+        self._open_pause_decision(
             "clarification",
             cycle,
             run_id,
@@ -1001,13 +1009,6 @@ class _Cycle:
             options=["pause", "retry"],
             extra=extra,
         )
-        if (
-            decision_id is not None
-            and instructions is not None
-            and not founder_stopped
-            and self._delegate_answer_blockers(decision_id, cycle, instructions)
-        ):
-            return Step("active", ANSWER_BLOCKERS_REASON, cycle)
         revision = REVISION_BLOCKERS
         if outside:
             listed = "\n".join(f"- {path}" for path in outside)
@@ -1096,8 +1097,30 @@ class _Cycle:
             return None
         return instructions
 
-    def _delegate_answer_blockers(self, decision_id: str, cycle: int, instructions: str) -> bool:
+    def _delegate_answer_blockers(
+        self, cycle: int, run_id: str, instructions: str, extra: Mapping[str, Any]
+    ) -> bool:
+        """Answer the blocker without ever pausing the mission: the decision is
+        opened and resolved on a still-``active`` mission, so there is no pause
+        of ours for a ``resume`` to undo — a pause or cancel from the founder
+        landing anywhere in here either makes one of these two writes fail
+        (and we escalate) or arrives after them, and then the supervisor's own
+        loop stops on the next status read (PIP-906 review 4, achados 1 e 2:
+        the two millisecond windows are removed, not narrowed). The decision is
+        still recorded, so a delegated answer leaves the same trail a human
+        one would."""
+
         try:
+            decision_id = self.store.open_decision(
+                self.mission_id,
+                kind="clarification",
+                context={"reason": ANSWER_BLOCKERS_REASON, "cycle": cycle, "runId": run_id, **dict(extra)},
+                options=["pause", "retry"],
+                safe_default="pause",
+                blocked_scope="mission",
+                deadline=None,
+                at=self.now(),
+            )
             self.store.resolve_decision(
                 decision_id,
                 option=ANSWER_BLOCKERS_OPTION,
@@ -1107,7 +1130,6 @@ class _Cycle:
         except (ControlPlaneContractError, ControlPlaneStateError):
             return False
         _save_revision(self.home, self.mission_id, cycle, instructions)
-        self.store.resume(self.mission_id, at=self.now())
         _log(self.home, self.mission_id, "decision.delegated", decision=decision_id, cycle=cycle)
         return True
 

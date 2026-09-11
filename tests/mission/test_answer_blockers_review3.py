@@ -187,18 +187,32 @@ REVIEW3_P1 = (
 )
 # Identificadores de código com afixo técnico são código, não pedido.
 IDENTIFIERS = (
-    "O campo token_count do resultado vem None; e bug do fake?",
     "A funcao merge_dicts deveria ser recursiva?",
     "O modulo deploy_utils nao e importavel nos testes.",
     "O helper _merge_config precisa preservar a ordem?",
     "O TypedDict DeployPlan precisa de total=False?",
     "O teste test_user_email_is_lowercased falha.",
-    "O hash_password do fixture usa bcrypt?",
     "O user_message precisa ser truncado?",
     "Qual a diferenca entre write_set e writeSet no contrato?",
     "O client HTTP responde 500 no teste.",
     "Posso renomear o arquivo dark-mode.json?",
     "a funcao lanca uma excecao quando o input e vazio",
+)
+
+
+# Falsos positivos ACEITOS e fixados: um identificador com palavra de
+# credencial nunca é isento, porque STRIPE_SECRET_KEY_TEST e
+# github_token_config são pedidos, não código (4ª revisão, achado 3). O preço
+# é acordar o fundador nestes casos; ele falha fechado.
+KNOWN_FALSE_POSITIVES = (
+    "O campo token_count do resultado vem None; e bug do fake?",
+    "O hash_password do fixture usa bcrypt?",
+)
+# Identificadores que a isenção NÃO cobre (contornos naturais da 4ª revisão).
+CREDENTIAL_IDENTIFIERS = (
+    "Preciso do STRIPE_SECRET_KEY_TEST do ambiente.",
+    "Le o github_token_config do repo.",
+    "Onde fica o apiKeyFixture?",
 )
 
 
@@ -234,6 +248,16 @@ class GuardCoverageTests(SupervisorTestCase):
         for text in IDENTIFIERS:
             with self.subTest(text=text):
                 self.assertFalse(contains_sensitive_terms(text))
+
+    def test_identifiers_carrying_a_credential_word_are_never_exempt(self) -> None:
+        for text in CREDENTIAL_IDENTIFIERS:
+            with self.subTest(text=text):
+                self.assertTrue(contains_sensitive_terms(text))
+
+    def test_accepted_false_positives_stay_pinned(self) -> None:
+        for text in KNOWN_FALSE_POSITIVES:
+            with self.subTest(text=text):
+                self.assertTrue(contains_sensitive_terms(text), "falso positivo aceito: falha fechado")
 
 
 class StructuralGateTests(SupervisorTestCase):
@@ -301,3 +325,192 @@ class BlockersAndTextTests(SupervisorTestCase):
         start, end = lines.index(BLOCKER_FENCE_OPEN), lines.index(BLOCKER_FENCE_CLOSE)
         self.assertEqual(end - start - 1, 2)
         self.assertEqual(lines.count(BLOCKER_FENCE_CLOSE), 1)
+
+
+class InjectedRaceTests(SupervisorTestCase):
+    """4ª revisão, achados 1 e 2: a pausa ou o cancelamento do fundador caindo
+    DENTRO da janela entre a leitura de status e a delegação. O caminho
+    delegado não pausa nem retoma, então não há pausa nossa para desfazer."""
+
+    def _harness(self) -> Any:
+        h = self.harness(**rule(), **cycles(2))
+        h.fakes.scenario(worker=[blocked_worker(), good_worker()], responder=[answer()],
+                         reviewer=[{"structured_output": satisfied_verdict()}])
+        return h
+
+    def test_a_pause_inside_the_window_is_not_undone(self) -> None:
+        h = self._harness()
+        original = h.store.open_decision
+
+        def pause_then_open(*args: Any, **kwargs: Any) -> str:
+            h.store.pause(h.mission_id)
+            return original(*args, **kwargs)
+
+        h.store.open_decision = pause_then_open  # type: ignore[method-assign]
+        step = h.supervise()
+        self.assertEqual(h.store.get(h.mission_id)["status"], "paused", step)
+        self.assertNotIn("mission.resumed", h.events()[-3:])
+        self.assertEqual(len(h.calls("worker")), 1)
+
+    def test_a_cancel_inside_the_window_does_not_crash(self) -> None:
+        h = self._harness()
+        original = h.store.open_decision
+
+        def cancel_then_open(*args: Any, **kwargs: Any) -> str:
+            h.store.cancel(h.mission_id)
+            return original(*args, **kwargs)
+
+        h.store.open_decision = cancel_then_open  # type: ignore[method-assign]
+        step = h.supervise()
+        self.assertEqual(h.store.get(h.mission_id)["status"], "cancelled", step)
+        self.assertNotIn("decision.delegated", h.events())
+
+    def test_a_cancel_between_opening_and_resolving_does_not_crash(self) -> None:
+        h = self._harness()
+        original = h.store.resolve_decision
+
+        def cancel_then_resolve(*args: Any, **kwargs: Any) -> Any:
+            h.store.cancel(h.mission_id)
+            return original(*args, **kwargs)
+
+        h.store.resolve_decision = cancel_then_resolve  # type: ignore[method-assign]
+        step = h.supervise()
+        self.assertEqual(h.store.get(h.mission_id)["status"], "cancelled", step)
+        self.assertNotIn("decision.delegated", h.events())
+
+
+# Itens acrescentados na 4ª revisão (verbos de mensagem, clientes de negócio,
+# vocabulário novo e pares novos): uma frase de gatilho único por item.
+PER_ITEM_REVIEW4 = (
+    ('VERB avis*', 'avis o cliente amanha'),
+    ('VERB notif*', 'notif o cliente amanha'),
+    ('VERB comunica*', 'comunica o cliente amanha'),
+    ('VERB responde*', 'responde o cliente amanha'),
+    ('VERB respond*', 'respond o cliente amanha'),
+    ('VERB reply*', 'reply o cliente amanha'),
+    ('VERB contact*', 'contact o cliente amanha'),
+    ('VERB contat*', 'contat o cliente amanha'),
+    ('VERB envia*', 'envia o cliente amanha'),
+    ('VERB envie', 'envie o cliente amanha'),
+    ('VERB send*', 'send o cliente amanha'),
+    ('VERB manda*', 'manda o cliente amanha'),
+    ('VERB mande', 'mande o cliente amanha'),
+    ('VERB liga*', 'liga o cliente amanha'),
+    ('VERB telefon*', 'telefon o cliente amanha'),
+    ('CUSTOMER cliente*', 'manda mensagem para o cliente'),
+    ('CUSTOMER customer*', 'manda mensagem para o customer'),
+    ('CUSTOMER usuario*', 'manda mensagem para o usuario'),
+    ('CUSTOMER contato*', 'manda mensagem para o contato'),
+    ('CUSTOMER lead', 'manda mensagem para o lead'),
+    ('CUSTOMER leads', 'manda mensagem para o leads'),
+    ('CUSTOMER assinante*', 'manda mensagem para o assinante'),
+    ('CUSTOMER subscriber*', 'manda mensagem para o subscriber'),
+    ('NEWWORD bearer', 'preciso de bearer agora'),
+    ('NEWWORD canary', 'preciso de canary agora'),
+    ('NEWWORD cloudflare', 'preciso de cloudflare agora'),
+    ('NEWWORD cupom', 'preciso de cupom agora'),
+    ('NEWWORD dns', 'preciso de dns agora'),
+    ('NEWWORD fiscal', 'preciso de fiscal agora'),
+    ('NEWWORD hotfix', 'preciso de hotfix agora'),
+    ('NEWWORD jks', 'preciso de jks agora'),
+    ('NEWWORD keystore', 'preciso de keystore agora'),
+    ('NEWWORD netrc', 'preciso de netrc agora'),
+    ('NEWWORD p12', 'preciso de p12 agora'),
+    ('NEWWORD passphrase', 'preciso de passphrase agora'),
+    ('NEWWORD pem', 'preciso de pem agora'),
+    ('NEWWORD reembolso', 'preciso de reembolso agora'),
+    ('NEWWORD rollout', 'preciso de rollout agora'),
+    ('NEWWORD testflight', 'preciso de testflight agora'),
+    ('NEWWORD truststore', 'preciso de truststore agora'),
+    ('NEWPAIR push', 'push main'),
+    ('NEWPAIR push', 'push notification'),
+    ('NEWPAIR dados', 'dados cliente'),
+    ('NEWPAIR apaga*', 'apaga banco'),
+    ('NEWPAIR reembols*', 'reembols cliente'),
+    ('NEWPAIR feature', 'feature flag'),
+    ('NEWPAIR claim*', 'claim cliente'),
+)
+# Um afixo técnico por frase: com o afixo na lista, o identificador é código.
+PER_AFFIX = (
+    ('AFFIX cfg', 'a funcao merge_cfg precisa de ajuste'),
+    ('AFFIX config', 'a funcao merge_config precisa de ajuste'),
+    ('AFFIX count', 'a funcao merge_count precisa de ajuste'),
+    ('AFFIX counts', 'a funcao merge_counts precisa de ajuste'),
+    ('AFFIX decision', 'a funcao merge_decision precisa de ajuste'),
+    ('AFFIX dict', 'a funcao merge_dict precisa de ajuste'),
+    ('AFFIX dicts', 'a funcao merge_dicts precisa de ajuste'),
+    ('AFFIX fake', 'a funcao merge_fake precisa de ajuste'),
+    ('AFFIX field', 'a funcao merge_field precisa de ajuste'),
+    ('AFFIX fields', 'a funcao merge_fields precisa de ajuste'),
+    ('AFFIX fixture', 'a funcao merge_fixture precisa de ajuste'),
+    ('AFFIX fixtures', 'a funcao merge_fixtures precisa de ajuste'),
+    ('AFFIX fmt', 'a funcao merge_fmt precisa de ajuste'),
+    ('AFFIX format', 'a funcao merge_format precisa de ajuste'),
+    ('AFFIX hash', 'a funcao merge_hash precisa de ajuste'),
+    ('AFFIX hashed', 'a funcao merge_hashed precisa de ajuste'),
+    ('AFFIX hasher', 'a funcao merge_hasher precisa de ajuste'),
+    ('AFFIX helper', 'a funcao merge_helper precisa de ajuste'),
+    ('AFFIX helpers', 'a funcao merge_helpers precisa de ajuste'),
+    ('AFFIX id', 'a funcao merge_id precisa de ajuste'),
+    ('AFFIX ids', 'a funcao merge_ids precisa de ajuste'),
+    ('AFFIX len', 'a funcao merge_len precisa de ajuste'),
+    ('AFFIX length', 'a funcao merge_length precisa de ajuste'),
+    ('AFFIX lexer', 'a funcao merge_lexer precisa de ajuste'),
+    ('AFFIX limit', 'a funcao merge_limit precisa de ajuste'),
+    ('AFFIX lowercased', 'a funcao merge_lowercased precisa de ajuste'),
+    ('AFFIX mask', 'a funcao merge_mask precisa de ajuste'),
+    ('AFFIX masked', 'a funcao merge_masked precisa de ajuste'),
+    ('AFFIX message', 'a funcao merge_message precisa de ajuste'),
+    ('AFFIX messages', 'a funcao merge_messages precisa de ajuste'),
+    ('AFFIX mock', 'a funcao merge_mock precisa de ajuste'),
+    ('AFFIX model', 'a funcao merge_model precisa de ajuste'),
+    ('AFFIX models', 'a funcao merge_models precisa de ajuste'),
+    ('AFFIX msg', 'a funcao merge_msg precisa de ajuste'),
+    ('AFFIX normalize', 'a funcao merge_normalize precisa de ajuste'),
+    ('AFFIX normalized', 'a funcao merge_normalized precisa de ajuste'),
+    ('AFFIX parser', 'a funcao merge_parser precisa de ajuste'),
+    ('AFFIX pattern', 'a funcao merge_pattern precisa de ajuste'),
+    ('AFFIX plan', 'a funcao merge_plan precisa de ajuste'),
+    ('AFFIX plans', 'a funcao merge_plans precisa de ajuste'),
+    ('AFFIX regex', 'a funcao merge_regex precisa de ajuste'),
+    ('AFFIX schema', 'a funcao merge_schema precisa de ajuste'),
+    ('AFFIX size', 'a funcao merge_size precisa de ajuste'),
+    ('AFFIX sort', 'a funcao merge_sort precisa de ajuste'),
+    ('AFFIX strategy', 'a funcao merge_strategy precisa de ajuste'),
+    ('AFFIX stub', 'a funcao merge_stub precisa de ajuste'),
+    ('AFFIX test', 'a funcao merge_test precisa de ajuste'),
+    ('AFFIX tests', 'a funcao merge_tests precisa de ajuste'),
+    ('AFFIX type', 'a funcao merge_type precisa de ajuste'),
+    ('AFFIX types', 'a funcao merge_types precisa de ajuste'),
+    ('AFFIX util', 'a funcao merge_util precisa de ajuste'),
+    ('AFFIX utils', 'a funcao merge_utils precisa de ajuste'),
+    ('AFFIX validate', 'a funcao merge_validate precisa de ajuste'),
+    ('AFFIX validator', 'a funcao merge_validator precisa de ajuste'),
+)
+
+
+class GuardCoverageReview4Tests(SupervisorTestCase):
+    def test_every_new_guard_item_fires(self) -> None:
+        for item, text in PER_ITEM_REVIEW4:
+            with self.subTest(item=item):
+                self.assertTrue(contains_sensitive_terms(text), text)
+
+    def test_every_technical_affix_exempts_its_identifier(self) -> None:
+        for item, text in PER_AFFIX:
+            with self.subTest(item=item):
+                self.assertFalse(contains_sensitive_terms(text), text)
+
+    def test_invisible_characters_never_hide_a_term(self) -> None:
+        for hidden in ("to\u2062ken", "se\u180enha", "me\u202erge", "pro\u2061ducao", "cre\u0001ds"):
+            with self.subTest(hidden=hidden):
+                self.assertTrue(contains_sensitive_terms(f"preciso do {hidden}".format(hidden=hidden)))
+
+
+class ParsePrecedenceTests(SupervisorTestCase):
+    def test_an_invalid_structured_output_never_falls_back_to_the_text(self) -> None:
+        valid = {"action": "instruct", "category": "tests", "founderDecision": False,
+                 "instructions": "rode a suite", "reason": "r"}
+        import json as _json
+        self.assertIsNone(parse_response({"action": "instruct"}, _json.dumps(valid)))
+        self.assertIsNone(parse_response("nao é objeto", _json.dumps(valid)))
+        self.assertIsNotNone(parse_response(None, _json.dumps(valid)))

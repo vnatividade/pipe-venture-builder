@@ -286,15 +286,16 @@ def run_responder(
 def parse_response(structured_output: Any, result_text: str | None) -> dict[str, Any] | None:
     """A normalised response, or ``None`` when neither source holds a valid one."""
 
-    candidates: list[Any] = []
+    # Strict precedence (PIP-906 review 4, achado 7): when the CLI produced a
+    # ``structured_output``, that IS the answer — an invalid one is invalid and
+    # never falls back to whatever JSON the free text happens to carry.
     if structured_output is not None:
-        candidates.append(structured_output)
+        return _normalize_response(structured_output)
     if result_text:
-        candidates.extend(_json_candidates(result_text))
-    for candidate in candidates:
-        normalized = _normalize_response(candidate)
-        if normalized is not None:
-            return normalized
+        for candidate in _json_candidates(result_text):
+            normalized = _normalize_response(candidate)
+            if normalized is not None:
+                return normalized
     return None
 
 
