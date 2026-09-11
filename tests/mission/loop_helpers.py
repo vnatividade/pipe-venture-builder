@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import os
+import signal
 import subprocess
+import time
 from pathlib import Path
 from typing import Any
 
@@ -51,6 +53,43 @@ EXPECTED_DISALLOWED_TOOLS = [
     "Bash(git add*)", "Bash(git rebase*)", "Bash(git merge*)", "Bash(curl *)",
     "Bash(wget *)", "WebFetch", "WebSearch",
 ]
+
+
+def read_pid(path: Path, *, timeout: float = 10.0) -> int:
+    """Wait for a pid file written by a fake and return the pid."""
+
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            return int(path.read_text(encoding="utf-8").strip())
+        except (OSError, ValueError):
+            time.sleep(0.02)
+    raise AssertionError(f"no pid written to {path.name}")
+
+
+def process_gone(pid: int, *, timeout: float = 5.0) -> bool:
+    """True once ``pid`` no longer exists (reaped), waiting up to ``timeout``."""
+
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return True
+        except PermissionError:
+            pass
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(0.05)
+
+
+def kill_quietly(pid: int | None) -> None:
+    if not pid:
+        return
+    try:
+        os.kill(pid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        pass
 
 
 def git(cwd: Path, *args: str) -> str:

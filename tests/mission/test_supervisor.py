@@ -34,8 +34,11 @@ from tests.mission.loop_helpers import (
     FakeBinaries,
     git,
     good_worker_output,
+    kill_quietly,
     loop_mission,
     make_repo,
+    process_gone,
+    read_pid,
     satisfied_verdict,
     single_values,
 )
@@ -220,6 +223,48 @@ class FailureF2PauseDuringWorkerTests(SupervisorTestCase):
         attempts = [(run["cycle"], run["attempt"]) for run in h.store.list_runs(h.mission_id)
                     if run["executor"].startswith("worker")]
         self.assertEqual(attempts, [(1, 1), (1, 2)], "resume re-attempts the same cycle")
+
+    def test_f2_pause_kills_the_workers_grandchildren(self) -> None:
+        # A4: the fake starts a child (a grandchild of the supervisor) in its
+        # process group; after a resume, one that ignores SIGTERM (B2).
+        h = self.harness()
+        pids = [h.root / "fakes" / "grandchild-term.pid", h.root / "fakes" / "grandchild-immune.pid"]
+        h.fakes.scenario(worker=[{"sleep": 30, "on_sigterm": "exit",
+                                  "spawn_grandchild": {"pid_file": str(pids[0])}}])
+        spawned: list[int] = []
+
+        def pause_when_spawned() -> None:
+            spawned.append(read_pid(pids[0]))
+            with MissionStore(h.store_path) as founder:
+                founder.pause(h.mission_id)
+
+        threading.Thread(target=pause_when_spawned, daemon=True).start()
+        try:
+            step = h.supervise(poll_seconds=0.05)
+            self.assertEqual((step.status, step.reason), ("paused", "interrupted"))
+            self.assertTrue(process_gone(spawned[0]), "a grandchild outlived the pause")
+        finally:
+            for pid in spawned:
+                kill_quietly(pid)
+
+        h.store.resume(h.mission_id)
+        h.fakes.scenario(worker=[{"sleep": 30, "on_sigterm": "exit",
+                                  "spawn_grandchild": {"pid_file": str(pids[1]), "ignore_term": True}}])
+        spawned.clear()
+
+        def pause_when_immune_spawned() -> None:
+            spawned.append(read_pid(pids[1]))
+            with MissionStore(h.store_path) as founder:
+                founder.pause(h.mission_id)
+
+        threading.Thread(target=pause_when_immune_spawned, daemon=True).start()
+        try:
+            step = h.supervise(poll_seconds=0.05)
+            self.assertEqual((step.status, step.reason), ("paused", "interrupted"))
+            self.assertTrue(process_gone(spawned[0]), "a SIGTERM-immune grandchild outlived the pause")
+        finally:
+            for pid in spawned:
+                kill_quietly(pid)
 
     def test_f2_control_without_pause_the_cycle_continues(self) -> None:
         h = self.harness()

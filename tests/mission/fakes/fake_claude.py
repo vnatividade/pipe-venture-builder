@@ -9,7 +9,9 @@ Environment:
                           worker_output (dict rendered inside ``result``), wrap ("none"|"text"|"fence"),
                           structured_output (reviewer verdict), write_files ({relpath: content}),
                           git_mv ([source, destination]), git_commit (message),
-                          git_config ({key: value}, run as ``git config`` in cwd)
+                          git_config ({key: value}, run as ``git config`` in cwd),
+                          spawn_grandchild ({"pid_file": path, "ignore_term": bool}: start a
+                          sleeping child in the fake's process group and write its pid)
                         The reviewer role is detected by ``--json-schema`` in argv. When a role's
                         list is exhausted the last call is reused.
   FAKE_CLAUDE_STATE_DIR where per-role call counters live (defaults to the scenario's directory).
@@ -75,6 +77,20 @@ def main(argv: list[str]) -> int:
             sys.exit(143)
 
     signal.signal(signal.SIGTERM, handle_term)
+
+    grandchild = call.get("spawn_grandchild")
+    if grandchild:
+        # A child of the fake (a grandchild of the supervisor), like a shell
+        # the real CLI starts for a Bash tool call. Same process group.
+        code = "import signal, time\n"
+        if grandchild.get("ignore_term"):
+            code += "signal.signal(signal.SIGTERM, signal.SIG_IGN)\n"
+        code += "time.sleep(60)\n"
+        child = subprocess.Popen(
+            [sys.executable, "-c", code],
+            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+        Path(grandchild["pid_file"]).write_text(str(child.pid), encoding="utf-8")
 
     for relative, content in (call.get("write_files") or {}).items():
         target = Path(os.getcwd()) / relative

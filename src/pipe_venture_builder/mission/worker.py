@@ -188,22 +188,38 @@ class ClaudeProcess:
             stream.close()
 
     def terminate(self, *, grace_seconds: float = DEFAULT_GRACE_SECONDS) -> None:
-        """SIGTERM the whole process group; SIGKILL after ``grace_seconds``."""
+        """SIGTERM the whole process group; SIGKILL after ``grace_seconds``.
+
+        Once the leader (``claude``) is gone, the rest of its group always gets
+        SIGKILL: a descendant that ignores SIGTERM does not outlive the stop.
+        A descendant that left the group (``setsid``) is out of reach.
+        """
 
         self._stop_requested.set()
         process = self._process
-        if process is None or process.poll() is not None:
+        if process is None:
             return
         with self._lock:
-            self._signal(process, signal.SIGTERM)
-            try:
-                process.wait(timeout=grace_seconds)
-            except subprocess.TimeoutExpired:
-                self._signal(process, signal.SIGKILL)
+            if process.poll() is None:
+                self._signal(process, signal.SIGTERM)
                 try:
                     process.wait(timeout=grace_seconds)
                 except subprocess.TimeoutExpired:
-                    pass
+                    self._signal(process, signal.SIGKILL)
+                    try:
+                        process.wait(timeout=grace_seconds)
+                    except subprocess.TimeoutExpired:
+                        pass
+            self._kill_group(process)
+
+    @staticmethod
+    def _kill_group(process: subprocess.Popen[str]) -> None:
+        """SIGKILL what is left of the process group (the leader's pid is its id)."""
+
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            pass
 
     @staticmethod
     def _signal(process: subprocess.Popen[str], signum: int) -> None:
@@ -245,6 +261,8 @@ class ClaudeProcess:
                 self._stop_requested.clear()
                 self._kill_now(process, grace_seconds)
                 break
+        # The run is over however it ended: nothing it started keeps writing.
+        self._kill_group(process)
         for reader in self._readers:
             reader.join(timeout=grace_seconds)
         stdout = self._stdout.text()

@@ -29,8 +29,11 @@ from tests.mission.loop_helpers import (
     FakeBinaries,
     cli_options,
     good_worker_output,
+    kill_quietly,
     loop_mission,
     make_repo,
+    process_gone,
+    read_pid,
     single_values,
 )
 
@@ -243,3 +246,47 @@ class RunWorkerTests(TestCase):
             threading.Timer(0.2, process.terminate).start()
             result = process.wait(timeout=10, poll_seconds=0.05)
             self.assertEqual(result.status, "interrupted")
+
+
+class ProcessGroupTests(TestCase):
+    """A4/B2: the pause must reach every descendant of ``claude``, not only
+    the ``claude`` process (a Bash tool call runs in a child shell)."""
+
+    def run_and_stop(self, fakes: FakeBinaries, repo: Path, mission: dict, *, ignore_term: bool) -> int:
+        pid_file = fakes.dir / "grandchild.pid"
+        fakes.scenario(worker=[{"sleep": 30, "on_sigterm": "exit",
+                                "spawn_grandchild": {"pid_file": str(pid_file), "ignore_term": ignore_term}}])
+        stop = threading.Event()
+
+        def stop_when_spawned() -> None:
+            read_pid(pid_file)
+            stop.set()
+
+        threading.Thread(target=stop_when_spawned, daemon=True).start()
+        result = run_worker(
+            mission, run_id="MRUN-000000000001", cwd=repo, claude_bin=fakes.claude_bin,
+            budget_left=5.0, poll_seconds=0.05, should_stop=stop.is_set, grace_seconds=1.0,
+        )
+        self.assertEqual(result.status, "interrupted")
+        return read_pid(pid_file)
+
+    def test_stopping_the_worker_kills_its_grandchild(self) -> None:
+        with TemporaryDirectory() as directory, FakeBinaries(Path(directory)) as fakes:
+            repo = make_repo(Path(directory))
+            grandchild = None
+            try:
+                grandchild = self.run_and_stop(fakes, repo, mission_for(repo), ignore_term=False)
+                self.assertTrue(process_gone(grandchild), "the grandchild survived the stop")
+            finally:
+                kill_quietly(grandchild)
+
+    def test_a_grandchild_that_ignores_sigterm_is_killed_after_the_leader_exits(self) -> None:
+        # B2: the leader exits on SIGTERM; the SIGKILL must still reach its group.
+        with TemporaryDirectory() as directory, FakeBinaries(Path(directory)) as fakes:
+            repo = make_repo(Path(directory))
+            grandchild = None
+            try:
+                grandchild = self.run_and_stop(fakes, repo, mission_for(repo), ignore_term=True)
+                self.assertTrue(process_gone(grandchild), "the SIGTERM-immune grandchild survived")
+            finally:
+                kill_quietly(grandchild)
