@@ -142,6 +142,91 @@ class DecisionTests(TestCase):
             self.assertEqual(store.get(mission_id)["status"], "active")
 
 
+def delegated_mission(store: MissionStore, **grant_cycle: object) -> str:
+    rule = {"maxTimes": 1, "maxCostFraction": 0.5, "requireProgress": True}
+    rule.update(grant_cycle)
+    document = {**mission_input(), "schemaVersion": "0.2.0", "delegation": {"grantCycle": rule}}
+    mission_id = store.create(build_mission(document, created_at=CREATED_AT), at=CREATED_AT)
+    store.activate(mission_id, at=LATER)
+    return mission_id
+
+
+class DelegatedDecisionTests(TestCase):
+    """``resolve_decision(..., decided_by="delegated:orchestrator")``: the store
+    enforces the shape (escalation/grant_cycle) and the mission's own
+    ``maxTimes``/``maxCostFraction``; the supervisor's acceptance tests cover
+    the end-to-end cycle-granting behaviour built on top of this."""
+
+    def _open_grant_cycle_decision(self, store: MissionStore, mission_id: str, *, cycle: int = 1) -> str:
+        store.block(mission_id, reason_code="max_cycles", at=LATER)
+        return store.open_decision(
+            mission_id, kind="escalation", context={"reason": "max_cycles", "cycle": cycle},
+            options=["stop", "grant_cycle"], safe_default="stop", blocked_scope="cycles",
+            deadline=None, at=LATER,
+        )
+
+    def test_delegated_grant_marks_resolved_with_the_delegated_source(self) -> None:
+        with MissionStore(":memory:") as store:
+            mission_id = delegated_mission(store)
+            decision_id = self._open_grant_cycle_decision(store, mission_id)
+            resolved = store.resolve_decision(
+                decision_id, option="grant_cycle", decided_by="delegated:orchestrator", at=EVEN_LATER
+            )
+            self.assertEqual(resolved["status"], "resolved")
+            self.assertEqual(resolved["decidedOption"], "grant_cycle")
+            self.assertEqual(resolved["decidedBy"], "delegated:orchestrator")
+            event = store.list_events(mission_id)[-1]
+            self.assertEqual(event["eventType"], "decision.delegated")
+            self.assertEqual(event["payload"], {"decisionId": decision_id, "rule": "grantCycle"})
+
+    def test_delegated_grant_refused_for_a_decision_kind_delegation_never_covers(self) -> None:
+        with MissionStore(":memory:") as store:
+            mission_id = delegated_mission(store)
+            store.block(mission_id, reason_code="budget_reached", at=LATER)
+            budget_decision = store.open_decision(
+                mission_id, kind="budget", context={"reason": "budget_reached"},
+                options=["stop", "revise_mission"], safe_default="stop", blocked_scope="budget",
+                deadline=None, at=LATER,
+            )
+            with self.assertRaises(ControlPlaneContractError):
+                store.resolve_decision(
+                    budget_decision, option="revise_mission",
+                    decided_by="delegated:orchestrator", at=EVEN_LATER,
+                )
+            self.assertEqual(store.get_decision(budget_decision)["status"], "pending")
+
+    def test_delegated_grant_respects_max_times(self) -> None:
+        with MissionStore(":memory:") as store:
+            mission_id = delegated_mission(store, maxTimes=1)
+            first = self._open_grant_cycle_decision(store, mission_id)
+            store.resolve_decision(
+                first, option="grant_cycle", decided_by="delegated:orchestrator", at=EVEN_LATER
+            )
+            store.resume(mission_id, at=EVEN_LATER)
+            second = self._open_grant_cycle_decision(store, mission_id, cycle=2)
+            with self.assertRaises(ControlPlaneStateError):
+                store.resolve_decision(
+                    second, option="grant_cycle", decided_by="delegated:orchestrator", at=EVEN_LATER
+                )
+            # A human is never blocked by the exhausted delegation rule.
+            store.resolve_decision(second, option="stop", decided_by="human:cli:vitor", at=EVEN_LATER)
+
+    def test_delegated_grant_respects_cost_fraction(self) -> None:
+        with MissionStore(":memory:") as store:
+            mission_id = delegated_mission(store, maxCostFraction=0.1)
+            run_id = store.open_run(mission_id, cycle=1, attempt=1, executor="worker:sonnet", at=LATER)
+            budget = store.get(mission_id)["constraints"]["maxBudgetUsd"]
+            store.collect_run(
+                run_id, session_id=None, cost_usd=budget * 0.2, num_turns=1,
+                result_ref=None, result_fingerprint=None, status="collected", at=LATER,
+            )
+            decision_id = self._open_grant_cycle_decision(store, mission_id)
+            with self.assertRaises(ControlPlaneStateError):
+                store.resolve_decision(
+                    decision_id, option="grant_cycle", decided_by="delegated:orchestrator", at=EVEN_LATER
+                )
+
+
 class EvidenceAndCompletionTests(TestCase):
     def _satisfy_all(self, store: MissionStore, mission_id: str, run_id: str) -> None:
         for criterion in store.get(mission_id)["successCriteria"]:

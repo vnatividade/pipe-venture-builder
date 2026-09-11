@@ -250,3 +250,18 @@ class MissionContractTests(TestCase):
         self.assertEqual(rebuilt, mission)
         with self.assertRaises(ControlPlaneContractError):
             build_mission(mission_variant(linearTicketIds=["pip 901"]), created_at=CREATED_AT)
+
+    def test_delegation_defaults_to_none_and_requires_schema_0_2_0(self) -> None:
+        mission = build_mission(mission_input(), created_at=CREATED_AT)
+        self.assertIsNone(mission["delegation"])
+
+        rule = {"grantCycle": {"maxTimes": 1, "maxCostFraction": 0.5, "requireProgress": True}}
+        with self.assertRaisesRegex(ControlPlaneContractError, "requires schema 0.2.0"):
+            build_mission(
+                mission_variant(schemaVersion="0.1.0", delegation=rule), created_at=CREATED_AT
+            )
+        with_delegation = build_mission(
+            mission_variant(schemaVersion="0.2.0", delegation=rule), created_at=CREATED_AT
+        )
+        self.assertEqual(with_delegation["delegation"], rule)
+        self.assertEqual(schema_findings(with_delegation), [])

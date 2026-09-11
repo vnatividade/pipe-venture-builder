@@ -203,6 +203,7 @@ class MissionEventChainTests(TestCase):
                     "review.blocked",
                     "decision.opened",
                     "decision.resolved",
+                    "decision.delegated",
                     "delivery.pr_opened",
                     "delivery.checks_passed",
                     "delivery.checks_failed",
@@ -408,3 +409,33 @@ class MissionRunTests(TestCase):
                 [event["eventType"] for event in store.list_events(mission_id)][-2:],
                 ["verify.failed", "review.needs_revision"],
             )
+
+    def test_criteria_status_up_to_cycle_only_counts_evidence_from_earlier_runs(self) -> None:
+        # The delegation "requireProgress" check compares a cycle's evidence
+        # snapshot against the previous one; ``criteria_status`` is the only
+        # place that knows how to join evidence back to the run's cycle.
+        with new_store() as store:
+            mission_id = created(store)
+            store.activate(mission_id, at=LATER)
+            first = store.open_run(mission_id, cycle=1, attempt=1, executor="claude-code", at=LATER)
+            store.record_evidence(
+                mission_id, criterion_id="C1", run_id=first, satisfied=True,
+                evidence_ref="evidence:C1", evidence_fingerprint=None, at=LATER,
+            )
+            second = store.open_run(mission_id, cycle=2, attempt=1, executor="claude-code", at=EVEN_LATER)
+            store.record_evidence(
+                mission_id, criterion_id="C2", run_id=second, satisfied=True,
+                evidence_ref="evidence:C2", evidence_fingerprint=None, at=EVEN_LATER,
+            )
+
+            def satisfied_ids(up_to_cycle: int | None) -> set[str]:
+                return {
+                    item["id"]
+                    for item in store.criteria_status(mission_id, up_to_cycle=up_to_cycle)
+                    if item["satisfied"]
+                }
+
+            self.assertEqual(satisfied_ids(0), set())
+            self.assertEqual(satisfied_ids(1), {"C1"})
+            self.assertEqual(satisfied_ids(2), {"C1", "C2"})
+            self.assertEqual(satisfied_ids(None), {"C1", "C2"}, "unset means every run, like before")

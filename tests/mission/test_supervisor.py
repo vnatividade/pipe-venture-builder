@@ -361,6 +361,48 @@ class FailureF5ThirdNeedsRevisionTests(SupervisorTestCase):
         self.assertEqual(cycles, [1, 2, 3, 4])
 
 
+class DelegatedGrantCycleStackingTests(SupervisorTestCase):
+    def test_a_delegated_grant_and_a_human_grant_both_count_towards_max_cycles(self) -> None:
+        # The acceptance tests cover one delegated grant, and separately one
+        # human grant; this checks the supervisor treats them the same way
+        # when they stack on the same mission (``_max_cycles`` just counts
+        # resolved ``grant_cycle`` decisions, whoever decided them).
+        constraints = dict(loop_mission(Path("/tmp"))["constraints"], maxCycles=1)
+        delegation = {"grantCycle": {"maxTimes": 1, "maxCostFraction": 0.8, "requireProgress": False}}
+        h = self.harness(schemaVersion="0.2.0", delegation=delegation, constraints=constraints)
+        h.fakes.scenario(
+            # Each worker call changes the diff (a stalled circuit breaker is a
+            # different failure than an exhausted delegation rule); the
+            # criteria stay satisfied throughout.
+            worker=[
+                good_worker(),
+                {"write_files": {**GOOD_FILES, "README.md": "# Demo\n\npipe idea v2\n"},
+                 "worker_output": good_worker_output()},
+                {"write_files": {**GOOD_FILES, "README.md": "# Demo\n\npipe idea v3\n"},
+                 "worker_output": good_worker_output()},
+            ],
+            reviewer=[
+                {"structured_output": needs_revision_verdict("Primeira.")},
+                {"structured_output": needs_revision_verdict("Segunda.")},
+                {"structured_output": satisfied_verdict()},
+            ],
+        )
+        step = h.supervise()
+        self.assertEqual(step.status, "blocked", "the delegation rule only covers one cycle")
+        self.assertEqual(h.events().count("decision.delegated"), 1)
+        [decision] = h.store.pending_decisions(h.mission_id)
+        self.assertEqual(set(decision["options"]), {"stop", "grant_cycle"})
+
+        h.store.resolve_decision(decision["decisionId"], option="grant_cycle", decided_by="human:cli:vitor")
+        h.store.resume(h.mission_id)
+        step = h.supervise()
+
+        self.assertEqual(step.status, "completed")
+        self.assertEqual(h.store.pending_decisions(h.mission_id), [])
+        cycles = [run["cycle"] for run in h.store.list_runs(h.mission_id) if run["executor"].startswith("worker")]
+        self.assertEqual(cycles, [1, 2, 3])
+
+
 class FailureF6BudgetTests(SupervisorTestCase):
     def test_f6_budget_exhausted_blocks_with_budget_reached_before_dispatch(self) -> None:
         constraints = dict(loop_mission(Path("/tmp"))["constraints"], maxBudgetUsd=4)
