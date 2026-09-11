@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import os
 import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest import TestCase
+from unittest import TestCase, mock
 
 from pipe_venture_builder.mission.contract import build_mission
+from pipe_venture_builder.mission.delivery import GIT_CONTEXT_ENV
 from pipe_venture_builder.mission.verify import (
     CheckResult,
     changed_files,
@@ -44,6 +46,16 @@ class ChangedFilesTests(TestCase):
             files = changed_files(repo, "main")
             self.assertIn("docs/renamed.md", files)
             self.assertIn("docs/guide.md", files)
+
+    def test_changed_files_ignores_a_poisoned_git_dir_from_the_environment(self) -> None:
+        # PIP-907 (b): a poisoned GIT_DIR pointing nowhere would make the
+        # internal git plumbing here fail outright if inherited.
+        with TemporaryDirectory() as directory:
+            repo = make_repo(Path(directory))
+            (repo / "README.md").write_text("changed\n", encoding="utf-8")
+            poison = {name: "/nonexistent/should-not-be-used" for name in GIT_CONTEXT_ENV}
+            with mock.patch.dict(os.environ, poison):
+                self.assertEqual(changed_files(repo, "main"), ["README.md"])
 
     def test_a_rename_reports_the_source_path_committed_or_not(self) -> None:
         # A1: ``git diff --name-only`` detects renames and prints only the new
@@ -129,6 +141,17 @@ class ChecksAndArtifactsTests(TestCase):
             self.assertEqual(after[0].evidence_ref, "check:C1:rc0")
             self.assertEqual(after[1].evidence_ref, "artifact:C2")
             self.assertRegex(after[1].evidence_fingerprint, r"^sha256:")
+
+    def test_run_check_ignores_git_context_variables_from_the_environment(self) -> None:
+        # PIP-907 (b): a criterion ``check`` command is arbitrary shell that
+        # often invokes ``git`` itself; it must not see a ``GIT_DIR`` (or any
+        # of ``GIT_CONTEXT_ENV``) a hook chain exported into the supervisor's
+        # own environment.
+        poison = {name: "/nonexistent/should-not-be-used" for name in GIT_CONTEXT_ENV}
+        probe = " || ".join(f'[ -n "${{{name}:-}}" ]' for name in GIT_CONTEXT_ENV)
+        with TemporaryDirectory() as directory, mock.patch.dict(os.environ, poison):
+            result = run_check(f"! ({probe})", Path(directory))
+        self.assertTrue(result.passed, "none of GIT_CONTEXT_ENV reached the check command")
 
     def test_check_honours_criterion_cwd(self) -> None:
         with TemporaryDirectory() as directory:

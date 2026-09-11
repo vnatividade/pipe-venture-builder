@@ -15,6 +15,7 @@ import subprocess
 import tempfile
 import unicodedata
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -36,11 +37,52 @@ CHECK_BUCKETS_PENDING = frozenset({"pending"})
 # do repositório tentou `python3 -m pytest` por causa disso na demo de 11/09.
 _INTERPRETER_ENV = ("PYTHONPATH", "PYTHONHOME", "PYTHONSTARTUP", "PYTHONUSERBASE")
 
+# Variáveis que um hook de worktree vinculado (``git worktree add``) exporta
+# para apontar para o ADMINISTRATIVO daquele worktree — ``GIT_DIR`` absoluto
+# incluído. Um filho git do supervisor que herdasse isso operaria no
+# repositório errado; foi assim que a demo de 11/09 corrompeu o repositório
+# real (``core.bare=true``, branch movida). Nenhum filho git/gh do supervisor
+# e nenhum check de critério (``verify.run_check``) pode herdá-las.
+GIT_CONTEXT_ENV = (
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_COMMON_DIR",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    "GIT_PREFIX",
+    "GIT_QUARANTINE_PATH",
+    "GIT_NAMESPACE",
+)
+
 
 def child_env() -> dict[str, str]:
-    """Environment for git/gh children: the caller's, minus interpreter leaks."""
+    """Environment for git/gh children: the caller's, minus interpreter leaks
+    and minus the linked-worktree ``GIT_*`` variables (see ``GIT_CONTEXT_ENV``)."""
 
-    return {key: value for key, value in os.environ.items() if key not in _INTERPRETER_ENV}
+    excluded = frozenset(_INTERPRETER_ENV) | frozenset(GIT_CONTEXT_ENV)
+    return {key: value for key, value in os.environ.items() if key not in excluded}
+
+
+@lru_cache(maxsize=1)
+def _no_hooks_dir() -> str:
+    """A fresh, empty directory outside any worktree, used as ``core.hooksPath``
+    for every commit/push the supervisor runs.
+
+    ``core.hooksPath`` defaults to (or is often configured as) a path inside
+    the repository, resolved relative to whatever tree git is invoked from.
+    A git command the supervisor runs with ``cwd=<mission worktree>`` would
+    then execute hook scripts sitting in that worktree — code the worker may
+    have written — with the supervisor's credentials. Verification of the
+    diff and CI are the real gate; a local hook never runs during delivery.
+    """
+
+    return tempfile.mkdtemp(prefix="pipe-mission-no-hooks-")
+
+
+def _no_hooks_args() -> list[str]:
+    return ["-c", f"core.hooksPath={_no_hooks_dir()}"]
+
 
 @dataclass(frozen=True)
 class PullRequest:
@@ -102,7 +144,12 @@ def ensure_worktree(mission: Mapping[str, Any], *, home: str | Path | None = Non
     if _branch_exists(repo, branch):
         _git(repo, "worktree", "add", str(path), branch)
     else:
-        _git(repo, "worktree", "add", str(path), "-b", branch, mission["workspace"]["baseRef"])
+        # ``--no-track``: a remote ``baseRef`` (``origin/main``) would otherwise
+        # set ``branch.<branch>.remote``/``.merge`` in the repository's *shared*
+        # config — another mission creating its own worktree during this
+        # mission's worker run would then change what ``git_config_snapshot``
+        # sees and trip ``git_config_tampered`` on a run that tampered nothing.
+        _git(repo, "worktree", "add", "--no-track", str(path), "-b", branch, mission["workspace"]["baseRef"])
     return path
 
 
@@ -144,7 +191,7 @@ def commit_if_needed(worktree: str | Path, message: str) -> bool:
     if not _git(worktree, "status", "--porcelain").strip():
         return False
     _git(worktree, "add", "-A")
-    _git(worktree, *_identity_args(worktree), "commit", "-q", "-m", message)
+    _git(worktree, *_identity_args(worktree), *_no_hooks_args(), "commit", "-q", "-m", message)
     return True
 
 
@@ -163,7 +210,7 @@ def push_branch(worktree: str | Path, branch: str) -> None:
     """Publish HEAD — the commit that was verified — as ``branch``; never the
     local branch ref by name, which may not be where HEAD is."""
 
-    _git(worktree, "push", "-q", "origin", f"HEAD:refs/heads/{branch}")
+    _git(worktree, *_no_hooks_args(), "push", "-q", "origin", f"HEAD:refs/heads/{branch}")
 
 
 def current_branch(worktree: str | Path) -> str | None:

@@ -155,6 +155,14 @@ def loop_mission(repo: Path, **overrides: Any) -> dict[str, Any]:
     return document
 
 
+def remote_workspace(repo: Path, *, write_set: tuple[str, ...] = ("README.md", "docs/guide.md")) -> dict[str, Any]:
+    """A ``workspace`` override whose ``baseRef`` is a remote-tracking ref
+    (``origin/main``), the case ``git worktree add -b`` would otherwise wire
+    up tracking for in the repository's shared config."""
+
+    return {"repo": str(repo), "baseRef": "origin/main", "writeSet": list(write_set)}
+
+
 def good_worker_output(**overrides: Any) -> dict[str, Any]:
     output = {
         "done": True,

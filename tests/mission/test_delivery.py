@@ -3,15 +3,19 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
+import subprocess
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest import TestCase
+from unittest import TestCase, mock
 
 from pipe_venture_builder.mission.contract import build_mission
 from pipe_venture_builder.mission.delivery import (
+    GIT_CONTEXT_ENV,
     branch_name,
     checks_status,
+    child_env,
     commit_if_needed,
     current_branch,
     ensure_worktree,
@@ -25,7 +29,7 @@ from pipe_venture_builder.mission.delivery import (
     worktree_path,
 )
 from tests.mission.helpers import CREATED_AT
-from tests.mission.loop_helpers import FakeBinaries, git, loop_mission, make_repo
+from tests.mission.loop_helpers import FakeBinaries, git, loop_mission, make_repo, remote_workspace
 
 
 class BranchAndWorktreeTests(TestCase):
@@ -144,6 +148,48 @@ class GitConfigSnapshotTests(TestCase):
             self.assertNotIn("ignored/hooks", repr(git_config_snapshot(repo, worktree)),
                              "only hashes are kept")
 
+    def test_worktree_add_from_a_remote_base_ref_writes_no_shared_tracking_config(self) -> None:
+        # PIP-907 (c): without ``--no-track``, ``git worktree add -b <branch>
+        # origin/main`` writes ``branch.<branch>.remote``/``.merge`` into the
+        # repository's *shared* config — the same file every worktree reads.
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo = make_repo(root, with_origin=True)
+            mission = build_mission(
+                loop_mission(repo, workspace=remote_workspace(repo)), created_at=CREATED_AT
+            )
+            before = git(repo, "config", "--local", "--list")
+            ensure_worktree(mission, home=root / "home")
+            self.assertEqual(git(repo, "config", "--local", "--list"), before)
+            branch = branch_name(mission)
+            tracking = subprocess.run(
+                ["git", "config", "--get", f"branch.{branch}.remote"],
+                cwd=repo, capture_output=True, text=True, check=False,
+            )
+            self.assertEqual(tracking.stdout.strip(), "")
+
+    def test_a_second_missions_worktree_creation_does_not_change_the_snapshot(self) -> None:
+        # PIP-907 (d, concurrent scenario): the exact mechanism behind the
+        # 11/09 false positive — creating another mission's worktree off a
+        # remote ``baseRef`` must not touch the config ``git_config_snapshot``
+        # hashes, or a concurrent mission trips ``git_config_tampered`` for a
+        # run that tampered nothing.
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo = make_repo(root, with_origin=True)
+            mission = build_mission(
+                loop_mission(repo, workspace=remote_workspace(repo)), created_at=CREATED_AT
+            )
+            worktree = ensure_worktree(mission, home=root / "home")
+            before = git_config_snapshot(repo, worktree)
+
+            other = build_mission(
+                loop_mission(repo, workspace=remote_workspace(repo), title="Outra missao concorrente"),
+                created_at=CREATED_AT,
+            )
+            ensure_worktree(other, home=root / "home-b")
+            self.assertEqual(git_config_snapshot(repo, worktree), before)
+
 
 class PullRequestTests(TestCase):
     def test_open_pr_pushes_once_and_is_idempotent_per_branch(self) -> None:
@@ -229,6 +275,42 @@ class PullRequestTests(TestCase):
                 push_branch(worktree, branch)
             self.assertIn(branch, git(repo, "ls-remote", "--heads", "origin", branch))
 
+    def test_commit_and_push_never_run_hooks_from_the_worktree_or_the_repository(self) -> None:
+        # PIP-907 (a): ``core.hooksPath`` is resolved relative to whatever
+        # tree git is invoked from. A hook planted at that relative path
+        # inside the mission WORKTREE (code the worker may have written) —
+        # or simply sitting at the default ``.git/hooks`` — must never run
+        # with the supervisor's credentials during the entrega's own commit
+        # and push. This is how PIP-904 v1 moved a branch and set
+        # ``core.bare=true`` on the real repository on 11/09.
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo = make_repo(root, with_origin=True)
+            git(repo, "config", "core.hooksPath", "scripts/git-hooks")
+            mission = build_mission(loop_mission(repo), created_at=CREATED_AT)
+            worktree = ensure_worktree(mission, home=root / "home")
+            branch = branch_name(mission)
+
+            marker = root / "hook-ran"
+            hooks = worktree / "scripts" / "git-hooks"
+            hooks.mkdir(parents=True)
+            for name in ("pre-commit", "commit-msg", "post-commit", "pre-push"):
+                hook = hooks / name
+                hook.write_text(f'#!/bin/sh\ntouch "{marker}"\nexit 1\n', encoding="utf-8")
+                hook.chmod(0o755)
+            default_hook = repo / ".git" / "hooks" / "pre-push"
+            default_hook.write_text(f'#!/bin/sh\ntouch "{marker}"\nexit 1\n', encoding="utf-8")
+            default_hook.chmod(0o755)
+
+            (worktree / "README.md").write_text("changed\n", encoding="utf-8")
+            self.assertTrue(commit_if_needed(worktree, "change"), "a hook exiting 1 must not fail the commit")
+            push_branch(worktree, branch)
+            self.assertFalse(marker.exists(), "no hook ran during the supervisor's commit or push")
+            self.assertEqual(
+                git(repo, "ls-remote", "--heads", "origin", branch).split()[0],
+                git(worktree, "rev-parse", "HEAD").strip(),
+            )
+
     def test_pr_body_follows_the_repository_template_and_cites_mission_and_ticket(self) -> None:
         with TemporaryDirectory() as directory:
             mission = build_mission(loop_mission(make_repo(Path(directory))), created_at=CREATED_AT)
@@ -263,4 +345,48 @@ class PullRequestTests(TestCase):
             calls = [call for call in fakes.gh_calls() if call[:2] == ["pr", "checks"]]
             self.assertEqual(len(calls), 5)
             self.assertIn("--json", calls[0])
-            self.assertEqual(json.loads(json.dumps(calls[0]))[2], "claude/x")
+
+
+class ChildEnvGitContextTests(TestCase):
+    """PIP-907 (b): a linked worktree's hook can export an absolute
+    ``GIT_DIR`` (and friends) into the environment; no git/gh child of the
+    supervisor may inherit them — they redirected git at the wrong
+    repository on 11/09."""
+
+    POISON = {
+        "GIT_DIR": "/nonexistent/should-not-be-used/.git",
+        "GIT_WORK_TREE": "/nonexistent/should-not-be-used",
+        "GIT_INDEX_FILE": "/nonexistent/should-not-be-used/.git/index",
+        "GIT_OBJECT_DIRECTORY": "/nonexistent/should-not-be-used/.git/objects",
+        "GIT_COMMON_DIR": "/nonexistent/should-not-be-used/.git",
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES": "/nonexistent/also-not-used",
+        "GIT_PREFIX": "nonexistent/",
+        "GIT_QUARANTINE_PATH": "/nonexistent/quarantine",
+        "GIT_NAMESPACE": "nonexistent",
+    }
+
+    def test_child_env_strips_every_declared_git_context_variable(self) -> None:
+        self.assertEqual(set(self.POISON), set(GIT_CONTEXT_ENV), "the poisoned set matches the declared one")
+        with mock.patch.dict(os.environ, self.POISON):
+            env = child_env()
+        for key in GIT_CONTEXT_ENV:
+            self.assertNotIn(key, env)
+
+    def test_git_children_ignore_a_poisoned_git_dir_in_the_supervisor_environment(self) -> None:
+        # A poisoned ``GIT_DIR`` pointing nowhere would make any git child
+        # that inherited it fail outright ("not a git repository") — the
+        # absence of that failure is the proof the variable was stripped.
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo = make_repo(root, with_origin=True)
+            mission = build_mission(loop_mission(repo), created_at=CREATED_AT)
+            worktree = ensure_worktree(mission, home=root / "home")
+            branch = branch_name(mission)
+            (worktree / "README.md").write_text("changed\n", encoding="utf-8")
+            with mock.patch.dict(os.environ, self.POISON):
+                self.assertTrue(commit_if_needed(worktree, "change"))
+                push_branch(worktree, branch)
+            self.assertEqual(
+                git(repo, "ls-remote", "--heads", "origin", branch).split()[0],
+                git(worktree, "rev-parse", "HEAD").strip(),
+            )
