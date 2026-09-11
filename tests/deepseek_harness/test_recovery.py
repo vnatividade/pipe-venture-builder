@@ -641,3 +641,30 @@ class AuditAuthorityTests(RecoveryTestCase):
             assert_blocked(self, "checkpoint_stale", h.record, 3, kind="session.idle")
             self.assertEqual(h.audit(), audit)
             self.assertEqual(h.runtime_keys(), [item["eventId"] for item in h.checkpoint()["processedEvents"]])
+
+    def test_a_stale_adapter_refusal_never_blocks_or_rewinds_the_live_attempt(self) -> None:
+        with recovery_harness() as h:
+            h.begin()
+            h.record(1, kind="turn.started")
+            h.record(2, kind="turn.ended")
+            first, second = self.two_adapters(h)
+            h.record(3, kind="session.idle")
+            assert_blocked(self, "checkpoint_stale", self.propose_with, h, second)
+
+            def refuse(code: str) -> None:
+                second.refuse(
+                    binding=h.binding, context=h.context, code=code, occurred_at="2026-09-10T12:30:00Z"
+                )
+
+            checkpoint, audit = h.checkpoint(), h.audit()
+            assert_blocked(self, "checkpoint_stale", refuse, "transport_eof")
+            self.assertEqual((h.checkpoint(), h.audit()), (checkpoint, audit))
+            self.assertEqual(self.propose_with(h, first)["eventWatermark"], 3)
+
+            # A protocol violation seen from the stale view still writes the audit
+            # marker, but never the stale checkpoint.
+            checkpoint = h.checkpoint()
+            assert_blocked(self, "frame_invalid", refuse, "frame_invalid")
+            assert_block_marker(self, audit, h.audit())
+            self.assertEqual(h.checkpoint(), checkpoint)
+            assert_blocked(self, "stream_blocked", self.propose_with, h, first)

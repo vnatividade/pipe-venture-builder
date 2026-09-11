@@ -236,6 +236,8 @@ class DeepSeekHarnessRuntimeAdapter:
         A clean end of stream at a resting point is only reported. Any other
         refusal blocks the attempt in memory, in the Pipe audit and in the
         checkpoint, so neither a fresh normalizer nor a restart can resume it.
+        From a stale view, an end of stream is only reported as stale, and any
+        other refusal writes the audit marker but never the stale checkpoint.
         """
 
         binding = self._resolve(binding, context)
@@ -249,6 +251,9 @@ class DeepSeekHarnessRuntimeAdapter:
         self._require_resumable(binding, self._run(binding))
         if self._marker(stream) in self._audit_keys(binding):
             raise DeepSeekHarnessContractError("stream_blocked") from None
+        stale = self._staleness(stream)
+        if code == "transport_eof" and stale is not None:
+            raise DeepSeekHarnessContractError(stale) from None
         if (
             code == "transport_eof"
             and stream.sequence.blocked_code is None
@@ -257,7 +262,7 @@ class DeepSeekHarnessRuntimeAdapter:
             raise DeepSeekHarnessContractError(code) from None
         # Also reached when the stream is blocked only in memory, so a block
         # that failed to persist earlier is persisted now.
-        self._persist_block(stream, code, occurred_at)
+        self._persist_block(stream, code, occurred_at, checkpoint=stale is None)
         stream.sequence.block(code)
 
     def propose(
@@ -551,7 +556,9 @@ class DeepSeekHarnessRuntimeAdapter:
         self._streams[binding.session_id] = stream
         return self._dispatch_result(stream, context, duplicate=recovered, recovered=recovered)
 
-    def _persist_block(self, stream: _Stream, code: str, occurred_at: str) -> None:
+    def _persist_block(
+        self, stream: _Stream, code: str, occurred_at: str, *, checkpoint: bool = True
+    ) -> None:
         """Persist a block in the Pipe audit, then the checkpoint; raise if either fails.
 
         The audit marker is the authority: ``begin``, ``record_event``,
@@ -584,7 +591,7 @@ class DeepSeekHarnessRuntimeAdapter:
         except Exception:
             # Any storage failure, not only contract errors, fails closed.
             failure = "audit_write_failed"
-        if failure != "run_terminal" and stream.checkpoint is not None:
+        if failure != "run_terminal" and checkpoint and stream.checkpoint is not None:
             try:
                 stream.checkpoint = self._checkpoints.save(
                     {
@@ -613,18 +620,24 @@ class DeepSeekHarnessRuntimeAdapter:
         complete an unknown outcome.
         """
 
+        stale = self._staleness(stream)
+        if stale is not None:
+            stream.sequence.block_quietly(stale)
+            raise DeepSeekHarnessContractError(stale) from None
+
+    def _staleness(self, stream: _Stream) -> str | None:
+        """Return why this view is stale, or ``None`` when it is current."""
+
         audited = {key for key in self._audit_keys(stream.binding) if key.startswith("DHE-")}
         if audited != {record["eventId"] for record in stream.sequence.records()}:
-            stream.sequence.block_quietly("checkpoint_stale")
-            raise DeepSeekHarnessContractError("checkpoint_stale") from None
+            return "checkpoint_stale"
         if stream.checkpoint is not None:
             stored = self._checkpoints.load(stream.binding.pipe_run_id)
             if stored is not None and stored["state"] == "blocked":
-                stream.sequence.block_quietly("stream_blocked")
-                raise DeepSeekHarnessContractError("stream_blocked") from None
+                return "stream_blocked"
             if stored != stream.checkpoint or stored["state"] != "running":
-                stream.sequence.block_quietly("checkpoint_stale")
-                raise DeepSeekHarnessContractError("checkpoint_stale") from None
+                return "checkpoint_stale"
+        return None
 
     def _require_unmarked(self, stream: _Stream) -> None:
         """Refuse a stream whose attempt carries the audit block marker."""
