@@ -43,11 +43,15 @@ import unicodedata
 # Every invisible/format character, not a fixed list: zero-width spaces and
 # joiners, invisible operators (U+2061..U+2064), the Mongolian vowel separator,
 # bidi overrides, soft hyphen, and C0/C1 controls (PIP-906 review 4, achado 10).
+_INVISIBLE_LETTERS = "\u3164\u115f\u1160\u2800\uffa0\u180e\u00ad\ufe0f\u034f"
 _ZERO_WIDTH = {
-    code: None
+    code: (" " if unicodedata.category(chr(code)) in {"Zs", "Zl", "Zp"} else None)
     for code in range(0x110000)
-    if unicodedata.category(chr(code)) in {"Cf", "Cc"} or chr(code) in "\u180e\u00ad"
+    if unicodedata.category(chr(code)) in {"Cf", "Cc", "Mn", "Zs", "Zl", "Zp"}
+    or chr(code) in _INVISIBLE_LETTERS
 }
+# Space characters must stay spaces, not vanish, or "chave ssh" would become one word.
+_ZERO_WIDTH[0x20] = " "
 # Lower-case Cyrillic letters that render like Latin ones (after casefold).
 _LOOKALIKES = str.maketrans({
     "а": "a", "в": "b", "е": "e", "к": "k", "м": "m", "н": "h", "о": "o", "р": "p",
@@ -142,6 +146,10 @@ _PAIRS: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = (
                                                                           "producao", "production", "prod", "rds")),
     (("reembols*", "estorna*"), ("cliente*", "customer*", "valor", "pagamento*", "cobranc*")),
     (("feature",), ("flag", "flags")),
+    (("migration*", "migracao*", "migrations", "migrate*", "migra*"),
+     ("banco", "database", "db", "producao", "production", "prod", "principal", "rds", "live")),
+    (("base", "cadastro*", "lista", "planilha", "csv"), ("usuario*", "cliente*", "assinante*", "email*", "emails")),
+    (("termos", "politica"), ("uso", "privacidade", "servico")),
     (("claim*", "afirma*", "promete*"), ("cliente*", "customer*", "juridic*", "legal", "compliance")),
     (("reais", "real", "verdadeiros"), ("cpf*", "cliente*", "customer*", "dados", "data")),
 )
@@ -219,9 +227,29 @@ _NEVER_EXEMPT = frozenset({
 })
 
 
+# Only these words are ordinary enough to be exempted inside an identifier: a
+# technical suffix does not make ``hotfix_config`` or ``cupom_config`` code
+# (PIP-906 review 5, achado #3).
+_EXEMPTIBLE = frozenset({
+    "merge", "merg", "merged", "merges", "deploy", "deployment", "deployments", "prod",
+    "producao", "production", "produtivo", "mode", "modes", "write", "set", "user", "users",
+    "message", "messages", "client", "clients", "live", "push", "cobre", "cobra",
+})
+
+
+def _identifier_parts(identifier: str) -> list[str]:
+    return [part.casefold() for part in re.split(r"_+|(?<=[a-z0-9])(?=[A-Z])", identifier) if part]
+
+
+def _sensitive_part(part: str) -> bool:
+    return part in _WORDS or any(part.startswith(prefix) for prefix in _PREFIXES)
+
+
 def _technical_identifier(identifier: str) -> bool:
-    parts = [part.casefold() for part in re.split(r"_+|(?<=[a-z0-9])(?=[A-Z])", identifier) if part]
+    parts = _identifier_parts(identifier)
     if any(part in _NEVER_EXEMPT for part in parts):
+        return False
+    if any(_sensitive_part(part) and part not in _EXEMPTIBLE for part in parts):
         return False
     return "".join(parts) == "writeset" or any(part in _TECH_AFFIXES for part in parts)
 
@@ -254,7 +282,11 @@ def _tokens(normalized: str) -> list[str]:
             tokens.append(token)
             if any(ch.isdigit() or ch in "@$" for ch in token) and any(ch.isalpha() for ch in token):
                 tokens.append(token.translate(_LEET))
-    return tokens
+    # A term split by a space (or by an invisible character that normalized to
+    # one): "to ken", "cre ds", "se nha" (PIP-906 review 5, achado #10).
+    short = [t for t in tokens if len(t) <= 4]
+    joined = [a + b for a, b in zip(short, short[1:])]
+    return tokens + joined
 
 
 def _matches(token: str, stems: tuple[str, ...]) -> bool:

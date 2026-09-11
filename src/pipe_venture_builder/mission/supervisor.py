@@ -876,9 +876,12 @@ class _Cycle:
                 decided_by=DELEGATED_ORCHESTRATOR_SOURCE,
                 at=self.now(),
             )
+            # Inside the same ``try`` as the resolve: a cancel from the founder
+            # landing in between used to raise out of ``supervise`` (PIP-906
+            # review 5). The mission then stays where the founder left it.
+            self.store.resume(self.mission_id, at=self.now())
         except (ControlPlaneContractError, ControlPlaneStateError):
             return False
-        self.store.resume(self.mission_id, at=self.now())
         _log(self.home, self.mission_id, "decision.delegated", decision=decision_id, cycle=cycle)
         return True
 

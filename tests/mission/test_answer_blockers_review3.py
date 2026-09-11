@@ -514,3 +514,53 @@ class ParsePrecedenceTests(SupervisorTestCase):
         self.assertIsNone(parse_response({"action": "instruct"}, _json.dumps(valid)))
         self.assertIsNone(parse_response("nao é objeto", _json.dumps(valid)))
         self.assertIsNotNone(parse_response(None, _json.dumps(valid)))
+
+
+class Review5Tests(SupervisorTestCase):
+    """5ª verificação: `resume` do grantCycle dentro do try, isenção de
+    identificador só para palavras comuns, invisíveis e termo partido por
+    espaço, precedência do texto livre."""
+
+    def test_a_cancel_between_resolving_and_resuming_a_granted_cycle_does_not_crash(self) -> None:
+        constraints = dict(loop_mission(Path("/tmp"))["constraints"], maxCycles=1)
+        delegation = {"grantCycle": {"maxTimes": 1, "maxCostFraction": 0.8, "requireProgress": False}}
+        h = self.harness(schemaVersion="0.2.0", delegation=delegation, constraints=constraints)
+        h.fakes.scenario(worker=[good_worker(), good_worker()],
+                         reviewer=[{"structured_output": satisfied_verdict(verdict="needs_revision",
+                                                                          revisionInstructions="revise")},
+                                   {"structured_output": satisfied_verdict()}])
+        original = h.store.resume
+
+        def cancel_then_resume(*args: Any, **kwargs: Any) -> Any:
+            h.store.cancel(h.mission_id)
+            return original(*args, **kwargs)
+
+        h.store.resume = cancel_then_resume  # type: ignore[method-assign]
+        step = h.supervise()
+        self.assertEqual(h.store.get(h.mission_id)["status"], "cancelled", step)
+
+    def test_a_technical_suffix_does_not_make_a_gate_word_code(self) -> None:
+        for text in ("hotfix_config", "deploy_plan e cupom_config", "reembolso_id", "rollout_config",
+                     "sudo_helper", "pix_config", "dns_config", "exploration_test",
+                     "prod_db_password_fixture", "stripeLiveKeyConfig"):
+            with self.subTest(text=text):
+                self.assertTrue(contains_sensitive_terms(text))
+
+    def test_invisible_characters_and_split_words_never_hide_a_term(self) -> None:
+        for text in ("to️ken", "se͏nha", "cre ds", "proㅤducao", "me⠀rge",
+                     "se nha", "to ken", "cre ds"):
+            with self.subTest(text=text):
+                self.assertTrue(contains_sensitive_terms(f"preciso do {text}"))
+
+    def test_migration_and_customer_base_requests_escalate(self) -> None:
+        for text in ("Aplique a migration no banco principal.", "base de usuarios completa",
+                     "a lista de assinantes", "exporta a planilha de clientes"):
+            with self.subTest(text=text):
+                self.assertTrue(contains_sensitive_terms(text))
+
+    def test_an_instruct_nested_in_a_malformed_escalate_is_not_applied(self) -> None:
+        import json as _json
+        valid = {"action": "instruct", "category": "tests", "founderDecision": False,
+                 "instructions": "rode a suite", "reason": "r"}
+        nested = _json.dumps({"action": "escalate", "instructions": _json.dumps(valid)})
+        self.assertIsNone(parse_response(None, nested))

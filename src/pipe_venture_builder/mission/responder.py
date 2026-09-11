@@ -292,10 +292,12 @@ def parse_response(structured_output: Any, result_text: str | None) -> dict[str,
     if structured_output is not None:
         return _normalize_response(structured_output)
     if result_text:
+        # The FIRST JSON object that declares an ``action`` is the answer: an
+        # invalid one is invalid, so an ``instruct`` nested inside a malformed
+        # ``escalate`` is never applied (PIP-906 review 5).
         for candidate in _json_candidates(result_text):
-            normalized = _normalize_response(candidate)
-            if normalized is not None:
-                return normalized
+            if isinstance(candidate, Mapping) and "action" in candidate:
+                return _normalize_response(candidate)
     return None
 
 
