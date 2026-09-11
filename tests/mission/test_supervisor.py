@@ -552,3 +552,33 @@ class SingleWriterTests(SupervisorTestCase):
         step = h.supervise()
         self.assertEqual((step.status, step.reason), ("active", "pending_decisions"))
         self.assertEqual(h.fakes.claude_calls(), [])
+
+
+class SupervisorErrorTests(SupervisorTestCase):
+    def test_a_supervisor_error_during_the_worker_terminates_it_and_fails_the_run(self) -> None:
+        h = self.harness()
+        h.fakes.scenario(worker=[{"sleep": 30, "on_sigterm": "exit"}])
+        seen: dict[str, int] = {}
+        worker_pid_file = h.home / h.mission_id / "worker.pid"
+        original = h.store.get
+
+        def flaky_get(mission_id: str):
+            # Once the worker is running, the store read in the pause poll fails.
+            if worker_pid_file.exists() and h.calls("worker"):
+                seen["pid"] = int(worker_pid_file.read_text(encoding="utf-8"))
+                raise RuntimeError("store read failed")
+            return original(mission_id)
+
+        h.store.get = flaky_get  # type: ignore[method-assign]
+        started = time.monotonic()
+        with self.assertRaises(RuntimeError):
+            h.run_once(poll_seconds=0.05)
+        h.store.get = original  # type: ignore[method-assign]
+        self.assertLess(time.monotonic() - started, 10)
+        [run] = h.store.list_runs(h.mission_id)
+        self.assertEqual(run["status"], "failed", "no running run is left for reconciliation")
+        self.assertEqual(h.payloads("run.failed")[-1]["reason"], "supervisor_error")
+        self.assertFalse(worker_pid_file.exists())
+        self.assertIn("pid", seen)
+        with self.assertRaises(ProcessLookupError, msg="the worker process was terminated and reaped"):
+            os.kill(seen["pid"], 0)

@@ -318,6 +318,7 @@ class _Cycle:
         self.sleep: Callable[[float], None] = options["sleep"]
         self.stop: threading.Event = options["stop_event"]
         self.mission: dict[str, Any] = {}
+        self._process: ClaudeProcess | None = None
 
     # -- entry --------------------------------------------------------------
 
@@ -394,9 +395,11 @@ class _Cycle:
                 on_start=self._worker_started,
             )
         except BaseException:
+            self._terminate_worker()
             self._close_run_on_error(run_id)
             raise
         finally:
+            self._process = None
             _remove(self.home / self.mission_id / WORKER_PID_FILE)
 
         status, reason = result.status, result.reason
@@ -553,10 +556,14 @@ class _Cycle:
                 timeout=self.review_timeout,
                 poll_seconds=self.poll_seconds,
                 should_stop=self._should_stop,
+                on_start=self._reviewer_started,
             )
         except BaseException:
+            self._terminate_worker()
             self._close_run_on_error(review_run)
             raise
+        finally:
+            self._process = None
         claude = review.claude
         self.store.collect_run(
             review_run,
@@ -813,8 +820,22 @@ class _Cycle:
         return next(item for item in self.mission["successCriteria"] if item["id"] == criterion_id)
 
     def _worker_started(self, process: ClaudeProcess) -> None:
+        self._process = process
         if process.pid is not None:
             _write_private(self.home / self.mission_id / WORKER_PID_FILE, f"{process.pid}\n")
+
+    def _reviewer_started(self, process: ClaudeProcess) -> None:
+        self._process = process
+
+    def _terminate_worker(self) -> None:
+        """Never leave a ghost writer in the worktree when the supervisor fails."""
+
+        process = self._process
+        if process is not None:
+            try:
+                process.terminate(grace_seconds=2.0)
+            except OSError:
+                pass
 
     def _close_run_on_error(self, run_id: str) -> None:
         """A supervisor error must not leave a ``running`` run behind (it would
