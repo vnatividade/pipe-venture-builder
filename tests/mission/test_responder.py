@@ -42,7 +42,7 @@ class PromptAndCommandTests(TestCase):
         self.assertIn("- C1 (check): README nao diz que idea/adopt sao follow-up", prompt)
         self.assertIn("## Reservado ao fundador", prompt)
         self.assertIn("Merge do PR", prompt)
-        self.assertIn(f"{BLOCKER_FENCE_OPEN}\n- o worktree nao tem .venv\n{BLOCKER_FENCE_CLOSE}", prompt)
+        self.assertIn(f'{BLOCKER_FENCE_OPEN}\n- "o worktree nao tem .venv"\n{BLOCKER_FENCE_CLOSE}', prompt)
         self.assertIn("`instruct`", prompt)
         self.assertIn("`escalate`", prompt)
         self.assertIn("credencial", prompt)

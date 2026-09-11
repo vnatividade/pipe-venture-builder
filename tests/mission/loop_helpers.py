@@ -58,7 +58,8 @@ EXPECTED_DISALLOWED_TOOLS = [
 # project's own secrets by path (PIP-906 v2 review, achado 5): its
 # `instructions` reach the next worker's brief without going through review.
 EXPECTED_RESPONDER_DISALLOWED_TOOLS = EXPECTED_DISALLOWED_TOOLS + [
-    "Read(~/.ssh/**)", "Read(~/.claude/**)", "Read(**/.env)", "Read(**/.env.*)",
+    "Read(~/.ssh/**)", "Read(~/.claude/**)", "Read(~/.aws/**)", "Read(~/.config/gh/**)",
+    "Read(~/.netrc)", "Read(~/.npmrc)", "Read(~/.pypirc)", "Read(//**/.env)", "Read(//**/.env.*)",
 ]
 
 

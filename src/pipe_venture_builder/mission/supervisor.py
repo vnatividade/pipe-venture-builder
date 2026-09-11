@@ -40,7 +40,6 @@ import signal
 import subprocess
 import threading
 import time
-import unicodedata
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -68,6 +67,7 @@ from .delivery import (
     pr_title,
     push_branch,
 )
+from .guard import contains_sensitive_terms  # noqa: F401 - re-exported for callers and tests
 from .responder import run_responder
 from .reviewer import (
     DEFAULT_REVIEW_TIMEOUT_SECONDS,
@@ -110,75 +110,9 @@ DEFAULT_CHECKS_MAX_POLLS = 60
 GRANT_CYCLE_OPTION = "grant_cycle"
 ANSWER_BLOCKERS_OPTION = "retry"
 ANSWER_BLOCKERS_REASON = "worker_blockers"
-# Deterministic keyword guard over the worker's blockers and the responder's
-# instructions: whatever the model says, a mention of one of these topics
-# always escalates to the founder instead of being answered by the
-# responder — none of them are technical, in-repository questions. Matched
-# against ``_normalize_for_guard``'s output (radical/regex, not a literal
-# substring on ``lower()``), so an accent, a zero-width character or a
-# ``_``/``-``/``.``/``/`` separator never smuggles a term past it (PIP-906
-# review, achado 1): credential/credencial, secret/segredo, password/senha/
-# passwd, api key/chave de API, ssh/chave SSH, token, .env, merge, push
-# --force, production/produção/prod/deploy, billing/cobrança/pagamento/
-# cartão, e-mail/mensagem/Slack/WhatsApp to a customer, and the repository's
-# own governance surface (AGENTS.md, CLAUDE.md, .pipe/mode.json, operating
-# modes, the mission's write set).
-_SENSITIVE_PATTERNS = tuple(
-    re.compile(pattern)
-    for pattern in (
-        r"credenc",  # credencial(is)
-        r"credent",  # credential(s)
-        r"segred",  # segredo(s)
-        r"secret",
-        r"\bsenha",
-        r"passw",  # password, passwd
-        r"api\s?key",  # api key, apikey, api_key/api-key (normalized to "api key")
-        r"chave\s+(de\s+|da\s+)?api",
-        r"\bssh",
-        r"\btoken",
-        r"\benv\b",  # .env
-        r"\bmerge\b",
-        r"push\s*force",  # push --force / push -f
-        r"produc",  # produção, producao, production
-        r"\bprod\b",
-        r"\bdeploy",
-        r"billing",
-        r"cobr",  # cobrança, cobranca, cobrar, cobre
-        r"pagamento",
-        r"\bcartao\b",
-        r"agents\s*md",
-        r"claude\s*md",
-        r"pipe\s*mode",
-        r"mode\s*json",
-        r"operating\s*modes",
-        r"write\s*set",
-    )
-) + (
-    # External communication only escalates together with a customer: alone,
-    # "mensagem" (message) is too ordinary a word to fail closed on.
-    re.compile(r"(?=.*\bcliente\b)(?=.*(e\s*mail|mensagem|slack|whatsapp))"),
-)
-# Zero-width space, zero-width non-joiner/joiner, word joiner, BOM/zero-width
-# no-break space: invisible characters a term can be split around (PIP-906
-# review's zero-width-space-split "token") to slip past a plain substring match.
-_ZERO_WIDTH_CHARS = "".join(chr(code) for code in (0x200B, 0x200C, 0x200D, 0x2060, 0xFEFF))
-_ZERO_WIDTH_RE = re.compile(f"[{_ZERO_WIDTH_CHARS}]")
-_SEPARATOR_RE = re.compile(r"[_\-./]")
-_WHITESPACE_RE = re.compile(r"\s+")
-
-
-def _normalize_for_guard(text: str) -> str:
-    """NFKD, drop zero-width characters and combining marks (accents),
-    casefold, and turn ``_-./`` into spaces — so ``STRIPE_API_KEY``, ``chave
-    SSH``, ``produçao`` (NFD) and a token split by a zero-width space all
-    normalize to a form the radical/regex list above matches."""
-
-    normalized = unicodedata.normalize("NFKD", text)
-    normalized = _ZERO_WIDTH_RE.sub("", normalized)
-    normalized = "".join(ch for ch in normalized if not unicodedata.combining(ch))
-    normalized = _SEPARATOR_RE.sub(" ", normalized)
-    normalized = normalized.casefold()
-    return _WHITESPACE_RE.sub(" ", normalized).strip()
+# Deterministic guard over the worker's blockers and the responder's
+# instructions (``guard.contains_sensitive_terms``, re-exported below): a
+# question that belongs to the founder always escalates, whatever the model says.
 
 
 # The only reason codes a mission's own ``delegation.grantCycle`` rule may
@@ -221,18 +155,6 @@ REVISION_CHECKS_FAILED = (
     "Os checks do CI falharam no PR aberto pelo supervisor. Rode localmente os comandos de "
     "verificação dos critérios e a suíte do repositório e corrija a causa, dentro do write set."
 )
-
-
-def contains_sensitive_terms(text: str) -> bool:
-    """Deterministic guard, independent of any model: a blocker or an
-    instruction that mentions a credential, a merge, production/deploy,
-    billing, external communication, or the repository's own governance
-    surface is never answered by the responder, whatever it says. Fails
-    closed: it normalizes first (``_normalize_for_guard``) and matches by
-    radical/regex, so it is not a plain substring check on ``lower()``."""
-
-    normalized = _normalize_for_guard(text)
-    return any(pattern.search(normalized) for pattern in _SENSITIVE_PATTERNS)
 
 
 class SupervisorRefusal(ControlPlaneStateError):
@@ -1041,82 +963,86 @@ class _Cycle:
     ) -> Step:
         """A technical blocker never reaches the founder when the mission
         declares ``delegation.answerBlockers`` and a clean-context responder
-        can answer it from the repository alone. The decision is always
-        opened (mirroring ``_delegate_grant_cycle``'s pattern for
-        ``grant_cycle``), so a delegated resolution leaves the same audit
-        trail as a human one would; it is just resolved immediately when the
-        responder's answer is usable.
+        can answer it from the repository alone. The ``clarification`` decision
+        is always opened, so a delegated resolution leaves the same audit trail
+        a human one would; it is resolved at once only when the answer is usable.
 
-        The diff — not the worker's account of it — is checked against the
-        write set *before* the responder ever runs (PIP-906 review, achado
-        5): a worker that reported blockers after planting something outside
-        the write set (a ``.claude/settings.json`` with a hook, say) never
-        gets a responder started in that worktree; it takes the same
-        ``outside_write_set``/``needs_revision`` path a normal cycle would."""
+        Everything else escalates exactly as before PIP-906, and the founder
+        always sees the blocker:
 
-        base_ref = self.mission["workspace"]["baseRef"]
-        files = changed_files(worktree, base_ref)
-        outside = outside_write_set(files, self.mission["workspace"]["writeSet"])
-        if outside:
-            self.store.record_verification(
-                run_id,
-                passed=False,
-                at=self.now(),
-                extra={
-                    "diffFingerprint": diff_fingerprint(worktree, base_ref),
-                    "changedFiles": len(files),
-                    "outsideWriteSet": len(outside),
-                },
-            )
-            self.store.record_verdict(run_id, verdict="needs_revision", at=self.now())
-            listed = "\n".join(f"- {path}" for path in outside)
-            self._revise(
-                cycle,
-                "O diff anterior alterou arquivos fora do write set. Reverta estas mudanças "
-                f"(inclusive commits) e mexa só no write set:\n{listed}",
-            )
-            return self._needs_revision(cycle, run_id, "outside_write_set")
+        - no rule, ``maxTimes`` used, or a blocker the guard flags
+          (``contains_sensitive_terms``): the responder never runs;
+        - the worktree holds changes outside the write set (a planted
+          ``.claude/settings.json``, say): the responder never runs in it, and
+          the decision records how many files are outside;
+        - the founder paused or cancelled while the worker or the responder was
+          finishing (the last ``poll_seconds`` of either): their pause wins —
+          nothing is delegated and the decision stays pending (PIP-906 review 2,
+          achados 2 e 3)."""
 
         self.store.record_verdict(run_id, verdict="blocked", at=self.now())
-        instructions = self._answer_blockers(cycle, blockers, worktree)
+        instructions: str | None = None
+        outside: list[str] = []
+        if self._responder_may_run(blockers):
+            files = changed_files(worktree, self.mission["workspace"]["baseRef"])
+            outside = outside_write_set(files, self.mission["workspace"]["writeSet"])
+            if not outside:
+                instructions = self._answer_blockers(cycle, blockers, worktree)
+        founder_stopped = self._status() != "active"
+        extra: dict[str, Any] = {"blockers": len(blockers)}
+        if outside:
+            extra["outsideWriteSet"] = len(outside)
         decision_id = self._open_pause_decision(
             "clarification",
             cycle,
             run_id,
             reason=ANSWER_BLOCKERS_REASON,
             options=["pause", "retry"],
-            extra={"blockers": len(blockers)},
+            extra=extra,
         )
         if (
             decision_id is not None
             and instructions is not None
+            and not founder_stopped
             and self._delegate_answer_blockers(decision_id, cycle, instructions)
         ):
             return Step("active", ANSWER_BLOCKERS_REASON, cycle)
-        _save_revision(self.home, self.mission_id, cycle, REVISION_BLOCKERS)
+        revision = REVISION_BLOCKERS
+        if outside:
+            listed = "\n".join(f"- {path}" for path in outside)
+            revision += f"\nO diff também alterou arquivos fora do write set; reverta-os:\n{listed}"
+        _save_revision(self.home, self.mission_id, cycle, revision)
         return Step(self._status(), ANSWER_BLOCKERS_REASON, cycle)
+
+    def _responder_may_run(self, blockers: list[str]) -> bool:
+        rule = (self.mission.get("delegation") or {}).get(ANSWER_BLOCKERS_RULE)
+        return (
+            rule is not None
+            and self._status() == "active"
+            and not any(contains_sensitive_terms(text) for text in blockers)
+            and self._answer_blockers_used() < rule["maxTimes"]
+        )
 
     def _answer_blockers(self, cycle: int, blockers: list[str], worktree: Path) -> str | None:
         """The responder's instructions when they may be trusted, else
-        ``None`` (the caller then escalates exactly like before PIP-906).
-        Runs while the mission is still ``active`` (before any pause), so
-        ``store.open_run`` accepts it like any worker or reviewer run."""
+        ``None`` (the caller then escalates exactly like before PIP-906). Only
+        runs while the mission is still ``active``; a pause landing in between
+        makes ``open_run`` refuse, which is also ``None``."""
 
-        rule = (self.mission.get("delegation") or {}).get(ANSWER_BLOCKERS_RULE)
-        if rule is None:
+        if not self._responder_may_run(blockers):
             return None
-        if any(contains_sensitive_terms(text) for text in blockers):
+        try:
+            run_id = self.store.open_run(
+                self.mission_id,
+                cycle=cycle,
+                attempt=1,
+                executor=f"{RESPONDER_EXECUTOR}:{self.reviewer_model}",
+                role=RESPONDER_ROLE,
+                at=self.now(),
+            )
+        except ControlPlaneStateError:
+            # Paused/cancelled between the check above and this write.
             return None
-        if self._answer_blockers_used() >= rule["maxTimes"]:
-            return None
-        run_id = self.store.open_run(
-            self.mission_id,
-            cycle=cycle,
-            attempt=1,
-            executor=f"{RESPONDER_EXECUTOR}:{self.reviewer_model}",
-            role=RESPONDER_ROLE,
-            at=self.now(),
-        )
         _log(self.home, self.mission_id, "responder.dispatched", run=run_id, cycle=cycle)
         try:
             response = run_responder(

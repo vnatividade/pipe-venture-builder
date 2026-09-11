@@ -52,11 +52,19 @@ RESPONDER_ALLOWED_TOOLS = "Read,Grep,Glob"
 # reading past the worktree's edge) could hand it back as "instructions" —
 # which never go through the sensitive-terms guard by filename, only by
 # content (PIP-906 review, achado 5). Denied by path, not by content.
+# ``**/.env`` only matches under the cwd (the mission worktree); ``//**`` is
+# anchored at the filesystem root, so it also covers the main checkout's
+# ``.env`` (PIP-906 review 2, achado 5). ``~/`` is the home directory.
 RESPONDER_DENIED_READS = (
     "Read(~/.ssh/**)",
     "Read(~/.claude/**)",
-    "Read(**/.env)",
-    "Read(**/.env.*)",
+    "Read(~/.aws/**)",
+    "Read(~/.config/gh/**)",
+    "Read(~/.netrc)",
+    "Read(~/.npmrc)",
+    "Read(~/.pypirc)",
+    "Read(//**/.env)",
+    "Read(//**/.env.*)",
 )
 RESPONDER_OUTPUT_INVALID = "responder_output_invalid"
 RESPONDER_RUN_FAILED = "responder_run_failed"
@@ -76,7 +84,12 @@ BLOCKER_FENCE_CLOSE = f"{_FENCE_MARKER}>>>"
 
 
 def _fenced_blocker(text: str) -> str:
-    return text.replace(_FENCE_MARKER, f"[{_FENCE_MARKER}]")
+    """One JSON string per blocker: its newlines become ``\\n``, so no blocker
+    can put a line of its own inside the fence (no fake closing marker in any
+    case, spacing or look-alike, no fake ``## Instruções``); the exact marker is
+    still neutralized for good measure (PIP-906 review 2, achado 6)."""
+
+    return json.dumps(text.replace(_FENCE_MARKER, f"[{_FENCE_MARKER}]"), ensure_ascii=False)
 
 
 def responder_isolation_args() -> list[str]:
