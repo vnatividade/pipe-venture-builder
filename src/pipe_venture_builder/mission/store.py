@@ -41,6 +41,7 @@ from .events import (
 
 DATABASE_SCHEMA_VERSION = 1
 RUN_ID_PREFIX = "MRUN"
+RUN_DEFAULT_ROLE = "worker"
 DECISION_ID_PREFIX = "DEC"
 
 # Allowed transitions. ``unknown`` is deliberately absent: it is reachable only
@@ -378,21 +379,26 @@ class MissionStore:
         cycle: int,
         attempt: int,
         executor: str,
+        role: str = RUN_DEFAULT_ROLE,
         at: str | None = None,
     ) -> str:
+        """Open a run. ``role`` separates the reviewer's run from the worker's
+        in the same cycle/attempt; the default role keeps the historical id."""
+
         _positive_int(cycle, "run cycle")
         _positive_int(attempt, "run attempt")
         safe_identifier(executor)
+        safe_identifier(role)
         occurred_at = at or utc_now()
         parse_datetime(occurred_at)
+        identity: dict[str, Any] = {"missionId": mission_id, "cycle": cycle, "attempt": attempt}
+        if role != RUN_DEFAULT_ROLE:
+            identity["role"] = role
         with self._connection:
             row = self._mission_row(mission_id)
             if row["status"] != "active":
                 raise ControlPlaneStateError("runs can only be opened on an active mission")
-            run_id = stable_id(
-                RUN_ID_PREFIX,
-                {"missionId": mission_id, "cycle": cycle, "attempt": attempt},
-            )
+            run_id = stable_id(RUN_ID_PREFIX, identity)
             existing = self._connection.execute(
                 "SELECT run_id FROM mission_runs WHERE run_id = ?", (run_id,)
             ).fetchone()
