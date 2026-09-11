@@ -10,10 +10,12 @@ The adapter package separates credential-owning tooling from Pipe's normalizatio
 def invoke(tool_name: str, arguments: Mapping[str, Any]) -> Mapping[str, Any]: ...
 ```
 
-The source chooses the tool name. The host cannot ask it to call arbitrary operations:
+The source chooses the tool name. The host cannot ask it to call arbitrary operations. `LinearConnectorSource` (`src/pipe_venture_builder/adapters/linear.py`) calls two fixed internal verbs, not any single MCP server's tool names:
 
-- `linear_get_project` with the configured project identifier
-- `linear_list_issues` with project, bounded limit, and optional cursor
+- `project.read` with the configured project identifier
+- `issues.list` with project, bounded limit, and optional cursor
+
+These verbs are adapter-internal. A host invoker translates them to a specific backend: the official Linear MCP server's `get_project`/`list_issues`, or the versioned GraphQL queries in `linear_graphql.LinearGraphQLInvoker`.
 
 The host returns a decoded, non-sensitive mapping. It should translate connector authentication, availability, and rate-limit failures into either the documented safe error code or the corresponding adapter exception. It must not include response headers, credential material, raw request envelopes, issue bodies, or comments.
 

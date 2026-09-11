@@ -6,6 +6,8 @@ It is the deliverable for PIP-137 (MUD-012 in `architecture/agentic-multi-agent-
 
 This document does NOT authorize orchestrator implementation, installation, configuration, scheduling, automated dispatch, automatic conflict resolution, automatic ticket creation, or any external integration. The analysis is the entire deliverable; concrete adaptation work is proposed but not created.
 
+**Update note (2026-09-11):** the "no runtime exists in this repo" framing below (see "Baseline-readiness evidence" and the gap-analysis "runtime layer" row) predates work that has since landed. As of this date the repository has: a durable local control plane (`src/pipe_venture_builder/control_plane/`, `LocalControlPlaneStore`), a Hermes adapter with probe/begin/resume/event/status subcommands (`src/pipe_venture_builder/adapters/hermes/`, `docs/hermes/operator-runbook.md`), and a Node runtime for the separate Venture OS workflow engine (`runtime/`, see `docs/venture-os/README.md`). This does not amount to the general-purpose dispatcher/agent-registry/event-consumer runtime this analysis evaluates against — the gap analysis and candidate tickets below still describe real, open gaps — but claims in this document that "no runtime exists" should be read as historical, not current.
+
 ## Record
 
 - ID: orchestration-readiness-analysis-2026-05-18
