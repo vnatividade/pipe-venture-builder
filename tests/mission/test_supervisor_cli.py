@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import signal
 import subprocess
 import sys
 import time
@@ -21,8 +22,10 @@ from tests.mission.loop_helpers import (
     GOOD_FILES,
     FakeBinaries,
     good_worker_output,
+    kill_quietly,
     loop_mission,
     make_repo,
+    process_gone,
     satisfied_verdict,
 )
 
@@ -182,3 +185,54 @@ class SupervisorCliTests(TestCase):
         self.assertIn("supervise.start", log)
         self.assertIn("supervise.end", log)
         self.assertEqual(len(self.fakes.claude_calls()), 1, "nothing new after cancel")
+
+    def start_foreground(self, verb: str) -> subprocess.Popen:
+        env = dict(os.environ, PYTHONPATH=str(REPOSITORY_ROOT / "src"), PYTHONDONTWRITEBYTECODE="1")
+        process = subprocess.Popen(
+            [sys.executable, "-B", "-m", "pipe_venture_builder", "mission", verb, self.mission_id,
+             *self.common(), *self.fake_bins()],
+            stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env,
+        )
+        self.addCleanup(lambda: process.poll() is None and process.kill())
+        return process
+
+    def test_run_once_treats_sighup_as_a_stop_and_stops_the_worker(self) -> None:
+        # B1: run-once had no signal handler at all.
+        self.fakes.scenario(worker=[{"sleep": 60, "on_sigterm": "exit"}])
+        process = self.start_foreground("run-once")
+        worker_pid_file = self.home / self.mission_id / "worker.pid"
+        self.assertTrue(wait_until(lambda: _read_pid(worker_pid_file) is not None), "worker started")
+        worker = _read_pid(worker_pid_file)
+        self.addCleanup(kill_quietly, worker)
+        process.send_signal(signal.SIGHUP)
+        out, err = process.communicate(timeout=30)
+        self.assertEqual(process.returncode, SUCCESS, err)
+        self.assertEqual((json.loads(out)["status"], json.loads(out)["reason"]), ("active", "interrupted"))
+        self.assertTrue(process_gone(worker), "the worker died with the supervisor")
+        with MissionStore(self.store_path) as store:
+            [run] = store.list_runs(self.mission_id)
+        self.assertEqual(run["status"], "interrupted")
+
+    def test_supervisor_killed_with_sigkill_leaves_a_worker_that_reconcile_stops(self) -> None:
+        # B1 (review S4): SIGKILL cannot be handled; the worker lives on in its
+        # own session until ``reconcile`` (with the same --claude-bin) kills it.
+        self.fakes.scenario(worker=[{"sleep": 60, "on_sigterm": "exit"}])
+        process = self.start_foreground("supervise")
+        worker_pid_file = self.home / self.mission_id / "worker.pid"
+        self.assertTrue(wait_until(lambda: _read_pid(worker_pid_file) is not None), "worker started")
+        worker = _read_pid(worker_pid_file)
+        self.addCleanup(kill_quietly, worker)
+        self.assertTrue(wait_until(lambda: bool(self.fakes.claude_calls())), "the fake is running")
+        process.kill()
+        process.communicate(timeout=30)
+        self.assertFalse(process_gone(worker, timeout=0.5), "control: the worker outlives a SIGKILL")
+
+        code, out, err = run_cli("mission", "reconcile", self.mission_id, *self.common(),
+                                 "--claude-bin", self.fakes.claude_bin)
+        self.assertEqual(code, SUCCESS, err)
+        self.assertEqual(json.loads(out)["status"], "unknown")
+        self.assertTrue(process_gone(worker), "reconcile stopped the orphan worker")
+        with MissionStore(self.store_path) as store:
+            events = [event for event in store.list_events(self.mission_id)
+                      if event["eventType"] == "run.unknown"]
+        self.assertEqual(events[-1]["payload"]["workerKilled"], True)

@@ -29,12 +29,16 @@ cycle's revision instructions (reviewer text, file names, tool names) live in
 from __future__ import annotations
 
 import os
+import re
+import shutil
 import signal
+import subprocess
 import threading
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Iterator, Mapping
 
 from pipe_venture_builder.control_plane.model import (
     ControlPlaneContractError,
@@ -90,6 +94,10 @@ DEFAULT_CHECKS_MAX_POLLS = 60
 GRANT_CYCLE_OPTION = "grant_cycle"
 # ``active`` results that end ``supervise`` instead of starting another cycle.
 STOPPING_REASONS = frozenset({"pending_decisions", "interrupted"})
+# Signals that request a stop: SIGHUP too, since a foreground ``supervise``
+# receives it when its terminal closes (the worker lives in its own session).
+STOP_SIGNALS = (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)
+RECONCILE_KILL_GRACE_SECONDS = 5.0
 
 REVISION_NO_JSON = (
     "O ciclo anterior terminou sem o JSON final pedido no brief (ou com JSON inválido). "
@@ -136,12 +144,17 @@ def reconcile(
     store: MissionStore,
     now: Callable[[], str] = utc_now,
     home: str | Path | None = None,
+    claude_bin: str | None = None,
+    kill_grace_seconds: float = RECONCILE_KILL_GRACE_SECONDS,
 ) -> list[str]:
     """Runs left ``running`` without a live supervisor become ``unknown``.
 
-    Opens one ``escalation`` decision and marks the mission ``unknown``
-    (terminal): a run whose outcome is unknown is never re-executed.
-    Returns the reconciled run ids.
+    A worker the dead supervisor left running (its own session, so it
+    survives the supervisor) is killed first — but only when ``worker.pid``
+    still names a session leader running ``claude_bin -p``: a reused pid is
+    left alone. Then one ``escalation`` decision is opened and the mission is
+    marked ``unknown`` (terminal): a run whose outcome is unknown is never
+    re-executed. Returns the reconciled run ids.
     """
 
     root = _home(home)
@@ -149,7 +162,11 @@ def reconcile(
     if not orphans:
         return []
     _require_single_writer(root, mission_id)
-    worker_alive = _worker_pid_alive(root, mission_id)
+    worker_pid = _worker_pid(root, mission_id)
+    worker_alive = worker_pid is not None and pid_is_alive(worker_pid)
+    worker_killed = False
+    if worker_alive and claude_bin and _is_orphan_worker(worker_pid, claude_bin):
+        worker_killed = _kill_session(worker_pid, grace_seconds=kill_grace_seconds)
     for run in orphans:
         store.collect_run(
             run["run_id"],
@@ -160,7 +177,7 @@ def reconcile(
             result_fingerprint=None,
             status="unknown",
             at=now(),
-            extra={"reason": "orphaned", "workerAlive": worker_alive},
+            extra={"reason": "orphaned", "workerAlive": worker_alive, "workerKilled": worker_killed},
         )
     if store.get(mission_id)["status"] in UNKNOWN_SOURCES:
         store.open_decision(
@@ -175,7 +192,7 @@ def reconcile(
         )
         store.mark_unknown(mission_id, at=now())
     ids = [run["run_id"] for run in orphans]
-    _log(root, mission_id, "reconcile", runs=len(ids), workerAlive=worker_alive)
+    _log(root, mission_id, "reconcile", runs=len(ids), workerAlive=worker_alive, workerKilled=worker_killed)
     return ids
 
 
@@ -237,36 +254,48 @@ def supervise(
     cancelled, or a cycle ends waiting on a decision or a stop request.
 
     Writes ``<home>/<missionId>/supervisor.pid`` (kept after exit, so
-    ``status`` reports ``alive: false``). SIGTERM/SIGINT request a stop: the
-    running worker is terminated and its run recorded as ``interrupted``.
+    ``status`` reports ``alive: false``). SIGTERM/SIGINT/SIGHUP request a
+    stop: the running worker is terminated and its run recorded as
+    ``interrupted``.
     """
 
     root = _home(home)
     _require_chain(store, mission_id)
     claim_supervisor(root, mission_id)
-    stop = stop_event or threading.Event()
-    previous = _install_stop_handlers(stop)
     _log(root, mission_id, "supervise.start", pid=os.getpid())
     step = Step(store.get(mission_id)["status"], "not_started")
     try:
-        while True:
-            step = run_once(
-                mission_id,
-                store=store,
-                claude_bin=claude_bin,
-                gh_bin=gh_bin,
-                home=root,
-                stop_event=stop,
-                **options,
-            )
-            if step.status != "active" or step.reason in STOPPING_REASONS or stop.is_set():
-                return step
+        with stop_on_signals(stop_event) as stop:
+            while True:
+                step = run_once(
+                    mission_id,
+                    store=store,
+                    claude_bin=claude_bin,
+                    gh_bin=gh_bin,
+                    home=root,
+                    stop_event=stop,
+                    **options,
+                )
+                if step.status != "active" or step.reason in STOPPING_REASONS or stop.is_set():
+                    return step
     except BaseException as exc:
         _log(root, mission_id, "supervise.error", error=type(exc).__name__)
         raise
     finally:
-        _restore_stop_handlers(previous)
         _log(root, mission_id, "supervise.end", status=step.status, reason=step.reason)
+
+
+@contextmanager
+def stop_on_signals(stop_event: threading.Event | None = None) -> Iterator[threading.Event]:
+    """An event set by SIGTERM/SIGINT/SIGHUP while the block runs (main
+    thread only); the previous handlers are restored afterwards."""
+
+    stop = stop_event or threading.Event()
+    previous = _install_stop_handlers(stop)
+    try:
+        yield stop
+    finally:
+        _restore_stop_handlers(previous)
 
 
 def claim_supervisor(home: str | Path | None, mission_id: str) -> Path:
@@ -329,7 +358,9 @@ class _Cycle:
     def run(self) -> Step:
         _require_chain(self.store, self.mission_id)
         _require_single_writer(self.home, self.mission_id)
-        if reconcile(self.mission_id, store=self.store, now=self.now, home=self.home):
+        if reconcile(
+            self.mission_id, store=self.store, now=self.now, home=self.home, claude_bin=self.claude_bin
+        ):
             return Step(self._status(), "run_unknown")
         self.mission = self.store.get(self.mission_id)
         if self.mission["status"] != "active":
@@ -915,12 +946,83 @@ def _require_single_writer(home: Path, mission_id: str) -> None:
         raise SupervisorRefusal("another supervisor is alive for this mission")
 
 
-def _worker_pid_alive(home: Path, mission_id: str) -> bool:
+def _worker_pid(home: Path, mission_id: str) -> int | None:
     try:
         pid = int((home / mission_id / WORKER_PID_FILE).read_text(encoding="utf-8").strip())
     except (OSError, ValueError):
+        return None
+    return pid if pid > 0 else None
+
+
+def _process_state(pid: int) -> tuple[str, str] | None:
+    """``(stat, command line)`` of ``pid`` from ``ps``, or ``None`` if gone."""
+
+    try:
+        completed = subprocess.run(
+            ["ps", "-ww", "-o", "stat=", "-o", "command=", "-p", str(pid)],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=10, check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    output = completed.stdout.strip()
+    if completed.returncode != 0 or not output:
+        return None
+    stat, _, command = output.partition(" ")
+    return stat, command.strip()
+
+
+def _running(pid: int) -> bool:
+    state = _process_state(pid)
+    return state is not None and not state[0].startswith("Z")
+
+
+def _is_orphan_worker(pid: int, claude_bin: str) -> bool:
+    """Guard against pid reuse: the worker was started with
+    ``start_new_session`` (so it leads its session) as ``<claude_bin> -p …``
+    (a script shows up as ``<interpreter> <claude_bin> -p …``)."""
+
+    try:
+        if os.getsid(pid) != pid:
+            return False
+    except OSError:
         return False
-    return pid_is_alive(pid)
+    state = _process_state(pid)
+    if state is None or state[0].startswith("Z"):
+        return False
+    command = state[1]
+    candidates = {claude_bin}
+    if os.sep in claude_bin:
+        candidates.add(os.path.realpath(claude_bin))
+    else:
+        found = shutil.which(claude_bin)
+        if found:
+            candidates.update({found, os.path.realpath(found)})
+    for candidate in candidates:
+        pattern = r"^(?:\S+\s+)?" + re.escape(candidate) + r"\s+-p(?:\s|$)"
+        if re.match(pattern, command):
+            return True
+    return False
+
+
+def _kill_session(pid: int, *, grace_seconds: float) -> bool:
+    """SIGTERM the worker's process group, SIGKILL it after the grace period
+    (always, like ``ClaudeProcess.terminate``). True once the leader is gone."""
+
+    try:
+        os.killpg(pid, signal.SIGTERM)
+    except (ProcessLookupError, PermissionError):
+        pass
+    deadline = time.monotonic() + grace_seconds
+    while _running(pid) and time.monotonic() < deadline:
+        time.sleep(0.05)
+    try:
+        os.killpg(pid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        pass
+    deadline = time.monotonic() + grace_seconds
+    while _running(pid) and time.monotonic() < deadline:
+        time.sleep(0.05)
+    return not _running(pid)
 
 
 def _revision_path(home: Path, mission_id: str, cycle: int) -> Path:
@@ -995,7 +1097,7 @@ def _install_stop_handlers(stop: threading.Event) -> dict[int, Any]:
     def request_stop(_signum: int, _frame: Any) -> None:
         stop.set()
 
-    for signum in (signal.SIGTERM, signal.SIGINT):
+    for signum in STOP_SIGNALS:
         previous[signum] = signal.signal(signum, request_stop)
     return previous
 

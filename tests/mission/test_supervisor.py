@@ -783,3 +783,75 @@ class ResumeAndSignalTests(SupervisorTestCase):
         [run] = h.store.list_runs(h.mission_id)
         self.assertEqual(run["status"], "interrupted")
         self.assertEqual(h.run_once().status, "completed", "the mission resumes from the same cycle")
+
+    def test_sighup_to_the_supervisor_is_a_stop_request_like_sigterm(self) -> None:
+        # B1: a foreground ``supervise`` gets SIGHUP when its terminal closes.
+        import signal
+
+        h = self.harness()
+        h.fakes.scenario(worker=[{"sleep": 30, "on_sigterm": "exit"}])
+        previous = signal.getsignal(signal.SIGHUP)
+        worker_pid_file = h.home / h.mission_id / "worker.pid"
+        threading.Thread(
+            target=lambda: (read_pid(worker_pid_file), os.kill(os.getpid(), signal.SIGHUP)), daemon=True
+        ).start()
+        started = time.monotonic()
+        step = h.supervise(poll_seconds=0.05)
+        self.assertLess(time.monotonic() - started, 10)
+        self.assertEqual((step.status, step.reason), ("active", "interrupted"))
+        self.assertEqual(signal.getsignal(signal.SIGHUP), previous, "handlers are restored")
+        [run] = h.store.list_runs(h.mission_id)
+        self.assertEqual(run["status"], "interrupted")
+
+
+class ReconcileLiveWorkerTests(SupervisorTestCase):
+    """B1: a worker left alive by a dead supervisor is stopped by ``reconcile``,
+    but only when the pid is really a worker (pid reuse)."""
+
+    def start_orphan(self, h: Harness, command: list[str]):
+        import subprocess
+
+        process = subprocess.Popen(command, cwd=h.repo, stdin=subprocess.DEVNULL,
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                   start_new_session=True)
+        self.addCleanup(kill_quietly, process.pid)
+        self.addCleanup(process.wait)
+        pid_file = h.home / h.mission_id / "worker.pid"
+        pid_file.parent.mkdir(parents=True, exist_ok=True)
+        pid_file.write_text(f"{process.pid}\n", encoding="utf-8")
+        run = h.store.open_run(h.mission_id, cycle=1, attempt=1, executor="worker:sonnet")
+        return process, run
+
+    def test_reconcile_kills_the_live_worker_before_marking_unknown(self) -> None:
+        h = self.harness()
+        h.fakes.scenario(worker=[{"sleep": 30, "on_sigterm": "ignore"}])
+        worker, run = self.start_orphan(h, [h.fakes.claude_bin, "-p", "BRIEF", "--model", "sonnet"])
+        deadline = time.monotonic() + 10
+        while not h.calls("worker") and time.monotonic() < deadline:
+            time.sleep(0.02)  # the fake's interpreter is running its scenario
+        self.assertEqual(reconcile(h.mission_id, store=h.store, home=h.home,
+                                   claude_bin=h.fakes.claude_bin, kill_grace_seconds=0.5), [run])
+        self.assertIsNotNone(_wait(worker), "the orphan worker (immune to SIGTERM) was killed")
+        self.assertEqual(h.store.get_run(run)["status"], "unknown")
+        self.assertEqual(h.status(), "unknown")
+        payload = h.payloads("run.unknown")[-1]
+        self.assertEqual((payload["workerAlive"], payload["workerKilled"]), (True, True))
+
+    def test_control_a_live_pid_that_is_not_the_worker_is_left_alone(self) -> None:
+        h = self.harness()
+        other, run = self.start_orphan(h, ["sleep", "30"])
+        self.assertEqual(reconcile(h.mission_id, store=h.store, home=h.home,
+                                   claude_bin=h.fakes.claude_bin), [run])
+        self.assertIsNone(other.poll(), "a reused pid is never killed")
+        payload = h.payloads("run.unknown")[-1]
+        self.assertEqual((payload["workerAlive"], payload["workerKilled"]), (True, False))
+        self.assertEqual(h.status(), "unknown")
+
+
+def _wait(process, timeout: float = 5.0):
+    import subprocess
+
+    try:
+        return process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return None

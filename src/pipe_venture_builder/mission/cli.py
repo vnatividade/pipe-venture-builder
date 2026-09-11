@@ -35,6 +35,7 @@ from .supervisor import (
     live_supervisor_pid,
     reconcile,
     run_once,
+    stop_on_signals,
     supervise,
     supervisor_log_path,
     supervisor_pid_path,
@@ -132,6 +133,11 @@ def register_mission_commands(commands: argparse._SubParsersAction) -> None:
     )
     reconcile_parser.add_argument("mission_id")
     _home_option(reconcile_parser)
+    reconcile_parser.add_argument(
+        "--claude-bin",
+        default="claude",
+        help="Executable the worker ran (default: claude); a live worker running it is killed first.",
+    )
 
 
 def _home_option(parser: argparse.ArgumentParser) -> None:
@@ -395,13 +401,16 @@ def _handle_run_once(args: argparse.Namespace) -> dict[str, Any]:
     with _open_store(args) as store:
         store.get(args.mission_id)
         claim_supervisor(home, args.mission_id)
-        step = run_once(args.mission_id, store=store, **_supervisor_kwargs(args))
+        with stop_on_signals() as stop:
+            step = run_once(args.mission_id, store=store, stop_event=stop, **_supervisor_kwargs(args))
     return _step_payload("mission.run-once", args.mission_id, step)
 
 
 def _handle_reconcile(args: argparse.Namespace) -> dict[str, Any]:
     with _open_store(args) as store:
-        reconciled = reconcile(args.mission_id, store=store, home=_home(args))
+        reconciled = reconcile(
+            args.mission_id, store=store, home=_home(args), claude_bin=args.claude_bin
+        )
         status = store.get(args.mission_id)["status"]
     return {
         "ok": True,
