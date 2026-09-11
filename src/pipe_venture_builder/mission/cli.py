@@ -329,6 +329,11 @@ def _handle_decisions(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def _handle_decide(args: argparse.Namespace) -> dict[str, Any]:
+    # A delegated grant is an internal path the supervisor takes on its own,
+    # never something the CLI (a human, or the chat agent driving it) can
+    # request: refuse ``delegated:*`` before it ever reaches the store.
+    if args.decided_by.startswith("delegated:"):
+        raise ControlPlaneContractError("decisions are resolved by a named human source")
     with _open_store(args) as store:
         decision = store.resolve_decision(
             args.decision_id, option=args.option, decided_by=args.decided_by, at=args.at

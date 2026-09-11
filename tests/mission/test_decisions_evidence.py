@@ -179,6 +179,42 @@ class DelegatedDecisionTests(TestCase):
             self.assertEqual(event["eventType"], "decision.delegated")
             self.assertEqual(event["payload"], {"decisionId": decision_id, "rule": "grantCycle"})
 
+    # Revisão 2 do PIP-903, achado #3: cada checagem do store (opção, kind,
+    # regra) tem um teste que só ela reprova — as outras passam.
+
+    def test_delegated_source_cannot_choose_any_option_but_grant_cycle(self) -> None:
+        with MissionStore(":memory:") as store:
+            mission_id = delegated_mission(store)
+            decision_id = self._open_grant_cycle_decision(store, mission_id)
+            with self.assertRaises(ControlPlaneContractError):
+                store.resolve_decision(decision_id, option="stop", decided_by="delegated:orchestrator", at=EVEN_LATER)
+            self.assertEqual(store.get_decision(decision_id)["status"], "pending")
+
+    def test_delegated_grant_cycle_refused_on_a_non_escalation_decision(self) -> None:
+        with MissionStore(":memory:") as store:
+            mission_id = delegated_mission(store)
+            store.block(mission_id, reason_code="max_cycles", at=LATER)
+            decision_id = store.open_decision(
+                mission_id, kind="clarification", context={"reason": "max_cycles", "cycle": 1},
+                options=["pause", "grant_cycle"], safe_default="pause", blocked_scope="mission",
+                deadline=None, at=LATER,
+            )
+            with self.assertRaises(ControlPlaneContractError):
+                store.resolve_decision(
+                    decision_id, option="grant_cycle", decided_by="delegated:orchestrator", at=EVEN_LATER
+                )
+            self.assertEqual(store.get_decision(decision_id)["status"], "pending")
+
+    def test_delegated_grant_refused_when_the_mission_has_no_rule(self) -> None:
+        with MissionStore(":memory:") as store:
+            mission_id = active_mission(store)
+            decision_id = self._open_grant_cycle_decision(store, mission_id)
+            with self.assertRaises((ControlPlaneContractError, ControlPlaneStateError)):
+                store.resolve_decision(
+                    decision_id, option="grant_cycle", decided_by="delegated:orchestrator", at=EVEN_LATER
+                )
+            self.assertEqual(store.get_decision(decision_id)["status"], "pending")
+
     def test_delegated_grant_refused_for_a_decision_kind_delegation_never_covers(self) -> None:
         with MissionStore(":memory:") as store:
             mission_id = delegated_mission(store)
@@ -225,6 +261,65 @@ class DelegatedDecisionTests(TestCase):
                 store.resolve_decision(
                     decision_id, option="grant_cycle", decided_by="delegated:orchestrator", at=EVEN_LATER
                 )
+
+    def test_delegated_grant_accepts_cost_exactly_at_the_fraction(self) -> None:
+        # cost/maxBudgetUsd == maxCostFraction must grant; only strictly above
+        # refuses (a ``>=`` mutant would refuse here).
+        with MissionStore(":memory:") as store:
+            mission_id = delegated_mission(store, maxCostFraction=0.5)
+            run_id = store.open_run(mission_id, cycle=1, attempt=1, executor="worker:sonnet", at=LATER)
+            budget = store.get(mission_id)["constraints"]["maxBudgetUsd"]
+            store.collect_run(
+                run_id, session_id=None, cost_usd=budget * 0.5, num_turns=1,
+                result_ref=None, result_fingerprint=None, status="collected", at=LATER,
+            )
+            decision_id = self._open_grant_cycle_decision(store, mission_id)
+            resolved = store.resolve_decision(
+                decision_id, option="grant_cycle", decided_by="delegated:orchestrator", at=EVEN_LATER
+            )
+            self.assertEqual(resolved["status"], "resolved")
+
+    def test_delegated_grant_refused_for_a_reason_outside_the_cycle_limit(self) -> None:
+        """The store, not just the supervisor, is the enforcement point: a
+        decision opened with any other ``context.reason`` (a legitimate
+        reviewer verdict, the circuit breaker, an escalated worker or
+        delivery failure) is never resolvable by ``delegated:orchestrator``,
+        even though it is ``kind: escalation`` / option ``grant_cycle`` and
+        the mission declares a covering rule."""
+
+        with MissionStore(":memory:") as store:
+            mission_id = delegated_mission(store)
+            for reason in ("no_progress", "review_blocked", "run_failed", "delivery_checks_failed"):
+                with self.subTest(reason):
+                    store.block(mission_id, reason_code=reason, at=LATER)
+                    decision_id = store.open_decision(
+                        mission_id, kind="escalation", context={"reason": reason, "cycle": 1},
+                        options=["stop", "grant_cycle"], safe_default="stop", blocked_scope="cycles",
+                        deadline=None, at=LATER,
+                    )
+                    with self.assertRaises(ControlPlaneContractError):
+                        store.resolve_decision(
+                            decision_id, option="grant_cycle",
+                            decided_by="delegated:orchestrator", at=EVEN_LATER,
+                        )
+                    self.assertEqual(store.get_decision(decision_id)["status"], "pending")
+                    # A human is never blocked by the reason restriction.
+                    store.resolve_decision(
+                        decision_id, option="stop", decided_by="human:cli:vitor", at=EVEN_LATER
+                    )
+                    store.resume(mission_id, at=EVEN_LATER)
+
+    def test_delegated_source_other_than_orchestrator_is_refused(self) -> None:
+        with MissionStore(":memory:") as store:
+            mission_id = delegated_mission(store)
+            decision_id = self._open_grant_cycle_decision(store, mission_id)
+            for source in ("delegated:", "delegated:other", "delegated:orchestrator ", "Delegated:orchestrator"):
+                with self.subTest(source):
+                    with self.assertRaises(ControlPlaneContractError):
+                        store.resolve_decision(
+                            decision_id, option="grant_cycle", decided_by=source, at=EVEN_LATER
+                        )
+            self.assertEqual(store.get_decision(decision_id)["status"], "pending")
 
 
 class EvidenceAndCompletionTests(TestCase):

@@ -103,6 +103,11 @@ REVIEW_RESERVE_USD = MIN_RUN_BUDGET_USD
 DEFAULT_CHECKS_POLL_SECONDS = 30.0
 DEFAULT_CHECKS_MAX_POLLS = 60
 GRANT_CYCLE_OPTION = "grant_cycle"
+# The only reason codes a mission's own ``delegation.grantCycle`` rule may
+# cover: hitting the cycle limit. Every other ``_block`` reason (a legitimate
+# reviewer verdict, the circuit breaker, an infrastructure failure escalating,
+# a failed delivery check…) always waits on the founder, whatever the rule says.
+DELEGABLE_REASONS = frozenset({"max_cycles", "needs_revision_limit"})
 # A reviewer infrastructure failure (the CLI crashed, or its output was not a
 # valid verdict) is not a judgement: it earns one automatic retry, with no new
 # worker. A verdict the model itself returned as ``blocked`` is never retried.
@@ -828,7 +833,7 @@ class _Cycle:
         scope: str = "cycles",
     ) -> Step:
         self.store.block(self.mission_id, reason_code=reason_code, at=self.now())
-        delegable = options is None
+        delegable = options is None and reason_code in DELEGABLE_REASONS
         choices = options or ["stop", GRANT_CYCLE_OPTION]
         decision_id = self.store.open_decision(
             self.mission_id,
@@ -840,7 +845,10 @@ class _Cycle:
             deadline=None,
             at=self.now(),
         )
-        if delegable and self._delegate_grant_cycle(decision_id, cycle):
+        # ``max_cycles`` is raised by ``_dispatch`` for the cycle that has not
+        # run yet; progress is measured on the one that ended.
+        ended = cycle - 1 if reason_code == "max_cycles" else cycle
+        if delegable and self._delegate_grant_cycle(decision_id, ended):
             return Step("active", reason_code, cycle)
         return Step("blocked", reason_code, cycle)
 

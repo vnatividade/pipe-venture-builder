@@ -74,6 +74,11 @@ TOP_LEVEL_FIELDS = frozenset(
         "fingerprint",
     }
 )
+# ``delegation`` is the one optional top-level key: absent in every v0.1.0
+# document (old and new — it never enters the fingerprint for them, so the
+# same v0.1.0 JSON keeps the same ``missionId``), present (``null`` or a rule)
+# only when a v0.2.0 draft supplies it.
+REQUIRED_TOP_LEVEL_FIELDS = TOP_LEVEL_FIELDS - {"delegation"}
 CONSTRAINT_FIELDS = frozenset(
     {"maxCycles", "maxBudgetUsd", "maxTurnsPerRun", *ABSOLUTE_GATE_FLAGS}
 )
@@ -131,7 +136,8 @@ def build_mission(
     document.setdefault("supersedes", None)
     for key in ("nonGoals", "delegable", "reservedToHuman", "linearTicketIds"):
         document.setdefault(key, [])
-    document.setdefault("delegation", None)
+    if document["schemaVersion"] == DELEGATION_SCHEMA_VERSION:
+        document.setdefault("delegation", None)
     document.setdefault("status", "draft")
     at = created_at or utc_now()
     document.setdefault("createdAt", at)
@@ -161,9 +167,9 @@ def validate_mission(document: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(document, Mapping):
         raise ControlPlaneContractError("mission document must be a mapping")
     keys = set(document)
-    if keys != TOP_LEVEL_FIELDS:
-        if keys - TOP_LEVEL_FIELDS:
-            raise ControlPlaneContractError("mission document has unknown fields")
+    if keys - TOP_LEVEL_FIELDS:
+        raise ControlPlaneContractError("mission document has unknown fields")
+    if REQUIRED_TOP_LEVEL_FIELDS - keys:
         raise ControlPlaneContractError("mission document is missing required fields")
     if not payload_is_safe(document):
         raise ControlPlaneContractError("mission document failed the safety boundary")
@@ -184,7 +190,7 @@ def validate_mission(document: Mapping[str, Any]) -> dict[str, Any]:
     _validate_criteria(document["successCriteria"])
     for key in ("nonGoals", "delegable", "reservedToHuman"):
         _text_list(document[key], f"mission {key}")
-    _validate_delegation(document["delegation"], document["schemaVersion"])
+    _validate_delegation(document.get("delegation"), document["schemaVersion"])
     _validate_constraints(document["constraints"])
     _validate_workspace(document["workspace"])
     _validate_delivery(document["delivery"])

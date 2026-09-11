@@ -81,6 +81,38 @@ class MissionCliTests(TestCase):
             self.assertEqual(code, SUCCESS, err)
             self.assertIn("Onde estamos", out)
 
+    def test_cli_refuses_the_delegated_source_even_where_the_store_would_grant(self) -> None:
+        # Revisão 2 do PIP-903, achado #2: a decisão abaixo é uma que o store
+        # CONCEDERIA ao supervisor (regra v0.2.0, escalation/grant_cycle em
+        # max_cycles); só a guarda da CLI pode recusá-la.
+        with TemporaryDirectory() as directory:
+            store_path = Path(directory) / "mission.sqlite3"
+            rule = {"grantCycle": {"maxTimes": 1, "maxCostFraction": 0.8, "requireProgress": False}}
+            document = {**mission_input(), "schemaVersion": "0.2.0", "delegation": rule}
+            with MissionStore(store_path) as store:
+                mission_id = store.create(build_mission(document, created_at=CREATED_AT), at=CREATED_AT)
+                store.activate(mission_id, at=LATER)
+                store.block(mission_id, reason_code="max_cycles", at=LATER)
+                decision_id = store.open_decision(
+                    mission_id, kind="escalation", context={"reason": "max_cycles", "cycle": 2},
+                    options=["stop", "grant_cycle"], safe_default="stop", blocked_scope="cycles",
+                    deadline=None, at=LATER,
+                )
+            code, _, err = run_cli(
+                "mission", "decide", decision_id, "--option", "grant_cycle",
+                "--by", "delegated:orchestrator", "--store", str(store_path), "--json",
+            )
+            self.assertEqual(code, READINESS_BLOCKED)
+            self.assertEqual(json.loads(err)["code"], "MISSION_CONTRACT_VIOLATION")
+            with MissionStore(store_path) as store:
+                self.assertEqual(store.get_decision(decision_id)["status"], "pending")
+                # Controle positivo: pelo caminho interno do supervisor, a mesma
+                # decisão é concedida — então foi a CLI que recusou.
+                store.resolve_decision(
+                    decision_id, option="grant_cycle", decided_by="delegated:orchestrator", at=LATER
+                )
+                self.assertEqual(store.get_decision(decision_id)["status"], "resolved")
+
     def test_lifecycle_verbs_and_decisions_through_cli(self) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory)
@@ -129,6 +161,19 @@ class MissionCliTests(TestCase):
                 "--by", "human:cli:vitor", "--store", str(store_path), "--json",
             )
             self.assertEqual(code, READINESS_BLOCKED)
+
+            # A delegated source is a caminho interno do supervisor: the CLI
+            # (a human, or the chat agent driving it) can never claim it,
+            # even for an option/decision shape the store would otherwise
+            # accept from the real supervisor.
+            code, out, err = run_cli(
+                "mission", "decide", decision_id, "--option", "approve",
+                "--by", "delegated:orchestrator", "--store", str(store_path), "--json",
+            )
+            self.assertEqual(code, READINESS_BLOCKED)
+            self.assertEqual(json.loads(err)["code"], "MISSION_CONTRACT_VIOLATION")
+            with MissionStore(store_path) as store:
+                self.assertEqual(store.get_decision(decision_id)["status"], "pending")
 
             with redirect_stderr(StringIO()):
                 with self.assertRaises(SystemExit) as usage:
