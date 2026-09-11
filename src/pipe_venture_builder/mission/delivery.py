@@ -15,7 +15,6 @@ import subprocess
 import tempfile
 import unicodedata
 from dataclasses import dataclass
-from functools import lru_cache
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -64,24 +63,20 @@ def child_env() -> dict[str, str]:
     return {key: value for key, value in os.environ.items() if key not in excluded}
 
 
-@lru_cache(maxsize=1)
-def _no_hooks_dir() -> str:
-    """A fresh, empty directory outside any worktree, used as ``core.hooksPath``
-    for every commit/push the supervisor runs.
-
-    ``core.hooksPath`` defaults to (or is often configured as) a path inside
-    the repository, resolved relative to whatever tree git is invoked from.
-    A git command the supervisor runs with ``cwd=<mission worktree>`` would
-    then execute hook scripts sitting in that worktree — code the worker may
-    have written — with the supervisor's credentials. Verification of the
-    diff and CI are the real gate; a local hook never runs during delivery.
-    """
-
-    return tempfile.mkdtemp(prefix="pipe-mission-no-hooks-")
+# ``core.hooksPath`` for every git the supervisor runs against a mission
+# repository/worktree (worktree prune/add, commit, push). It defaults to (or is
+# configured as) a path inside the repository, resolved from whatever tree git
+# runs in: a mission worktree would then execute hook scripts the worker may
+# have written — with the supervisor's credentials and, in a linked worktree,
+# an absolute ``GIT_DIR``. ``/dev/null`` is not a directory, so git finds no
+# hook at all (pre-commit, commit-msg, post-commit, post-checkout,
+# reference-transaction, pre-push...), and nobody can populate it. Diff
+# verification and CI are the real gate; a local hook never runs.
+NO_HOOKS_PATH = "/dev/null"
 
 
 def _no_hooks_args() -> list[str]:
-    return ["-c", f"core.hooksPath={_no_hooks_dir()}"]
+    return ["-c", f"core.hooksPath={NO_HOOKS_PATH}"]
 
 
 @dataclass(frozen=True)
@@ -132,7 +127,7 @@ def ensure_worktree(mission: Mapping[str, Any], *, home: str | Path | None = Non
     branch = branch_name(mission)
     if path.is_dir() and _is_mission_worktree(path, repo, branch):
         return path
-    _git(repo, "worktree", "prune")
+    _git(repo, *_no_hooks_args(), "worktree", "prune")
     if path.exists():
         if any(path.iterdir()):
             raise RuntimeError(
@@ -142,14 +137,14 @@ def ensure_worktree(mission: Mapping[str, Any], *, home: str | Path | None = Non
         path.rmdir()
     path.parent.mkdir(parents=True, exist_ok=True)
     if _branch_exists(repo, branch):
-        _git(repo, "worktree", "add", str(path), branch)
+        _git(repo, *_no_hooks_args(), "worktree", "add", str(path), branch)
     else:
         # ``--no-track``: a remote ``baseRef`` (``origin/main``) would otherwise
         # set ``branch.<branch>.remote``/``.merge`` in the repository's *shared*
         # config — another mission creating its own worktree during this
         # mission's worker run would then change what ``git_config_snapshot``
         # sees and trip ``git_config_tampered`` on a run that tampered nothing.
-        _git(repo, "worktree", "add", "--no-track", str(path), "-b", branch, mission["workspace"]["baseRef"])
+        _git(repo, *_no_hooks_args(), "worktree", "add", "--no-track", str(path), "-b", branch, mission["workspace"]["baseRef"])
     return path
 
 

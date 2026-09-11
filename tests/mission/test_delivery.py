@@ -311,6 +311,64 @@ class PullRequestTests(TestCase):
                 git(worktree, "rev-parse", "HEAD").strip(),
             )
 
+    def test_default_git_hooks_never_run_during_commit_and_push(self) -> None:
+        # Sem ``core.hooksPath``: os hooks padrão em ``.git/hooks`` (revisão
+        # do PIP-907, P3 — o teste acima tem hooksPath e nunca os consulta).
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo = make_repo(root, with_origin=True)
+            mission = build_mission(loop_mission(repo), created_at=CREATED_AT)
+            worktree = ensure_worktree(mission, home=root / "home")
+            marker = root / "hook-ran"
+            for name in ("pre-commit", "commit-msg", "post-commit", "reference-transaction", "pre-push"):
+                hook = repo / ".git" / "hooks" / name
+                hook.write_text(f'#!/bin/sh\ntouch "{marker}"\nexit 1\n', encoding="utf-8")
+                hook.chmod(0o755)
+            (worktree / "README.md").write_text("changed\n", encoding="utf-8")
+            self.assertTrue(commit_if_needed(worktree, "change"))
+            push_branch(worktree, branch_name(mission))
+            self.assertFalse(marker.exists(), "a hook in .git/hooks ran during the supervisor's commit or push")
+
+    def test_creating_the_worktree_runs_no_hook(self) -> None:
+        # Revisão do PIP-907, P1: ``git worktree add`` executa post-checkout e
+        # reference-transaction — este com GIT_DIR absoluto do worktree novo.
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo = make_repo(root, with_origin=True)
+            marker = root / "hook-ran"
+            for name in ("post-checkout", "reference-transaction"):
+                hook = repo / ".git" / "hooks" / name
+                hook.write_text(f'#!/bin/sh\ntouch "{marker}"\nexit 0\n', encoding="utf-8")
+                hook.chmod(0o755)
+            mission = build_mission(loop_mission(repo), created_at=CREATED_AT)
+            ensure_worktree(mission, home=root / "home")
+            self.assertFalse(marker.exists(), "creating the mission worktree ran a hook")
+
+    def test_recreating_the_worktree_does_not_run_hooks_committed_on_the_branch(self) -> None:
+        # Revisão do PIP-907, P1, caso 2: o worktree sumiu e a branch ficou
+        # com hooks que o worker commitou; com ``core.hooksPath`` relativo, o
+        # ``worktree add`` da branch existente os executaria.
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo = make_repo(root, with_origin=True)
+            git(repo, "config", "core.hooksPath", "scripts/git-hooks")
+            mission = build_mission(loop_mission(repo), created_at=CREATED_AT)
+            home = root / "home"
+            worktree = ensure_worktree(mission, home=home)
+            marker = root / "hook-ran"
+            hooks = worktree / "scripts" / "git-hooks"
+            hooks.mkdir(parents=True)
+            for name in ("post-checkout", "reference-transaction"):
+                hook = hooks / name
+                hook.write_text(f'#!/bin/sh\ntouch "{marker}"\nexit 0\n', encoding="utf-8")
+                hook.chmod(0o755)
+            self.assertTrue(commit_if_needed(worktree, "worker planted hooks"))
+            self.assertFalse(marker.exists())
+            shutil.rmtree(worktree)
+            recreated = ensure_worktree(mission, home=home)
+            self.assertTrue((recreated / "scripts" / "git-hooks" / "post-checkout").exists())
+            self.assertFalse(marker.exists(), "re-creating the worktree ran a hook committed on the branch")
+
     def test_pr_body_follows_the_repository_template_and_cites_mission_and_ticket(self) -> None:
         with TemporaryDirectory() as directory:
             mission = build_mission(loop_mission(make_repo(Path(directory))), created_at=CREATED_AT)
@@ -344,6 +402,7 @@ class PullRequestTests(TestCase):
             self.assertEqual(checks_status(fakes.gh_bin, "claude/x", cwd=root), "failed")
             calls = [call for call in fakes.gh_calls() if call[:2] == ["pr", "checks"]]
             self.assertEqual(len(calls), 5)
+            self.assertEqual(json.loads(json.dumps(calls[0]))[2], "claude/x")
             self.assertIn("--json", calls[0])
 
 

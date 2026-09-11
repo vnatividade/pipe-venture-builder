@@ -56,6 +56,7 @@ from .delivery import (
     base_branch,
     branch_name,
     checks_status,
+    child_env,
     commit_if_needed,
     current_branch,
     ensure_worktree,
@@ -448,6 +449,7 @@ class _Cycle:
                 worker_budget,
                 cycle=cycle,
                 revision_instructions=revision,
+                env=child_env(),
                 model=self.worker_model,
                 timeout=self.worker_timeout,
                 poll_seconds=self.poll_seconds,
@@ -619,6 +621,7 @@ class _Cycle:
                 timeout=self.review_timeout,
                 poll_seconds=self.poll_seconds,
                 should_stop=self._should_stop,
+                env=child_env(),
                 on_start=self._reviewer_started,
             )
         except BaseException:

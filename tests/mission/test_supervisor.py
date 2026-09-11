@@ -855,6 +855,27 @@ class GitConfigTamperTests(SupervisorTestCase):
         self.assertEqual((result["step"].status, result["step"].reason), ("completed", "completed"))
 
 
+class ClaudeChildrenGitEnvironmentTests(SupervisorTestCase):
+    def test_worker_and_reviewer_never_receive_linked_worktree_git_variables(self) -> None:
+        # Revisão do PIP-907, P2: o ``claude`` do worker e do revisor
+        # herdavam GIT_DIR/GIT_WORK_TREE do supervisor; o worker roda os
+        # checks via Bash, então a exigência (b) valia só pela metade.
+        import os
+        from unittest import mock
+
+        h = self.harness()
+        h.fakes.scenario(worker=[good_worker()], reviewer=[{"structured_output": satisfied_verdict()}])
+        poison = self.root / "poison"
+        with mock.patch.dict(os.environ, {"GIT_DIR": str(poison / ".git"), "GIT_WORK_TREE": str(poison),
+                                          "GIT_INDEX_FILE": str(poison / "index")}):
+            step = h.supervise()
+        self.assertEqual(step.status, "completed")
+        calls = h.fakes.claude_calls()
+        self.assertEqual({call["role"] for call in calls}, {"worker", "reviewer"})
+        for call in calls:
+            self.assertEqual(call["gitContextEnv"], [], call["role"])
+
+
 class DeliveryTests(SupervisorTestCase):
     def pr_harness(self) -> Harness:
         return self.harness(with_origin=True, delivery={"kind": "pull_request", "requireChecks": True})
