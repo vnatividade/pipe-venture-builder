@@ -78,6 +78,8 @@ BLOCK_REASONS = frozenset(
         "run_unknown",
         "run_failed",
         "delivery_checks_failed",
+        "delivery_checks_timeout",
+        "no_progress",
         "audit_chain_invalid",
     }
 )
@@ -445,9 +447,14 @@ class MissionStore:
         result_fingerprint: str | None,
         status: str,
         at: str | None = None,
+        extra: Mapping[str, Any] | None = None,
     ) -> None:
+        """Close a run. ``extra`` adds short fields to the ``run.*`` event
+        (reason code, model, counts); it cannot override the fixed ones."""
+
         if status not in RUN_FINAL_STATUSES:
             raise ControlPlaneContractError("run status is not allowed")
+        additional = validate_short_mapping(dict(extra or {}), what="run payload")
         if session_id is not None:
             safe_identifier(session_id)
         if result_ref is not None:
@@ -485,6 +492,7 @@ class MissionStore:
                 event_type=RUN_EVENT_BY_STATUS[status],
                 occurred_at=occurred_at,
                 payload={
+                    **additional,
                     "runId": run_id,
                     "cycle": run["cycle"],
                     "attempt": run["attempt"],
