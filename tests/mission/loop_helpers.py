@@ -221,6 +221,7 @@ class FakeBinaries:
         self.gh_state = self.dir / "gh"
         self.gh_state.mkdir(exist_ok=True)
         self.gh_log = self.gh_state / "gh.log"
+        self.gh_env_log = self.gh_state / "gh-env.log"
         self._previous_env: dict[str, str | None] = {}
 
     def scenario(
@@ -280,3 +281,11 @@ class FakeBinaries:
         if not self.gh_log.exists():
             return []
         return [json.loads(line) for line in self.gh_log.read_text(encoding="utf-8").splitlines()]
+
+    def gh_envs(self) -> list[dict[str, str]]:
+        """Per ``gh`` invocation, the ``GIT_CONFIG*`` and interpreter
+        variables it actually received (see ``fake_gh.py``)."""
+
+        if not self.gh_env_log.exists():
+            return []
+        return [json.loads(line) for line in self.gh_env_log.read_text(encoding="utf-8").splitlines()]

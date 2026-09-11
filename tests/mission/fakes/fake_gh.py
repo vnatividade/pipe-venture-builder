@@ -8,6 +8,10 @@ State lives in FAKE_GH_STATE_DIR:
   checks.count  call counter for ``pr checks``
   pr-<n>-body.md  the body handed to ``pr create``
   gh.log        one JSON line (argv) per invocation
+  gh-env.log    one JSON line (env dict) per invocation — the ``GIT_CONFIG*``
+                and interpreter variables this call actually received, so
+                tests can prove every ``gh`` ran with ``delivery.gh_env()``
+                (PIP-905)
 Exit codes mirror gh: ``pr checks`` exits 8 while pending and 1 when something failed.
 """
 
@@ -17,6 +21,25 @@ import json
 import os
 import sys
 from pathlib import Path
+
+# Mirrors ``pipe_venture_builder.mission.delivery._INTERPRETER_ENV``: this
+# script runs as a standalone process (no guarantee the package is
+# importable from here), so the names are duplicated rather than imported.
+_INTERPRETER_ENV = (
+    "PYTHONPATH", "PYTHONHOME", "PYTHONSTARTUP", "PYTHONUSERBASE",
+    "PYTHONNOUSERSITE", "PYTHONPLATLIBDIR", "PYTHONSAFEPATH",
+    "VIRTUAL_ENV", "__PYVENV_LAUNCHER__",
+)
+
+
+def _relevant_env() -> dict[str, str]:
+    """The subset of this call's environment ``gh_env()`` claims to control:
+    every ``GIT_CONFIG*`` name and every interpreter variable."""
+
+    return {
+        key: value for key, value in os.environ.items()
+        if key.startswith("GIT_CONFIG") or key in _INTERPRETER_ENV
+    }
 
 
 def _flag(argv: list[str], name: str) -> str | None:
@@ -32,6 +55,8 @@ def main(argv: list[str]) -> int:
     state.mkdir(parents=True, exist_ok=True)
     with open(state / "gh.log", "a", encoding="utf-8") as handle:
         handle.write(json.dumps(argv) + "\n")
+    with open(state / "gh-env.log", "a", encoding="utf-8") as handle:
+        handle.write(json.dumps(_relevant_env()) + "\n")
     prs_path = state / "prs.json"
     prs = json.loads(prs_path.read_text(encoding="utf-8")) if prs_path.exists() else []
 

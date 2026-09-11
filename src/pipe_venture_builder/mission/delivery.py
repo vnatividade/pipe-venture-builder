@@ -34,7 +34,66 @@ CHECK_BUCKETS_PENDING = frozenset({"pending"})
 # Variáveis do interpretador do próprio supervisor (ex.: PYTHONPATH=src quando
 # roda do código-fonte) não podem vazar para git/gh e seus hooks: o pre-push
 # do repositório tentou `python3 -m pytest` por causa disso na demo de 11/09.
-_INTERPRETER_ENV = ("PYTHONPATH", "PYTHONHOME", "PYTHONSTARTUP", "PYTHONUSERBASE")
+# A lista cobre todo o mecanismo de configuração do CPython descrito em
+# `python3 --help`/`man 1 python3` (variáveis PYTHON* que mudam sys.path,
+# comportamento de venv ou modo seguro) mais VIRTUAL_ENV/__PYVENV_LAUNCHER__,
+# que apontam para o virtualenv do supervisor.
+_INTERPRETER_ENV = (
+    "PYTHONPATH",
+    "PYTHONHOME",
+    "PYTHONSTARTUP",
+    "PYTHONUSERBASE",
+    "PYTHONNOUSERSITE",
+    "PYTHONPLATLIBDIR",
+    "PYTHONSAFEPATH",
+    "VIRTUAL_ENV",
+    "__PYVENV_LAUNCHER__",
+)
+
+# Variáveis de configuração do git "por ambiente" (`git help config` ->
+# ENVIRONMENT): equivalem a `-c nome=valor` sem aparecer em nenhum snapshot
+# de `git config --list`. Um `GIT_CONFIG_COUNT`/`GIT_CONFIG_KEY_0`/
+# `GIT_CONFIG_VALUE_0` herdado do ambiente do supervisor injeta
+# `core.hooksPath`, `core.bare` ou `core.fsmonitor` (que executa um programa
+# a cada `git status`) em todo filho git/gh, sem que a trava de
+# `git_config_snapshot` perceba nada.
+_GIT_CONFIG_ENV_PATTERN = re.compile(r"^GIT_CONFIG_(KEY|VALUE)_\d+$")
+
+
+def _is_git_config_env(name: str) -> bool:
+    return name in ("GIT_CONFIG_PARAMETERS", "GIT_CONFIG_COUNT") or bool(_GIT_CONFIG_ENV_PATTERN.match(name))
+
+
+_local_git_env_vars_cache: tuple[str, ...] | None = None
+
+
+def _local_git_env_vars() -> tuple[str, ...]:
+    """Every variable name git itself calls local repository context
+    (``git rev-parse --local-env-vars``), cached for the process lifetime.
+
+    This is the same mechanism ``git worktree`` uses internally to decide
+    what a linked worktree must not inherit; asking git directly (instead of
+    hand-copying its list into ``GIT_CONTEXT_ENV``) keeps ``child_env`` in
+    sync with whatever git version runs the supervisor. If git cannot answer
+    (missing binary, non-zero exit), fall back to the known minimum
+    (``GIT_CONTEXT_ENV``) rather than stop filtering.
+    """
+
+    global _local_git_env_vars_cache
+    if _local_git_env_vars_cache is None:
+        names: list[str] = []
+        try:
+            completed = subprocess.run(
+                ["git", "rev-parse", "--local-env-vars"],
+                capture_output=True, text=True, timeout=GIT_TIMEOUT_SECONDS, check=False,
+            )
+            if completed.returncode == 0:
+                names = [line.strip() for line in completed.stdout.splitlines() if line.strip()]
+        except (OSError, subprocess.SubprocessError):
+            names = []
+        _local_git_env_vars_cache = tuple(names) if names else GIT_CONTEXT_ENV
+    return _local_git_env_vars_cache
+
 
 # Variáveis que um hook de worktree vinculado (``git worktree add``) exporta
 # para apontar para o ADMINISTRATIVO daquele worktree — ``GIT_DIR`` absoluto
@@ -56,11 +115,36 @@ GIT_CONTEXT_ENV = (
 
 
 def child_env() -> dict[str, str]:
-    """Environment for git/gh children: the caller's, minus interpreter leaks
-    and minus the linked-worktree ``GIT_*`` variables (see ``GIT_CONTEXT_ENV``)."""
+    """Environment for every child of the supervisor (git, gh, checks, worker,
+    reviewer, responder): the caller's, minus interpreter leaks
+    (``_INTERPRETER_ENV``), minus the linked-worktree ``GIT_*`` variables
+    (``GIT_CONTEXT_ENV``), minus every other name git itself calls local
+    repository context (``_local_git_env_vars``), and minus the
+    per-environment git config variables (``GIT_CONFIG_PARAMETERS``,
+    ``GIT_CONFIG_COUNT``, ``GIT_CONFIG_KEY_<n>``, ``GIT_CONFIG_VALUE_<n>``)."""
 
-    excluded = frozenset(_INTERPRETER_ENV) | frozenset(GIT_CONTEXT_ENV)
-    return {key: value for key, value in os.environ.items() if key not in excluded}
+    excluded = frozenset(_INTERPRETER_ENV) | frozenset(GIT_CONTEXT_ENV) | frozenset(_local_git_env_vars())
+    return {
+        key: value for key, value in os.environ.items()
+        if key not in excluded and not _is_git_config_env(key)
+    }
+
+
+def gh_env() -> dict[str, str]:
+    """Environment for every ``gh`` the supervisor runs: ``child_env()`` with
+    ``core.hooksPath`` forced to ``/dev/null`` via the ``GIT_CONFIG_*``
+    mechanism. ``gh`` shells out to ``git`` internally for several
+    subcommands (``pr create`` pushes, ``pr checks`` reads refs); without
+    this, that inner git would run repository hooks with the supervisor's
+    credentials the same way a bare ``git`` child would (see
+    ``NO_HOOKS_PATH``). ``child_env()`` already stripped any inherited
+    ``GIT_CONFIG_*``, so only this forced override remains."""
+
+    env = child_env()
+    env["GIT_CONFIG_COUNT"] = "1"
+    env["GIT_CONFIG_KEY_0"] = "core.hooksPath"
+    env["GIT_CONFIG_VALUE_0"] = NO_HOOKS_PATH
+    return env
 
 
 # ``core.hooksPath`` for every git the supervisor runs against a mission
@@ -461,7 +545,7 @@ def _gh(gh_bin: str, args: Sequence[str], *, cwd: str | Path, ok_codes: tuple[in
         completed = subprocess.run(
             [gh_bin, *args],
             cwd=str(cwd), stdin=devnull, capture_output=True, text=True, encoding="utf-8",
-            errors="replace", timeout=GH_TIMEOUT_SECONDS, check=False, env=child_env(),
+            errors="replace", timeout=GH_TIMEOUT_SECONDS, check=False, env=gh_env(),
         )
     if completed.returncode not in ok_codes:
         raise RuntimeError(f"gh {' '.join(args[:2])} failed with exit code {completed.returncode}")
