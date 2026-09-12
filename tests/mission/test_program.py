@@ -20,6 +20,7 @@ from pipe_venture_builder.mission.program_supervisor import supervise_program
 from pipe_venture_builder.mission.status import build_program_status
 from pipe_venture_builder.mission.store import MissionStore
 
+from tests.helpers import REPOSITORY_ROOT
 from tests.mission.helpers import mission_input
 from tests.mission.loop_helpers import FakeBinaries, git, make_repo
 from tests.mission.test_supervisor import SupervisorTestCase
@@ -187,6 +188,55 @@ class ProgramContractTests(ProgramTestCase):
         build_program(program_document(repo, [
             stage("a"), stage("b", depends=["a"], start_when=delivered("a")),
         ]))
+
+
+def rubric_stage(stage_id: str, *, executor: str | None = None) -> dict[str, Any]:
+    """A wave whose own success criterion is a ``rubric`` — the shape PIP-911
+    ties to the executor policy below."""
+
+    draft = stage_draft(stage_id, successCriteria=[{
+        "id": "C1", "text": "a onda cumpriu a intencao", "kind": "rubric",
+        "question": "A onda cumpriu a intencao declarada?",
+    }])
+    execution: dict[str, Any] = {} if executor is None else {"executor": executor}
+    return stage(stage_id, missionDraft=draft, execution=execution)
+
+
+class ExecutorPolicyTests(ProgramTestCase):
+    """PIP-911: ``execution.executor`` (claude/local) is a schema-level
+    enum (see ``schemas/Program.schema.json`` and the wave-2 gate script),
+    and the deterministic policy lives in ``program._validate_execution`` —
+    never a prompt: a wave with a ``rubric`` success criterion can never
+    declare a local executor, because a rubric is judged by the reviewer,
+    and the reviewer is never local either (it has no executor field of its
+    own at all — see ``supervisor._review``/``_answer_blockers``)."""
+
+    def test_a_rubric_wave_refuses_a_local_executor(self) -> None:
+        repo = make_repo(self.root)
+        with self.assertRaises(ControlPlaneContractError):
+            build_program(program_document(repo, [rubric_stage("a", executor="local")]))
+
+    def test_a_rubric_wave_allows_the_claude_executor(self) -> None:
+        repo = make_repo(self.root)
+        build_program(program_document(repo, [rubric_stage("a", executor="claude")]))
+
+    def test_a_rubric_wave_with_no_declared_executor_is_allowed(self) -> None:
+        repo = make_repo(self.root)
+        build_program(program_document(repo, [rubric_stage("a")]))
+
+    def test_a_non_rubric_wave_allows_a_local_executor(self) -> None:
+        repo = make_repo(self.root)
+        build_program(program_document(repo, [stage("a", execution={"executor": "local"})]))
+
+    def test_an_unknown_executor_value_is_refused(self) -> None:
+        repo = make_repo(self.root)
+        with self.assertRaises(ControlPlaneContractError):
+            build_program(program_document(repo, [stage("a", execution={"executor": "gpt5"})]))
+
+    def test_schema_declares_the_same_executor_enum_the_code_enforces(self) -> None:
+        schema = json.loads((REPOSITORY_ROOT / "schemas/Program.schema.json").read_text())
+        executor = schema["$defs"]["execution"]["properties"]["executor"]
+        self.assertEqual(set(executor["enum"]), {"claude", "local"})
 
 
 # -- the loop --------------------------------------------------------------------

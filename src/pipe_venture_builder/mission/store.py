@@ -28,6 +28,8 @@ from pipe_venture_builder.control_plane.model import (
 )
 
 from .contract import (
+    EXECUTOR_KIND_CLAUDE,
+    EXECUTOR_KINDS,
     MISSION_ID_PREFIX,
     PROGRAM_ID_PREFIX_RAW,
     criterion_ids,
@@ -44,7 +46,7 @@ from .events import (
 from .program import validate_program
 
 
-DATABASE_SCHEMA_VERSION = 2
+DATABASE_SCHEMA_VERSION = 3
 RUN_ID_PREFIX = "MRUN"
 RUN_DEFAULT_ROLE = "worker"
 DECISION_ID_PREFIX = "DEC"
@@ -433,16 +435,27 @@ class MissionStore:
         cycle: int,
         attempt: int,
         executor: str,
+        executor_kind: str = EXECUTOR_KIND_CLAUDE,
+        model: str | None = None,
         role: str = RUN_DEFAULT_ROLE,
         at: str | None = None,
     ) -> str:
         """Open a run. ``role`` separates the reviewer's run from the worker's
-        in the same cycle/attempt; the default role keeps the historical id."""
+        in the same cycle/attempt; the default role keeps the historical id.
+        ``executor`` stays the historical free-form ``"<role>:<model>"`` value
+        (existing callers/tests are unaffected); ``executor_kind`` (PIP-911:
+        which executor pool actually ran — ``claude`` or ``local``) and
+        ``model`` (the model that actually ran) are the queryable columns a
+        caller should record going forward."""
 
         _positive_int(cycle, "run cycle")
         _positive_int(attempt, "run attempt")
         safe_identifier(executor)
         safe_identifier(role)
+        if executor_kind not in EXECUTOR_KINDS:
+            raise ControlPlaneContractError("run executor_kind is not allowed")
+        if model is not None:
+            safe_identifier(model)
         occurred_at = at or utc_now()
         parse_datetime(occurred_at)
         identity: dict[str, Any] = {"missionId": mission_id, "cycle": cycle, "attempt": attempt}
@@ -461,12 +474,15 @@ class MissionStore:
             self._connection.execute(
                 """
                 INSERT INTO mission_runs(
-                    run_id, mission_id, attempt, cycle, executor, session_id, status,
-                    started_at, ended_at, cost_usd, num_turns, result_ref,
-                    result_fingerprint, verdict
-                ) VALUES (?, ?, ?, ?, ?, NULL, ?, ?, NULL, 0, 0, NULL, NULL, NULL)
+                    run_id, mission_id, attempt, cycle, executor, executor_kind, model,
+                    session_id, status, started_at, ended_at, cost_usd, num_turns,
+                    result_ref, result_fingerprint, verdict
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, NULL, 0, 0, NULL, NULL, NULL)
                 """,
-                (run_id, mission_id, attempt, cycle, executor, RUN_OPEN_STATUS, occurred_at),
+                (
+                    run_id, mission_id, attempt, cycle, executor, executor_kind, model,
+                    RUN_OPEN_STATUS, occurred_at,
+                ),
             )
             self._append_event(
                 mission_id,
@@ -1506,6 +1522,8 @@ class MissionStore:
                 attempt INTEGER NOT NULL,
                 cycle INTEGER NOT NULL,
                 executor TEXT NOT NULL,
+                executor_kind TEXT NOT NULL DEFAULT 'claude',
+                model TEXT,
                 session_id TEXT,
                 status TEXT NOT NULL,
                 started_at TEXT NOT NULL,
@@ -1584,6 +1602,9 @@ class MissionStore:
             return
         if stored == "1":
             self._migrate_1_to_2()
+            stored = "2"
+        if stored == "2":
+            self._migrate_2_to_3()
             return
         raise ControlPlaneStateError("unsupported mission database schema version")
 
@@ -1636,6 +1657,49 @@ class MissionStore:
         violations = self._connection.execute("PRAGMA foreign_key_check").fetchall()
         if violations:
             raise ControlPlaneStateError("mission database migration left dangling references")
+
+    def _migrate_2_to_3(self) -> None:
+        """Add ``mission_runs.executor_kind``/``model`` (PIP-911).
+
+        Before this, ``executor`` mixed role and model into one free-form
+        string (``"worker:sonnet"``), unqueryable without parsing it. Every
+        run before this migration ran on Claude — the only executor that
+        existed — so backfilling ``executor_kind='claude'`` (the column's own
+        default) records what actually happened, not a guess; ``model`` is
+        backfilled from the part of ``executor`` after ``:`` when there is
+        one. ``ALTER TABLE ADD COLUMN`` keeps every existing row (unlike the
+        1→2 migration, no table rebuild is needed here).
+
+        The columns can already exist here: a database whose ``mission_runs``
+        table never existed before this version (e.g. one whose schema was
+        hand-built up to version 1, skipping straight to today's DDL when
+        ``_initialize`` runs ``CREATE TABLE IF NOT EXISTS``) gets them from
+        the table definition itself, not from this migration — ``ALTER TABLE
+        ADD COLUMN`` on top of that would fail with a duplicate column, so
+        each column is added only when ``PRAGMA table_info`` says it is
+        missing.
+        """
+
+        columns = {
+            row[1]
+            for row in self._connection.execute("PRAGMA table_info(mission_runs)").fetchall()
+        }
+        with self._write():
+            if "executor_kind" not in columns:
+                self._connection.execute(
+                    "ALTER TABLE mission_runs ADD COLUMN executor_kind TEXT NOT NULL DEFAULT 'claude'"
+                )
+            if "model" not in columns:
+                self._connection.execute("ALTER TABLE mission_runs ADD COLUMN model TEXT")
+                self._connection.execute(
+                    """
+                    UPDATE mission_runs SET model = substr(executor, instr(executor, ':') + 1)
+                    WHERE instr(executor, ':') > 0
+                    """
+                )
+            self._connection.execute(
+                "UPDATE metadata SET value = '3' WHERE key = 'schema_version'"
+            )
 
     @staticmethod
     def _restrict_database_files(database: str) -> None:

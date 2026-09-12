@@ -46,6 +46,16 @@ MISSION_STATUSES = frozenset(
     {"draft", "active", "paused", "blocked", "completed", "cancelled", "unknown"}
 )
 CRITERION_KINDS = frozenset({"check", "artifact", "rubric"})
+# The executor pool a wave's worker runs on (PIP-911): recorded in the
+# Program contract (``execution.executor``) and, per run, in
+# ``mission_runs.executor_kind``. ``local`` is a valid declaration today so a
+# Program can already state intent, but no code routes a run to it yet — that
+# routing is the next wave. The reviewer is never one of these: it has no
+# equivalent field at all, so it can never be set to ``local`` (see
+# ``supervisor._review``/``_answer_blockers``, which hardcode ``claude``).
+EXECUTOR_KIND_CLAUDE = "claude"
+EXECUTOR_KIND_LOCAL = "local"
+EXECUTOR_KINDS = frozenset({EXECUTOR_KIND_CLAUDE, EXECUTOR_KIND_LOCAL})
 DELIVERY_KINDS = frozenset({"none", "pull_request"})
 ABSOLUTE_GATE_FLAGS = (
     "productionAllowed",
