@@ -22,7 +22,7 @@ from pipe_venture_builder.control_plane.model import (
     stable_id,
 )
 
-from .contract import MISSION_ID_PREFIX, SCHEMA_VERSION
+from .contract import MISSION_ID_PREFIX, PROGRAM_ID_PREFIX_RAW, SCHEMA_VERSION
 
 
 EVENT_ID_PREFIX = "MEV"
@@ -54,6 +54,29 @@ EVENT_TYPES = frozenset(
         "delivery.checks_passed",
         "delivery.checks_failed",
         "budget.reached",
+    }
+)
+
+# A program's own hash-chained events (PIP-910): a separate allowlist and
+# table (``program_events``) from a mission's, so ``EVENT_TYPES`` above stays
+# the exact fixed set ``test_event_allowlist_is_fixed`` pins. ``decision.*``
+# is shared: a decision opened on a program (``store.open_decision`` now
+# accepts a ``PRG-`` subject too) is chained here the same way a mission's is
+# chained in ``mission_events``.
+PROGRAM_EVENT_ID_PREFIX = "PEV"
+PROGRAM_EVENT_TYPES = frozenset(
+    {
+        "program.created",
+        "program.activated",
+        "program.paused",
+        "program.resumed",
+        "program.cancelled",
+        "program.blocked",
+        "program.completed",
+        "program.stage_mission_recorded",
+        "decision.opened",
+        "decision.resolved",
+        "decision.delegated",
     }
 )
 
@@ -124,6 +147,56 @@ def verify_mission_event(event: Mapping[str, Any], previous_hash: str | None) ->
     if not isinstance(event, Mapping) or event.get("previousHash") != previous_hash:
         return False
     if event.get("eventType") not in EVENT_TYPES:
+        return False
+    supplied = event.get("eventHash")
+    try:
+        require_fingerprint(supplied)
+        unhashed = {key: value for key, value in event.items() if key != "eventHash"}
+        return supplied == fingerprint(unhashed)
+    except ControlPlaneContractError:
+        return False
+
+
+def build_program_event(
+    *,
+    program_id: str,
+    sequence: int,
+    occurred_at: str,
+    event_type: str,
+    payload: Mapping[str, Any],
+    previous_hash: str | None,
+) -> dict[str, Any]:
+    """A program's hash-chained event; same shape and rules as
+    ``build_mission_event``, keyed by ``programId`` instead of ``missionId``."""
+
+    if event_type not in PROGRAM_EVENT_TYPES:
+        raise ControlPlaneContractError("program event type is not allowed")
+    if isinstance(sequence, bool) or not isinstance(sequence, int) or sequence < 1:
+        raise ControlPlaneContractError("event sequence must be positive")
+    require_stable_id(program_id, PROGRAM_ID_PREFIX_RAW)
+    parse_datetime(occurred_at)
+    require_fingerprint(previous_hash, nullable=True)
+    identity = {
+        "programId": program_id,
+        "sequence": sequence,
+        "occurredAt": occurred_at,
+        "eventType": event_type,
+    }
+    event: dict[str, Any] = {
+        "schemaVersion": SCHEMA_VERSION,
+        "eventId": stable_id(PROGRAM_EVENT_ID_PREFIX, identity),
+        **identity,
+        "payload": validate_short_mapping(payload, what="program event payload"),
+        "previousHash": previous_hash,
+    }
+    event["eventHash"] = fingerprint(event)
+    return event
+
+
+def verify_program_event(event: Mapping[str, Any], previous_hash: str | None) -> bool:
+    if not isinstance(event, Mapping) or event.get("previousHash") != previous_hash:
+        return False
+    if event.get("eventType") not in PROGRAM_EVENT_TYPES:
         return False
     supplied = event.get("eventHash")
     try:

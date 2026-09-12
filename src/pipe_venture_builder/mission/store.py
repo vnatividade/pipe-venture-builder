@@ -29,15 +29,19 @@ from pipe_venture_builder.control_plane.model import (
 
 from .contract import (
     MISSION_ID_PREFIX,
+    PROGRAM_ID_PREFIX_RAW,
     criterion_ids,
     is_human_source,
     validate_mission,
 )
 from .events import (
     build_mission_event,
+    build_program_event,
     validate_short_mapping,
     verify_mission_event,
+    verify_program_event,
 )
+from .program import validate_program
 
 
 DATABASE_SCHEMA_VERSION = 1
@@ -59,6 +63,19 @@ TRANSITIONS: dict[str, frozenset[str]] = {
     "unknown": frozenset(),
 }
 UNKNOWN_SOURCES = frozenset({"active", "paused", "blocked"})
+# A Program (PIP-910) has no ``unknown``/reconciliation state — it never runs
+# a worker of its own, only the mission supervisor already reconciles those.
+PROGRAM_TRANSITIONS: dict[str, frozenset[str]] = {
+    "draft": frozenset({"active"}),
+    "active": frozenset({"paused", "blocked", "completed", "cancelled"}),
+    "paused": frozenset({"active", "cancelled"}),
+    "blocked": frozenset({"active", "cancelled"}),
+    "completed": frozenset(),
+    "cancelled": frozenset(),
+}
+PROGRAM_BLOCK_REASONS = frozenset(
+    {"start_when_unsatisfied", "budget_reached", "stage_mission_blocked", "done_when_unsatisfied"}
+)
 RUN_OPEN_STATUS = "running"
 RUN_FINAL_STATUSES = frozenset({"collected", "failed", "interrupted", "unknown"})
 RUN_EVENT_BY_STATUS = {
@@ -621,6 +638,12 @@ class MissionStore:
         deadline: str | None,
         at: str | None = None,
     ) -> str:
+        """*mission_id* is the decision's subject: a ``MSN-`` mission id (as
+        always) or, since PIP-910, a ``PRG-`` program id — nothing about a
+        mission's decisions changes; a program's are chained into
+        ``program_events`` instead of ``mission_events`` (see
+        ``_append_subject_event``)."""
+
         if kind not in DECISION_KINDS:
             raise ControlPlaneContractError("decision kind is not allowed")
         short_context = validate_short_mapping(context, what="decision context")
@@ -641,13 +664,14 @@ class MissionStore:
         occurred_at = at or utc_now()
         parse_datetime(occurred_at)
         with self._write():
-            row = self._mission_row(mission_id)
-            if row["status"] not in {"active", "paused", "blocked"}:
-                raise ControlPlaneStateError("decisions require a live mission")
+            subject = self._subject_kind(mission_id)
+            status = self._subject_row(subject, mission_id)["status"]
+            if status not in {"active", "paused", "blocked"}:
+                raise ControlPlaneStateError("decisions require a live mission or program")
             decision_id = stable_id(
                 DECISION_ID_PREFIX,
                 {
-                    "missionId": mission_id,
+                    "subjectId": mission_id,
                     "kind": kind,
                     "context": short_context,
                     "options": options,
@@ -683,7 +707,8 @@ class MissionStore:
                     occurred_at,
                 ),
             )
-            self._append_event(
+            self._append_subject_event(
+                subject,
                 mission_id,
                 event_type="decision.opened",
                 occurred_at=occurred_at,
@@ -738,7 +763,8 @@ class MissionStore:
                     "decidedBy": decided_by,
                 }
                 event_type = "decision.resolved"
-            self._append_event(
+            self._append_subject_event(
+                self._subject_kind(decision["mission_id"]),
                 decision["mission_id"],
                 event_type=event_type,
                 occurred_at=occurred_at,
@@ -799,7 +825,7 @@ class MissionStore:
         return _decision_as_dict(self._decision_row(decision_id))
 
     def list_decisions(self, mission_id: str, *, pending_only: bool = False) -> list[dict[str, Any]]:
-        require_stable_id(mission_id, MISSION_ID_PREFIX)
+        self._subject_kind(mission_id)
         query = "SELECT * FROM decisions WHERE mission_id = ?"
         if pending_only:
             query += " AND status = 'pending'"
@@ -905,6 +931,221 @@ class MissionStore:
                 }
             )
         return result
+
+    # -- programs (PIP-910) --------------------------------------------------
+
+    def create_program(self, document: Mapping[str, Any], *, at: str | None = None) -> str:
+        program = validate_program(document)
+        if program["status"] != "draft":
+            raise ControlPlaneContractError("a program is created in draft status")
+        occurred_at = at or utc_now()
+        parse_datetime(occurred_at)
+        program_id = program["programId"]
+        with self._write():
+            existing = self._connection.execute(
+                "SELECT fingerprint FROM programs WHERE program_id = ?", (program_id,)
+            ).fetchone()
+            if existing is not None:
+                if existing["fingerprint"] != program["fingerprint"]:
+                    raise ControlPlaneStateError(
+                        "program identifier already has different content"
+                    )
+                return program_id
+            self._connection.execute(
+                """
+                INSERT INTO programs(
+                    program_id, version, status, document_json, fingerprint,
+                    created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    program_id,
+                    program["version"],
+                    program["status"],
+                    canonical_json(program),
+                    program["fingerprint"],
+                    program["createdAt"],
+                    program["updatedAt"],
+                ),
+            )
+            self._append_program_event(
+                program_id,
+                event_type="program.created",
+                occurred_at=occurred_at,
+                payload={
+                    "programId": program_id,
+                    "fingerprint": program["fingerprint"],
+                    "version": program["version"],
+                    "stages": len(program["stages"]),
+                },
+            )
+        return program_id
+
+    def get_program(self, program_id: str) -> dict[str, Any]:
+        return json.loads(self._program_row(program_id)["document_json"])
+
+    def list_programs(self) -> list[dict[str, Any]]:
+        rows = self._connection.execute(
+            """
+            SELECT program_id, version, status, fingerprint, created_at, updated_at
+            FROM programs ORDER BY created_at, program_id
+            """
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    def activate_program(self, program_id: str, *, at: str | None = None) -> None:
+        self._transition_program(program_id, "active", event_type="program.activated", at=at)
+
+    def pause_program(self, program_id: str, *, at: str | None = None) -> None:
+        self._transition_program(program_id, "paused", event_type="program.paused", at=at)
+
+    def cancel_program(self, program_id: str, *, at: str | None = None) -> None:
+        self._transition_program(program_id, "cancelled", event_type="program.cancelled", at=at)
+
+    def resume_program(self, program_id: str, *, at: str | None = None) -> None:
+        occurred_at = at or utc_now()
+        parse_datetime(occurred_at)
+        with self._write():
+            row = self._program_row(program_id)
+            if row["status"] not in {"paused", "blocked"}:
+                raise ControlPlaneStateError("program status transition is not allowed")
+            if row["status"] == "blocked" and self.pending_decisions(program_id):
+                raise ControlPlaneStateError(
+                    "blocked program cannot resume with pending decisions"
+                )
+            self._apply_program_status(
+                row,
+                "active",
+                event_type="program.resumed",
+                occurred_at=occurred_at,
+                payload={"from": row["status"]},
+            )
+
+    def block_program(self, program_id: str, *, reason_code: str, at: str | None = None) -> None:
+        if reason_code not in PROGRAM_BLOCK_REASONS:
+            raise ControlPlaneContractError("program block reason code is not allowed")
+        occurred_at = at or utc_now()
+        parse_datetime(occurred_at)
+        with self._write():
+            row = self._program_row(program_id)
+            self._require_program_transition(row["status"], "blocked")
+            self._apply_program_status(
+                row,
+                "blocked",
+                event_type="program.blocked",
+                occurred_at=occurred_at,
+                payload={"reasonCode": reason_code},
+            )
+
+    def complete_program(self, program_id: str, *, at: str | None = None) -> None:
+        occurred_at = at or utc_now()
+        parse_datetime(occurred_at)
+        with self._write():
+            row = self._program_row(program_id)
+            self._require_program_transition(row["status"], "completed")
+            if not self.verify_program_chain(program_id):
+                raise ControlPlaneStateError("program audit chain is invalid")
+            if self.pending_decisions(program_id):
+                raise ControlPlaneStateError("program cannot complete with pending decisions")
+            self._apply_program_status(
+                row,
+                "completed",
+                event_type="program.completed",
+                occurred_at=occurred_at,
+                payload={"costUsd": self.program_cost_usd(program_id)},
+            )
+
+    def record_stage_mission(
+        self, program_id: str, stage_id: str, mission_id: str, *, at: str | None = None
+    ) -> None:
+        """Idempotent: recording the same stage/mission pair twice is a no-op;
+        a different mission for an already-recorded stage is a state error."""
+
+        safe_identifier(stage_id)
+        require_stable_id(mission_id, MISSION_ID_PREFIX)
+        occurred_at = at or utc_now()
+        parse_datetime(occurred_at)
+        with self._write():
+            self._program_row(program_id)
+            existing = self._connection.execute(
+                "SELECT mission_id FROM program_stage_missions WHERE program_id = ? AND stage_id = ?",
+                (program_id, stage_id),
+            ).fetchone()
+            if existing is not None:
+                if existing["mission_id"] != mission_id:
+                    raise ControlPlaneStateError(
+                        "program stage already has a different mission recorded"
+                    )
+                return
+            self._connection.execute(
+                """
+                INSERT INTO program_stage_missions(program_id, stage_id, mission_id, created_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (program_id, stage_id, mission_id, occurred_at),
+            )
+            self._append_program_event(
+                program_id,
+                event_type="program.stage_mission_recorded",
+                occurred_at=occurred_at,
+                payload={"stageId": stage_id, "missionId": mission_id},
+            )
+
+    def stage_mission(self, program_id: str, stage_id: str) -> str | None:
+        self._program_row(program_id)
+        safe_identifier(stage_id)
+        row = self._connection.execute(
+            "SELECT mission_id FROM program_stage_missions WHERE program_id = ? AND stage_id = ?",
+            (program_id, stage_id),
+        ).fetchone()
+        return row["mission_id"] if row else None
+
+    def program_cost_usd(self, program_id: str) -> float:
+        self._program_row(program_id)
+        rows = self._connection.execute(
+            "SELECT mission_id FROM program_stage_missions WHERE program_id = ?", (program_id,)
+        ).fetchall()
+        return sum(self.total_cost_usd(row["mission_id"]) for row in rows)
+
+    def list_program_events(self, program_id: str) -> list[dict[str, Any]]:
+        require_stable_id(program_id, PROGRAM_ID_PREFIX_RAW)
+        rows = self._connection.execute(
+            """
+            SELECT event_json FROM program_events
+            WHERE program_id = ? ORDER BY sequence
+            """,
+            (program_id,),
+        ).fetchall()
+        return [json.loads(row["event_json"]) for row in rows]
+
+    def verify_program_chain(self, program_id: str) -> bool:
+        require_stable_id(program_id, PROGRAM_ID_PREFIX_RAW)
+        rows = self._connection.execute(
+            """
+            SELECT sequence, event_json, event_hash, previous_hash FROM program_events
+            WHERE program_id = ? ORDER BY sequence
+            """,
+            (program_id,),
+        ).fetchall()
+        if not rows:
+            return False
+        previous: str | None = None
+        for expected_sequence, row in enumerate(rows, start=1):
+            try:
+                event = json.loads(row["event_json"])
+            except ValueError:
+                return False
+            if (
+                row["sequence"] != expected_sequence
+                or event.get("sequence") != expected_sequence
+                or event.get("programId") != program_id
+                or row["event_hash"] != event.get("eventHash")
+                or row["previous_hash"] != previous
+                or not verify_program_event(event, previous)
+            ):
+                return False
+            previous = event["eventHash"]
+        return True
 
     # -- internals ----------------------------------------------------------
 
@@ -1060,6 +1301,133 @@ class MissionStore:
             raise ControlPlaneStateError("mission is not registered")
         return row
 
+    def _subject_kind(self, subject_id: str) -> str:
+        """``"mission"`` or ``"program"`` from *subject_id*'s prefix — the two
+        kinds of subject a decision may now have (PIP-910); raises when it
+        matches neither ``MSN-`` nor ``PRG-``."""
+
+        try:
+            require_stable_id(subject_id, MISSION_ID_PREFIX)
+            return "mission"
+        except ControlPlaneContractError:
+            pass
+        require_stable_id(subject_id, PROGRAM_ID_PREFIX_RAW)
+        return "program"
+
+    def _subject_row(self, subject: str, subject_id: str) -> sqlite3.Row:
+        return self._mission_row(subject_id) if subject == "mission" else self._program_row(subject_id)
+
+    def _append_subject_event(
+        self,
+        subject: str,
+        subject_id: str,
+        *,
+        event_type: str,
+        occurred_at: str,
+        payload: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        if subject == "mission":
+            return self._append_event(
+                subject_id, event_type=event_type, occurred_at=occurred_at, payload=payload
+            )
+        return self._append_program_event(
+            subject_id, event_type=event_type, occurred_at=occurred_at, payload=payload
+        )
+
+    def _program_row(self, program_id: str) -> sqlite3.Row:
+        require_stable_id(program_id, PROGRAM_ID_PREFIX_RAW)
+        row = self._connection.execute(
+            "SELECT * FROM programs WHERE program_id = ?", (program_id,)
+        ).fetchone()
+        if row is None:
+            raise ControlPlaneStateError("program is not registered")
+        return row
+
+    @staticmethod
+    def _require_program_transition(current: str, target: str) -> None:
+        if target not in PROGRAM_TRANSITIONS.get(current, frozenset()):
+            raise ControlPlaneStateError("program status transition is not allowed")
+
+    def _transition_program(
+        self, program_id: str, target: str, *, event_type: str, at: str | None
+    ) -> None:
+        occurred_at = at or utc_now()
+        parse_datetime(occurred_at)
+        with self._write():
+            row = self._program_row(program_id)
+            self._require_program_transition(row["status"], target)
+            self._apply_program_status(
+                row, target, event_type=event_type, occurred_at=occurred_at, payload={}
+            )
+
+    def _apply_program_status(
+        self,
+        row: sqlite3.Row,
+        target: str,
+        *,
+        event_type: str,
+        occurred_at: str,
+        payload: Mapping[str, Any],
+    ) -> None:
+        document = json.loads(row["document_json"])
+        document["status"] = target
+        document["updatedAt"] = occurred_at
+        validate_program(document)
+        self._connection.execute(
+            "UPDATE programs SET status = ?, document_json = ?, updated_at = ? WHERE program_id = ?",
+            (target, canonical_json(document), occurred_at, row["program_id"]),
+        )
+        self._append_program_event(
+            row["program_id"],
+            event_type=event_type,
+            occurred_at=occurred_at,
+            payload={"status": target, **payload},
+        )
+
+    def _append_program_event(
+        self,
+        program_id: str,
+        *,
+        event_type: str,
+        occurred_at: str,
+        payload: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        prior = self._connection.execute(
+            """
+            SELECT sequence, event_hash FROM program_events
+            WHERE program_id = ? ORDER BY sequence DESC LIMIT 1
+            """,
+            (program_id,),
+        ).fetchone()
+        sequence = prior["sequence"] + 1 if prior else 1
+        previous_hash = prior["event_hash"] if prior else None
+        event = build_program_event(
+            program_id=program_id,
+            sequence=sequence,
+            occurred_at=occurred_at,
+            event_type=event_type,
+            payload=payload,
+            previous_hash=previous_hash,
+        )
+        self._connection.execute(
+            """
+            INSERT INTO program_events(
+                program_id, sequence, event_id, event_type, event_json,
+                event_hash, previous_hash
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                program_id,
+                sequence,
+                event["eventId"],
+                event_type,
+                canonical_json(event),
+                event["eventHash"],
+                previous_hash,
+            ),
+        )
+        return event
+
     def _run_row(self, run_id: str) -> sqlite3.Row:
         require_stable_id(run_id, RUN_ID_PREFIX)
         row = self._connection.execute(
@@ -1124,7 +1492,7 @@ class MissionStore:
             );
             CREATE TABLE IF NOT EXISTS decisions(
                 decision_id TEXT PRIMARY KEY,
-                mission_id TEXT NOT NULL REFERENCES missions(mission_id),
+                mission_id TEXT NOT NULL,
                 kind TEXT NOT NULL,
                 status TEXT NOT NULL,
                 context_json TEXT NOT NULL,
@@ -1146,6 +1514,32 @@ class MissionStore:
                 evidence_ref TEXT,
                 evidence_fingerprint TEXT,
                 at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS programs(
+                program_id TEXT PRIMARY KEY,
+                version INTEGER NOT NULL,
+                status TEXT NOT NULL,
+                document_json TEXT NOT NULL,
+                fingerprint TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS program_events(
+                program_id TEXT NOT NULL REFERENCES programs(program_id),
+                sequence INTEGER NOT NULL,
+                event_id TEXT NOT NULL UNIQUE,
+                event_type TEXT NOT NULL,
+                event_json TEXT NOT NULL,
+                event_hash TEXT NOT NULL,
+                previous_hash TEXT,
+                PRIMARY KEY(program_id, sequence)
+            );
+            CREATE TABLE IF NOT EXISTS program_stage_missions(
+                program_id TEXT NOT NULL REFERENCES programs(program_id),
+                stage_id TEXT NOT NULL,
+                mission_id TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY(program_id, stage_id)
             );
             """
         )

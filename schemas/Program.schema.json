@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pipe-venture-builder.local/schemas/Program.schema.json",
+  "title": "Program",
+  "description": "A dor em ondas de missões (PIP-910): a Program chains Mission-shaped stages behind a verifiable gate (startWhen), branching each dependent wave from its dependency's mission branch — never merging. The contract enforced in code lives in src/pipe_venture_builder/mission/program.py; this schema mirrors it.",
+  "x-pipe-schema-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "programId",
+    "version",
+    "supersedes",
+    "objective",
+    "doneWhen",
+    "workspace",
+    "constraints",
+    "stages",
+    "status",
+    "createdAt",
+    "updatedAt",
+    "fingerprint"
+  ],
+  "properties": {
+    "schemaVersion": { "type": "string", "enum": ["0.1.0"] },
+    "programId": { "$ref": "#/$defs/programId" },
+    "version": { "type": "integer", "minimum": 1 },
+    "supersedes": {
+      "oneOf": [{ "$ref": "#/$defs/programId" }, { "type": "null" }]
+    },
+    "objective": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "doneWhen": {
+      "type": "array",
+      "maxItems": 64,
+      "items": { "$ref": "#/$defs/gateCriterion" }
+    },
+    "workspace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repo", "baseRef"],
+      "properties": {
+        "repo": { "type": "string", "pattern": "^/(?!.*(^|/)\\.\\.(/|$)).*$", "maxLength": 1024 },
+        "baseRef": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,255}$" }
+      }
+    },
+    "constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maxBudgetUsd"],
+      "properties": {
+        "maxBudgetUsd": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "stages": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": { "$ref": "#/$defs/stage" }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "active", "paused", "blocked", "completed", "cancelled"]
+    },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "fingerprint": { "$ref": "#/$defs/fingerprint" }
+  },
+  "$defs": {
+    "programId": { "type": "string", "pattern": "^PRG-[a-f0-9]{12}$" },
+    "fingerprint": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "stageId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$" },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^(?!/)(?!~)(?!\\.$)(?!.*(^|/)\\.\\.(/|$))[^\\\\\\u0000]+$"
+    },
+    "gateCriterionBase": {
+      "type": "object",
+      "required": ["id", "text", "kind"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" },
+        "text": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "kind": { "type": "string", "enum": ["check", "artifact"] }
+      }
+    },
+    "gateCriterion": {
+      "allOf": [{ "$ref": "#/$defs/gateCriterionBase" }],
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "text", "kind", "command"],
+          "properties": {
+            "id": true,
+            "text": true,
+            "kind": { "const": "check" },
+            "command": { "type": "string", "minLength": 1, "maxLength": 2000 },
+            "cwd": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": "^(?!/)(?!~)(?!.*(^|/)\\.\\.(/|$))[^\\\\\\u0000]+$"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "text", "kind", "path"],
+          "properties": {
+            "id": true,
+            "text": true,
+            "kind": { "const": "artifact" },
+            "path": { "$ref": "#/$defs/relativePath" },
+            "mustMatch": { "type": "string", "minLength": 1, "maxLength": 500 }
+          }
+        }
+      ]
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "workerModel": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "reviewerModel": { "type": "string", "minLength": 1, "maxLength": 200 }
+      }
+    },
+    "missionDraft": {
+      "description": "A Mission document (see Mission.schema.json) without missionId/status/timestamps/fingerprint/program, and whose workspace declares only writeSet — the Program resolves repo and baseRef by branch chaining.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion", "version", "supersedes", "title", "intent", "problem", "who",
+        "successCriteria", "nonGoals", "delegable", "reservedToHuman", "constraints",
+        "workspace", "delivery", "linearTicketIds"
+      ],
+      "properties": {
+        "schemaVersion": { "type": "string", "enum": ["0.1.0", "0.2.0"] },
+        "version": { "type": "integer", "minimum": 1 },
+        "supersedes": {
+          "oneOf": [{ "type": "string", "pattern": "^MSN-[a-f0-9]{12}$" }, { "type": "null" }]
+        },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "intent": { "type": "string", "minLength": 1, "maxLength": 4000 },
+        "problem": { "type": "string", "minLength": 1, "maxLength": 4000 },
+        "who": { "type": "string", "minLength": 1, "maxLength": 4000 },
+        "successCriteria": { "type": "array", "minItems": 1, "maxItems": 64 },
+        "nonGoals": { "type": "array", "maxItems": 64 },
+        "delegable": { "type": "array", "maxItems": 64 },
+        "reservedToHuman": { "type": "array", "maxItems": 64 },
+        "delegation": {},
+        "constraints": { "type": "object" },
+        "workspace": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["writeSet"],
+          "properties": {
+            "writeSet": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 64,
+              "uniqueItems": true,
+              "items": { "$ref": "#/$defs/relativePath" }
+            }
+          }
+        },
+        "delivery": { "type": "object" },
+        "linearTicketIds": { "type": "array", "maxItems": 64 }
+      }
+    },
+    "stage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "missionDraft", "dependsOn", "startWhen", "requiresFounder", "execution"],
+      "properties": {
+        "id": { "$ref": "#/$defs/stageId" },
+        "missionDraft": { "$ref": "#/$defs/missionDraft" },
+        "dependsOn": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/stageId" }
+        },
+        "chainFrom": { "$ref": "#/$defs/stageId" },
+        "startWhen": {
+          "type": "array",
+          "maxItems": 64,
+          "items": { "$ref": "#/$defs/gateCriterion" }
+        },
+        "requiresFounder": { "type": "boolean" },
+        "execution": { "$ref": "#/$defs/execution" }
+      }
+    }
+  }
+}

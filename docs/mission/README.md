@@ -212,3 +212,74 @@ Só executáveis falsos (`tests/mission/fakes/fake_claude.py`, `fake_gh.py`); ne
 ```bash
 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src .venv/bin/python -B -m unittest discover -s tests/mission -t . -q
 ```
+
+## Program — uma dor em ondas de missões, com portão verificável entre elas (PIP-910)
+
+A dor real: "a planilha de controle financeiro vira um sistema web" não é uma missão, são sete (esquema, dados, requisitos funcionais, requisitos não funcionais, protótipo, arquitetura, implementação em fases). Sem um objeto acima da missão, é o fundador — no chat — quem cria a próxima missão e confere se a anterior entregou: o gargalo que o Mission Loop existe para remover. Um `Program` fecha esse laço: encadeia ondas de missões com um portão mecânico entre elas, reaproveitando o supervisor de missão, o `MissionStore` e a verificação existentes por inteiro — sem duplicar nada e sem mergear nada (merge continua reservado ao fundador).
+
+### O documento Program
+
+`schemaVersion` "0.1.0" (`schemas/Program.schema.json`; contrato em `src/pipe_venture_builder/mission/program.py`), com:
+
+- `programId` `PRG-<12hex>`, gerado por `stable_id` do conteúdo (como `missionId`); `fingerprint` cobre tudo menos `status`/`createdAt`/`updatedAt`/`fingerprint`.
+- `objective`: a frase verificável da dor. `doneWhen`: critérios `check`/`artifact` do **programa** (pode ser vazia) — nunca `rubric`, porque é conferido por fora, mecanicamente, não por um modelo.
+- `workspace {repo, baseRef}`: só a base; cada onda resolve a sua própria (ver "Encadeamento por branch").
+- `constraints.maxBudgetUsd`: teto de custo acumulado do programa inteiro (soma do custo de cada missão de onda).
+- `stages` (≥ 1), cada uma com:
+  - `id`: slug único, tem de ser declarada depois de tudo que está no seu `dependsOn` (isso também recusa ciclo: um ciclo sempre precisa de uma referência para a frente).
+  - `missionDraft`: um documento de missão **sem** `missionId`/`status`/timestamps/`fingerprint`/`program` e cujo `workspace` só declara `writeSet` — o programa resolve `repo` e `baseRef` na hora de criar a missão da onda.
+  - `dependsOn`: ids de ondas já declaradas. `chainFrom`: obrigatório com duas ou mais dependências (tem de estar em `dependsOn`); com uma só, a dependência é o `chainFrom` implícito.
+  - `startWhen`: critérios `check`/`artifact` (pode ser vazia) — o portão mecânico entre ondas, ver abaixo.
+  - `requiresFounder`: portão humano opcional antes da onda.
+  - `execution` ({`workerModel`, `reviewerModel`} opcionais) — perfil de execução por onda; roteamento para executor local é PIP-911, fora deste ticket.
+- Toda missão criada por uma onda carrega `program: {"programId", "stage"}` (campo opcional do contrato `Mission`, ausente em toda missão que não veio de um programa — não entra na fingerprint de quem não o declara).
+
+### Encadeamento por branch (decisão de desenho)
+
+O programa **nunca mergeia** — merge continua reservado ao fundador. A onda 1 nasce de `workspace.baseRef` do programa; uma onda com dependência nasce da **branch da missão** da onda de `chainFrom` (`branch_name(mission)`, a mesma função que a entrega por PR já usa). Como uma missão com `delivery.kind: "none"` nunca comita (só a entrega por PR comita), o supervisor do programa comita o que sobrou no worktree da missão da onda — sem push, sem PR, nunca um merge — assim que ela termina `completed`, para que a próxima onda (ou o `doneWhen` final) veja o conteúdo por um `git worktree add` de verdade, não por um diretório de outra onda.
+
+### O portão: `startWhen` por fora
+
+`startWhen` não é "a missão anterior disse que terminou": é a mesma forma verificável de um critério de sucesso (`check` com exit 0, ou `artifact` com `mustMatch`), conferida **de fora**, num `git worktree --detach` descartável (removido depois) da branch de cada dependência da onda — nunca no worktree da própria missão da onda seguinte. Uma onda com duas dependências (`dependsOn` com `chainFrom` obrigatório) tem cada critério do seu `startWhen` conferido contra **qualquer uma** das branches das dependências: útil quando cada dependência produziu uma evidência diferente. Insatisfeito → o programa fica `blocked`, uma decisão `escalation` abre (`stop`/`revise_stage`), e **nenhuma missão é criada** para a onda.
+
+### O laço (`pipe_venture_builder.mission.program_supervisor.supervise_program`)
+
+No mesmo estilo de `supervisor.supervise` (repete até parar), por ciclo:
+
+1. Programa não `active` → devolve o estado como está.
+2. Custo acumulado (`store.program_cost_usd`) acima de `maxBudgetUsd` → `blocked` + decisão `budget` (`stop`/`revise_program`), sem iniciar outra onda.
+3. Todas as ondas `completed` → avalia `doneWhen` contra a branch da **última** onda declarada (que já carrega tudo por encadeamento): satisfeito → `program.completed`; senão → `blocked` + decisão `escalation` (`stop`/`revise_program`).
+4. Escolhe a próxima onda pronta: dependências todas `completed` (uma onda com uma missão em andamento — raríssimo, resume — é preferida a criar outra); sem isso, nada pronto → `active`/`waiting_on_dependencies`.
+5. `requiresFounder`: decisão `approval` (`approve`/`stop`, padrão seguro `stop`) antes de criar a missão; enquanto pendente ou não aprovada, o programa fica `paused` e nada começa. Aprovada, o laço segue sem reabrir a decisão.
+6. `startWhen` da onda (acima). Insatisfeito bloqueia sem criar missão.
+7. Sem missão gravada ainda para a onda: resolve a base (encadeamento por branch), monta o documento a partir do `missionDraft` (+ `workspace.repo`/`baseRef` + `program`), `store.create` + `store.activate` + `store.record_stage_mission` (idempotente: gravar o mesmo par onda/missão duas vezes não faz nada; uma missão diferente para a mesma onda é erro de estado).
+8. Roda o **supervisor de missão que já existe** (`supervisor.supervise`) sobre essa missão, do início ao fim — nada aqui reimplementa worker, verificação, revisor ou entrega.
+9. Missão `completed` → comita o que sobrou no worktree da onda e volta ao passo 3. Missão `paused`/`blocked` → o programa segue para o mesmo estado, com uma decisão `escalation` própria (`stop`/`resume_stage`) — a onda seguinte nunca começa por baixo dela.
+
+Retomar o laço (`supervise_program` de novo) nunca recria a missão de uma onda já `completed`, nem de uma onda cuja missão já existe: a leitura de estado é toda durável (`store.stage_mission`), nada fica na memória do processo.
+
+### Decisões do programa: mesma tabela, `programId` como sujeito
+
+`store.open_decision`/`pending_decisions`/`resolve_decision` aceitam tanto `MSN-` quanto `PRG-` como sujeito — nada muda para missão. Os eventos de uma decisão de programa (`decision.opened`/`decision.resolved`/`decision.delegated`) ficam encadeados em `program_events`, não em `mission_events`: `_subject_kind`/`_append_subject_event` decidem a tabela pelo prefixo do id. Delegação (`delegated:orchestrator`) continua exclusiva de missão — nenhuma decisão de programa é resolvida sozinha.
+
+### Store: `programs`, `program_events`, `program_stage_missions`
+
+Mesma disciplina do `MissionStore`: `create_program`/`get_program`/`activate_program`/`pause_program`/`resume_program`/`cancel_program`/`block_program`/`complete_program` (transições fixas, como `TRANSITIONS` de missão); `record_stage_mission`/`stage_mission` (idempotente); `program_cost_usd` (soma de `total_cost_usd` de cada missão de onda gravada); `list_program_events`/`verify_program_chain` (cadeia por hash própria, como a de missão — `build_program_event`/`verify_program_event` em `events.py`, allowlist `PROGRAM_EVENT_TYPES` separada de `EVENT_TYPES`, que continua fixa e sem `program.*`). Payload de evento carrega só id e código, nunca o texto do objetivo ou da intenção.
+
+### `pipe program` — mesmo padrão de `pipe mission`
+
+```text
+pipe program create <program.json> [--store PATH] [--at RFC3339] [--json]
+pipe program show <PRG-id>
+pipe program status <PRG-id> [--home DIR] [--json]
+pipe program activate|pause|resume|cancel <PRG-id> [--at ...]
+pipe program decisions <PRG-id> [--pending]
+pipe program supervise <PRG-id> [--detach] [--claude-bin claude] [--gh-bin gh] [--store PATH]
+                       [--home DIR] [--poll-seconds 5] [--worker-model sonnet] [--reviewer-model sonnet]
+```
+
+`program status` devolve `programId`, `status`, `objective`, `costUsd`, `auditChainValid`, `pendingDecisions` e `stages` (cada uma com `id`, `status`, `missionId`, `reason`). Registrado por `register_program_commands`, chamado de dentro de `register_mission_commands` — o `pipe program ...` de nível superior não exige tocar no CLI raiz do Pipe.
+
+### O que não muda
+
+O que é delegável continua o do PIP-903/906 (nunca ampliado por um programa); cada onda continua entregando pela mesma missão fiscalizada (write set, verificação, revisor, PR quando `delivery.kind` da onda for `pull_request`); o programa em si nunca abre PR nem comita para publicar — só a persistência interna descrita acima, sem push. Testes próprios de cada regra (escolha da onda, encadeamento por branch, `startWhen`, portão humano, missão parada, teto de orçamento, `doneWhen`, idempotência) em `tests/mission/test_program.py`, além dos aceites ocultos do PIP-910.
