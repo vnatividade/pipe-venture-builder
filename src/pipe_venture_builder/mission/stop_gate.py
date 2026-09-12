@@ -58,6 +58,10 @@ from typing import Any, Mapping
 # genuinely stuck (flaky, or not fixable within this turn) must not hang
 # the worker forever — ``verify_criteria`` after the run is still the gate
 # that actually decides the cycle, exactly as before this hook existed.
+class StopGateWouldClobberError(RuntimeError):
+    """Levantada quando gerar o gate apagaria um settings que nao e nosso."""
+
+
 MAX_REINFORCEMENTS = 3
 
 # Per-check timeout inside the hook: short, because this runs inside the
@@ -94,7 +98,16 @@ for check_id, command, cwd in CHECKS:
         )
         ok = result.returncode == 0
     except subprocess.TimeoutExpired:
-        ok = False
+        # Estourar o relogio do acelerador NAO e reprovar. A verificacao que
+        # decide o ciclo da 600s; aqui sao 120s, porque isto roda dentro do
+        # turno do worker. Um check que leva entre os dois passa la e seria
+        # reportado aqui como falhando — o worker gastaria reforcos consertando
+        # o que nao esta quebrado. "Nao sei" deixa encerrar.
+        ok = True
+    except Exception:
+        # Qualquer outra falha do proprio acelerador tambem deixa passar: quem
+        # reprova e `verify_criteria`, depois.
+        ok = True
     if not ok:
         failed.append(check_id)
 
@@ -163,6 +176,28 @@ def _hook_command(script: str, python_bin: str) -> str:
     return f"{python_bin} - <<'{_HEREDOC_DELIMITER}'\n{script}\n{_HEREDOC_DELIMITER}\n"
 
 
+def _looks_like_our_gate(parsed: Any) -> bool:
+    """Reconhece um settings escrito por este gate, pela FORMA.
+
+    Não dá para carimbar uma chave própria no arquivo: o contrato diz que o
+    settings gerado não carrega nada além de ``hooks``. Então a identidade é
+    estrutural — só ``hooks``, só ``Stop``, e o comando com o delimitador do
+    heredoc deste módulo. Regenerar o nosso é permitido (os critérios mudam
+    entre missões e entre ciclos); qualquer outra coisa é do projeto e fica.
+    """
+
+    if not isinstance(parsed, dict) or set(parsed) != {"hooks"}:
+        return False
+    hooks = parsed["hooks"]
+    if not isinstance(hooks, dict) or set(hooks) != {"Stop"}:
+        return False
+    try:
+        command = hooks["Stop"][0]["hooks"][0]["command"]
+    except (KeyError, IndexError, TypeError):
+        return False
+    return isinstance(command, str) and _HEREDOC_DELIMITER in command
+
+
 def build_stop_gate_settings(
     mission: Mapping[str, Any], root: str | Path, *, python_bin: str | None = None
 ) -> Path:
@@ -183,8 +218,14 @@ def build_stop_gate_settings(
     gate_dir.mkdir(parents=True, exist_ok=True)
 
     state_file = state_path(root_path)
-    if state_file.exists():
-        state_file.unlink()
+    try:
+        if state_file.exists():
+            state_file.unlink()
+    except OSError:
+        # Estado sujo de worktree (o caminho virou diretorio, permissao). Tudo
+        # no caminho do hook falha ABERTO; o compilador nao pode ser a unica
+        # peca que falha fechado e derruba quem chamou.
+        pass
 
     checks = _check_criteria(mission)
     script = _hook_script(root_path, checks)
@@ -202,5 +243,22 @@ def build_stop_gate_settings(
         }
     }
     path = settings_path(root_path)
+    if path.exists():
+        # Um `.claude/settings.json` versionado pelo projeto pode carregar
+        # `permissions.deny` ou um `PreToolUse` — restricoes do worker.
+        # Sobrescrever aqui ALARGARIA o worker, que e exatamente o que este
+        # modulo promete nunca fazer. Preservar e recusar o gate e a direcao
+        # segura: sem acelerador o ciclo funciona como antes; sem a deny-list,
+        # nao.
+        existing = path.read_text(encoding="utf-8")
+        try:
+            parsed = json.loads(existing)
+        except json.JSONDecodeError:
+            parsed = None
+        if not _looks_like_our_gate(parsed):
+            raise StopGateWouldClobberError(
+                f"{path} ja existe e nao foi escrito por este gate; "
+                "preservado para nao remover restricoes do worker"
+            )
     path.write_text(json.dumps(settings, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     return path

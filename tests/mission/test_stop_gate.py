@@ -18,11 +18,17 @@ import subprocess
 import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
+import tempfile
+import unittest
 from unittest import TestCase
 
 from pipe_venture_builder.mission.contract import build_mission
 from pipe_venture_builder.mission.verify import verify_criteria
 from pipe_venture_builder.mission import stop_gate
+from pipe_venture_builder.mission.stop_gate import (
+    StopGateWouldClobberError,
+    build_stop_gate_settings,
+)
 from pipe_venture_builder.mission.stop_gate import (
     MAX_REINFORCEMENTS,
     build_stop_gate_settings,
@@ -283,3 +289,140 @@ class DefaultInterpreterTests(TestCase):
             settings = json.loads(path.read_text(encoding="utf-8"))
         command = settings["hooks"]["Stop"][0]["hooks"][0]["command"]
         self.assertIn(sys.executable, command)
+
+
+class StopGateReviewTests(unittest.TestCase):
+    """PIP-913, revisão adversarial: o que a suíte entregue não exercitava.
+
+    Três dos achados foram provados por mutação — remover a guarda deixava os
+    371 testes verdes. Estes testes existem para que isso não se repita.
+    """
+
+    def setUp(self) -> None:
+        self.root = Path(tempfile.mkdtemp(prefix="stopgate-review-"))
+
+    def _mission(self, criteria):
+        return {"missionId": "MSN-000000000000", "successCriteria": criteria}
+
+    def _check(self, cid, command, **extra):
+        body = {"id": cid, "kind": "check", "text": cid, "command": command}
+        body.update(extra)
+        return body
+
+    def _hook_command(self, criteria) -> str:
+        path = build_stop_gate_settings(self._mission(criteria), self.root)
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        return data["hooks"]["Stop"][0]["hooks"][0]["command"]
+
+    # -- injeção: a única linha que segura o envelope -------------------------
+
+    def test_the_heredoc_delimiter_is_quoted(self) -> None:
+        """Sem as aspas no delimitador, `$(...)` e crase do documento da missão
+        rodam no shell do HOOK — antes de o Python existir, fora do `cwd` do
+        critério e fora do timeout dele. Medido: com `<<EOF` o efeito colateral
+        aparece no cwd do hook; com `<<'EOF'` fica contido no do critério."""
+
+        comando = self._hook_command([self._check("C1", "true")])
+        primeira = comando.splitlines()[0]
+        self.assertRegex(
+            primeira, r"<<'[A-Za-z0-9_]+'",
+            f"delimitador do heredoc sem aspas — substituição do shell vaza: {primeira!r}",
+        )
+
+    def test_command_substitution_never_runs_in_the_hook_shell(self) -> None:
+        """O `cwd` separa os dois casos.
+
+        O comando do critério roda com `shell=True` no `cwd` DELE — então um
+        `$(...)` ali executar é comportamento normal, pré-existente em
+        `verify.run_check`. O que não pode acontecer é executar no shell do
+        HOOK, que roda no diretório de trabalho do worker, antes de o Python
+        existir e fora do timeout do critério. Com `<<EOF` sem aspas, o efeito
+        aparece no cwd do hook; com `<<'EOF'`, no cwd do critério.
+        """
+
+        sub = self.root / "sub"
+        sub.mkdir(parents=True, exist_ok=True)
+        comando = self._hook_command(
+            [self._check("C1", '$(printf x > marcador) true', cwd="sub")]
+        )
+        subprocess.run(comando, shell=True, capture_output=True, text=True,
+                       input="{}", cwd=self.root, timeout=120)
+        self.assertFalse(
+            (self.root / "marcador").exists(),
+            "a substituição do documento da missão executou no shell do hook",
+        )
+        self.assertTrue(
+            (sub / "marcador").exists(),
+            "o controle falhou: o comando do critério nem chegou a rodar",
+        )
+
+    # -- timeout: "não sei" não é "falhou" -----------------------------------
+
+    def test_a_check_slower_than_the_hook_timeout_does_not_block_the_turn(self) -> None:
+        """O acelerador dá 120s; a verificação que decide o ciclo dá 600s. Um
+        check entre os dois passa lá. Reprovar aqui faria o worker gastar
+        reforços consertando o que não está quebrado."""
+
+        from pipe_venture_builder.mission.stop_gate import HOOK_CHECK_TIMEOUT_SECONDS
+
+        lento = self._hook_command([self._check("C1", "sleep 5")])
+        adulterado = lento.replace("TIMEOUT = ", "TIMEOUT = 0.05  # ", 1)
+        self.assertNotEqual(adulterado, lento, "não achei a constante de timeout no script")
+        resultado = subprocess.run(adulterado, shell=True, capture_output=True, text=True,
+                                   input="{}", cwd=self.root, timeout=120)
+        self.assertEqual(
+            resultado.returncode, 0,
+            f"check que estourou o relógio do acelerador bloqueou o turno: {resultado.stderr[:200]}",
+        )
+        self.assertLess(HOOK_CHECK_TIMEOUT_SECONDS, 600)
+
+    def test_a_check_that_really_fails_still_blocks(self) -> None:
+        """Controle: o afrouxamento acima não pode ter virado 'nunca bloqueia'."""
+
+        comando = self._hook_command([self._check("C1", "false")])
+        resultado = subprocess.run(comando, shell=True, capture_output=True, text=True,
+                                   input="{}", cwd=self.root, timeout=120)
+        self.assertEqual(resultado.returncode, 2, "check falhando deixou de bloquear")
+
+    def test_the_per_check_timeout_is_declared(self) -> None:
+        comando = self._hook_command([self._check("C1", "true")])
+        self.assertIn("timeout=TIMEOUT", comando.replace(" ", ""),
+                      "sem timeout por check, um check pendurado segura o hook")
+
+    # -- não destruir restrição do projeto -----------------------------------
+
+    def test_an_existing_project_settings_is_never_clobbered(self) -> None:
+        """Um `.claude/settings.json` do projeto pode carregar `permissions.deny`
+        ou um `PreToolUse`. Sobrescrever ALARGARIA o worker — o oposto do que
+        este módulo promete."""
+
+        gate_dir = self.root / ".claude"
+        gate_dir.mkdir(parents=True, exist_ok=True)
+        alvo = gate_dir / "settings.json"
+        original = {"permissions": {"deny": ["Bash(curl *)"]},
+                    "hooks": {"PreToolUse": [{"hooks": [{"type": "command", "command": "guard"}]}]}}
+        alvo.write_text(json.dumps(original), encoding="utf-8")
+
+        with self.assertRaises(StopGateWouldClobberError):
+            build_stop_gate_settings(self._mission([self._check("C1", "true")]), self.root)
+
+        self.assertEqual(json.loads(alvo.read_text(encoding="utf-8")), original,
+                         "a restrição do projeto foi destruída")
+
+    def test_regenerating_our_own_settings_is_allowed(self) -> None:
+        """Controle: a guarda acima não pode impedir o próprio gate de rodar
+        duas vezes no mesmo worktree."""
+
+        criteria = [self._check("C1", "true")]
+        primeiro = build_stop_gate_settings(self._mission(criteria), self.root)
+        segundo = build_stop_gate_settings(self._mission(criteria), self.root)
+        self.assertEqual(Path(primeiro), Path(segundo))
+
+    # -- o compilador não pode ser a única peça que falha fechado ------------
+
+    def test_a_dirty_state_path_does_not_bring_the_caller_down(self) -> None:
+        gate_dir = self.root / ".claude"
+        gate_dir.mkdir(parents=True, exist_ok=True)
+        (gate_dir / "stop-gate-reinforcements").mkdir(exist_ok=True)
+        caminho = build_stop_gate_settings(self._mission([self._check("C1", "true")]), self.root)
+        self.assertTrue(Path(caminho).is_file())
