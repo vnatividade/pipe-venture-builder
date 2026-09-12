@@ -84,6 +84,8 @@ _WORDS = frozenset({
     "reembolso", "reembolsos", "cupom", "cupons", "fiscal",
     # governance
     "sudo", "writeset", "pypi", "exploration",
+    # legal/compliance claims (PIP-909)
+    "compliance", "sla",
 })
 # Tokens that a prefix below would otherwise catch but that are ordinary.
 _ORDINARY = frozenset({"mergesort", "mergeable", "merger"})
@@ -91,6 +93,8 @@ _ORDINARY = frozenset({"mergesort", "mergeable", "merger"})
 _PREFIXES = (
     "credenc", "credential", "password", "merg", "deploy", "cobranc", "pagar", "pague",
     "pagament", "payment", "refund", "estorn", "rotacion", "rotate",
+    # legal/compliance claims (PIP-909): "juridicamente", "juridico"...
+    "juridic",
 )
 # Pairs of token stems that must both appear within ``_WINDOW`` tokens of each
 # other. A stem ending in ``*`` matches by prefix; any other stem matches the
@@ -132,7 +136,8 @@ _PAIRS: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = (
     (("posta*", "post", "tweet*", "anuncia*", "announce*"), ("twitter", "linkedin", "instagram", "facebook",
                                                              "tiktok", "blog", "anuncio", "announcement")),
     (("dump*", "export*", "exporta*", "copia*", "copy", "baixa*", "download*"),
-     ("client*", "customer*", "usuario*", "user", "users", "producao", "production", "prod")),
+     ("client*", "customer*", "usuario*", "user", "users", "producao", "production", "prod",
+      "assinante*", "subscriber*")),
     (("recarreg*", "recharge", "top"), ("credito*", "credit*", "saldo", "balance")),
     (("modo", "mode"), ("repositorio", "repo", "repository", "exploration", "restricted", "pipe")),
     (("mudar", "muda", "trocar", "troca", "change", "bump", "aumenta*", "reduz*"), ("preco*", "price*", "plano", "plan")),

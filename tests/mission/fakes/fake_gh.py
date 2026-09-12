@@ -22,14 +22,19 @@ import os
 import sys
 from pathlib import Path
 
-# Mirrors ``pipe_venture_builder.mission.delivery._INTERPRETER_ENV``: this
-# script runs as a standalone process (no guarantee the package is
-# importable from here), so the names are duplicated rather than imported.
-_INTERPRETER_ENV = (
-    "PYTHONPATH", "PYTHONHOME", "PYTHONSTARTUP", "PYTHONUSERBASE",
-    "PYTHONNOUSERSITE", "PYTHONPLATLIBDIR", "PYTHONSAFEPATH",
-    "VIRTUAL_ENV", "__PYVENV_LAUNCHER__",
-)
+# This script runs as its own process (invoked as the fake ``gh``, with
+# ``gh_env()`` stripping the supervisor's PYTHONPATH before launch — PIP-905),
+# so the package is not guaranteed importable without help: locate ``src``
+# relative to this file (a fixed layout — ``tests/mission/fakes/`` three
+# levels under the repository root) and add it to ``sys.path`` before
+# importing, so the interpreter-variable list is derived from
+# ``delivery._INTERPRETER_ENV`` instead of duplicated (PIP-909: two adversarial
+# reviews had already shown a duplicated name list drifts out of sync with no
+# test to catch it).
+_SRC = Path(__file__).resolve().parents[3] / "src"
+if str(_SRC) not in sys.path:
+    sys.path.insert(0, str(_SRC))
+from pipe_venture_builder.mission.delivery import _INTERPRETER_ENV
 
 
 def _relevant_env() -> dict[str, str]:

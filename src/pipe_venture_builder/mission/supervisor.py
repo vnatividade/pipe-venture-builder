@@ -1349,11 +1349,24 @@ def _revision_path(home: Path, mission_id: str, cycle: int) -> Path:
     return home / mission_id / REVISIONS_DIR / f"cycle-{cycle}.md"
 
 
+# U+2028/U+2029 (LINE/PARAGRAPH SEPARATOR) are not ``category[0] == "C"``
+# (they are ``Zl``/``Zp``), so the control-character filter below never caught
+# them — a line break invisible to many readers (and to ``str.splitlines()``,
+# which does split on them) could still reach a revision file (PIP-909).
+# U+0085 (NEL) is already ``Cc`` and would be dropped either way; listed here
+# for the same reason it is in ``responder._fenced_blocker``.
+_LINE_BREAK_LIKE = chr(0x2028) + chr(0x2029) + "\x85"
+
+
 def _printable(text: str) -> str:
     """Model text without control characters (a NUL once made every later
-    write of the revision fail); newlines and tabs stay."""
+    write of the revision fail) and without U+2028/U+2029/U+0085; newlines
+    and tabs stay."""
 
-    return "".join(ch for ch in text if ch in "\n\t" or unicodedata.category(ch)[0] != "C")
+    return "".join(
+        ch for ch in text
+        if ch in "\n\t" or (ch not in _LINE_BREAK_LIKE and unicodedata.category(ch)[0] != "C")
+    )
 
 
 def _save_revision(home: Path, mission_id: str, cycle: int, text: str) -> None:

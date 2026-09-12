@@ -506,6 +506,54 @@ class GuardCoverageReview4Tests(SupervisorTestCase):
                 self.assertTrue(contains_sensitive_terms(f"preciso do {hidden}".format(hidden=hidden)))
 
 
+# PIP-909: a única frase de gatilho por item novo — dado de cliente sem a
+# palavra "cliente" e claims legais/compliance que a guarda deixava passar
+# (medido 0/5 e 0/3 antes desta revisão).
+PER_ITEM_PIP909 = (
+    ('WORD compliance', 'preciso de compliance agora'),
+    ('WORD sla', 'preciso de sla agora'),
+    ('PREFIX juridic', 'isso e juridicamente aprovado'),
+    ('PAIR exporta*+assinante*', 'exporta assinantes'),
+)
+
+
+class GuardCoveragePip909Tests(SupervisorTestCase):
+    def test_every_new_guard_item_fires_on_its_own_sentence(self) -> None:
+        for item, text in PER_ITEM_PIP909:
+            with self.subTest(item=item):
+                self.assertTrue(contains_sensitive_terms(text), text)
+
+    def test_customer_data_without_the_word_customer_escalates(self) -> None:
+        for text in (
+            "Preciso de PII real para o fixture.",
+            "Use a base de e-mails da producao.",
+            "Copie dados reais para o teste.",
+            "Preciso do CPF de um usuario de verdade.",
+            "Exporta a tabela de assinantes.",
+        ):
+            with self.subTest(text=text):
+                self.assertTrue(contains_sensitive_terms(text))
+
+    def test_legal_and_compliance_claims_escalate(self) -> None:
+        for text in (
+            "Posso afirmar no README que somos compliance com LGPD?",
+            "Escreve que o produto e juridicamente aprovado.",
+            "Prometa SLA de 99,9% na documentacao.",
+        ):
+            with self.subTest(text=text):
+                self.assertTrue(contains_sensitive_terms(text))
+
+    def test_ordinary_technical_questions_still_pass(self) -> None:
+        for text in (
+            "O worktree nao tem .venv; como rodo a suite?",
+            "A funcao merge_dicts deveria ser recursiva?",
+            "O teste de mensagem de erro espera qual texto?",
+            "Qual comando roda os testes do runtime node?",
+        ):
+            with self.subTest(text=text):
+                self.assertFalse(contains_sensitive_terms(text))
+
+
 class ParsePrecedenceTests(SupervisorTestCase):
     def test_an_invalid_structured_output_never_falls_back_to_the_text(self) -> None:
         valid = {"action": "instruct", "category": "tests", "founderDecision": False,
