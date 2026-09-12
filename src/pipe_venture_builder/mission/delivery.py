@@ -34,14 +34,28 @@ CHECK_BUCKETS_PENDING = frozenset({"pending"})
 # Variáveis do interpretador do próprio supervisor (ex.: PYTHONPATH=src quando
 # roda do código-fonte) não podem vazar para git/gh e seus hooks: o pre-push
 # do repositório tentou `python3 -m pytest` por causa disso na demo de 11/09.
-_INTERPRETER_ENV = ("PYTHONPATH", "PYTHONHOME", "PYTHONSTARTUP", "PYTHONUSERBASE")
+# A lista cobre todo o mecanismo de configuração do CPython descrito em
+# `python3 --help`/`man 1 python3` (variáveis PYTHON* que mudam sys.path,
+# comportamento de venv ou modo seguro) mais VIRTUAL_ENV/__PYVENV_LAUNCHER__,
+# que apontam para o virtualenv do supervisor.
+_INTERPRETER_ENV = (
+    "PYTHONPATH",
+    "PYTHONHOME",
+    "PYTHONSTARTUP",
+    "PYTHONUSERBASE",
+    "PYTHONNOUSERSITE",
+    "PYTHONPLATLIBDIR",
+    "PYTHONSAFEPATH",
+    "VIRTUAL_ENV",
+    "__PYVENV_LAUNCHER__",
+)
 
 # Variáveis que um hook de worktree vinculado (``git worktree add``) exporta
 # para apontar para o ADMINISTRATIVO daquele worktree — ``GIT_DIR`` absoluto
 # incluído. Um filho git do supervisor que herdasse isso operaria no
 # repositório errado; foi assim que a demo de 11/09 corrompeu o repositório
-# real (``core.bare=true``, branch movida). Nenhum filho git/gh do supervisor
-# e nenhum check de critério (``verify.run_check``) pode herdá-las.
+# real (``core.bare=true``, branch movida). Mantida como documentação do
+# incidente e usada pelos testes: o filtro abaixo é por PREFIXO, não por lista.
 GIT_CONTEXT_ENV = (
     "GIT_DIR",
     "GIT_WORK_TREE",
@@ -53,14 +67,59 @@ GIT_CONTEXT_ENV = (
     "GIT_QUARANTINE_PATH",
     "GIT_NAMESPACE",
 )
+# Variáveis que fazem o git (ou o gh) EXECUTAR um programa ou abrir um editor,
+# e que não começam com ``GIT_``. Um filho não interativo não precisa de
+# nenhuma delas (PIP-905, revisão adversarial: ``GIT_EXTERNAL_DIFF`` herdado
+# falsificou o diff mandado ao revisor).
+_PROGRAM_ENV = ("EDITOR", "VISUAL", "PAGER", "SSH_ASKPASS")
+# Forçado em todo filho: nenhum deles tem terminal para responder um prompt.
+_FORCED_ENV = {"GIT_TERMINAL_PROMPT": "0"}
 
 
 def child_env() -> dict[str, str]:
-    """Environment for git/gh children: the caller's, minus interpreter leaks
-    and minus the linked-worktree ``GIT_*`` variables (see ``GIT_CONTEXT_ENV``)."""
+    """Environment for every child of the supervisor (git, gh, checks, worker,
+    reviewer, responder): the caller's, minus **every** variable whose name
+    starts with ``GIT_``, minus the interpreter leaks (``_INTERPRETER_ENV``)
+    and the program/editor ones (``_PROGRAM_ENV``), plus
+    ``GIT_TERMINAL_PROMPT=0``.
 
-    excluded = frozenset(_INTERPRETER_ENV) | frozenset(GIT_CONTEXT_ENV)
-    return {key: value for key, value in os.environ.items() if key not in excluded}
+    A prefix, not a list: three adversarial reviews of name lists showed the
+    same failure each time. The list missed ``GIT_CONFIG_GLOBAL``,
+    ``GIT_CONFIG_SYSTEM``, ``GIT_EXTERNAL_DIFF``, ``GIT_SSH_COMMAND`` and
+    ``GIT_PROTOCOL_FROM_USER`` — measured: a ``core.fsmonitor`` injected
+    through ``GIT_CONFIG_GLOBAL`` ran a program during a mission, and an
+    inherited ``GIT_EXTERNAL_DIFF`` falsified the diff sent to the reviewer,
+    both invisible to ``git_config_snapshot`` (which only reads ``--local``).
+    The supervisor never needs an inherited ``GIT_*``: it passes what it needs
+    explicitly (``-c user.name``, ``-c core.hooksPath``, ``--git-dir`` via
+    ``cwd``). ``gh`` authenticates through ``GH_*``/``GITHUB_*``, which are
+    kept, and ``SSH_AUTH_SOCK`` (no ``GIT_`` prefix) still reaches a push
+    over ssh."""
+
+    excluded = frozenset(_INTERPRETER_ENV) | frozenset(_PROGRAM_ENV)
+    kept = {
+        key: value for key, value in os.environ.items()
+        if key not in excluded and not key.startswith("GIT_")
+    }
+    kept.update(_FORCED_ENV)
+    return kept
+
+
+def gh_env() -> dict[str, str]:
+    """Environment for every ``gh`` the supervisor runs: ``child_env()`` with
+    ``core.hooksPath`` forced to ``/dev/null`` via the ``GIT_CONFIG_*``
+    mechanism. ``gh`` shells out to ``git`` internally for several
+    subcommands (``pr create`` pushes, ``pr checks`` reads refs); without
+    this, that inner git would run repository hooks with the supervisor's
+    credentials the same way a bare ``git`` child would (see
+    ``NO_HOOKS_PATH``). ``child_env()`` already stripped any inherited
+    ``GIT_CONFIG_*``, so only this forced override remains."""
+
+    env = child_env()
+    env["GIT_CONFIG_COUNT"] = "1"
+    env["GIT_CONFIG_KEY_0"] = "core.hooksPath"
+    env["GIT_CONFIG_VALUE_0"] = NO_HOOKS_PATH
+    return env
 
 
 # ``core.hooksPath`` for every git the supervisor runs against a mission
@@ -461,7 +520,7 @@ def _gh(gh_bin: str, args: Sequence[str], *, cwd: str | Path, ok_codes: tuple[in
         completed = subprocess.run(
             [gh_bin, *args],
             cwd=str(cwd), stdin=devnull, capture_output=True, text=True, encoding="utf-8",
-            errors="replace", timeout=GH_TIMEOUT_SECONDS, check=False, env=child_env(),
+            errors="replace", timeout=GH_TIMEOUT_SECONDS, check=False, env=gh_env(),
         )
     if completed.returncode not in ok_codes:
         raise RuntimeError(f"gh {' '.join(args[:2])} failed with exit code {completed.returncode}")
