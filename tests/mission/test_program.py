@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from pipe_venture_builder.control_plane.model import ControlPlaneContractError, ControlPlaneStateError
+from pipe_venture_builder.mission.contract import EXECUTOR_KINDS
 from pipe_venture_builder.mission.program import PROGRAM_ID_PREFIX, build_program
 from pipe_venture_builder.mission.program_supervisor import supervise_program
 from pipe_venture_builder.mission.status import build_program_status
@@ -234,9 +235,16 @@ class ExecutorPolicyTests(ProgramTestCase):
             build_program(program_document(repo, [stage("a", execution={"executor": "gpt5"})]))
 
     def test_schema_declares_the_same_executor_enum_the_code_enforces(self) -> None:
+        """Compara com ``EXECUTOR_KINDS``, não com literais reescritos aqui.
+
+        A versão anterior comparava o schema com ``{"claude", "local"}`` à mão,
+        então o nome prometia consistência código×schema e o teste não lia o
+        código: acrescentar um valor só no ``EXECUTOR_KINDS`` passava verde.
+        """
+
         schema = json.loads((REPOSITORY_ROOT / "schemas/Program.schema.json").read_text())
         executor = schema["$defs"]["execution"]["properties"]["executor"]
-        self.assertEqual(set(executor["enum"]), {"claude", "local"})
+        self.assertEqual(set(executor["enum"]), set(EXECUTOR_KINDS))
 
 
 # -- the loop --------------------------------------------------------------------

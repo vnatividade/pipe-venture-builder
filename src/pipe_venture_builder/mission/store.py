@@ -1126,12 +1126,29 @@ class MissionStore:
                 """,
                 (program_id, stage_id, mission_id, occurred_at),
             )
+            payload: dict[str, Any] = {"stageId": stage_id, "missionId": mission_id}
+            declared = self._stage_declared_executor(program_id, stage_id)
+            if declared is not None and declared != EXECUTOR_KIND_CLAUDE:
+                # A onda declarou um executor que o dispatch ainda não honra
+                # (roteamento é a onda 2 do PIP-911). Aceitar em silêncio faria
+                # o fundador pagar modelo forte achando que rodou local, sem
+                # nada em evento, log ou status dizendo o contrário. A
+                # divergência entra na cadeia encadeada por hash.
+                payload["executorDeclared"] = declared
+                payload["executorUsed"] = EXECUTOR_KIND_CLAUDE
             self._append_program_event(
                 program_id,
                 event_type="program.stage_mission_recorded",
                 occurred_at=occurred_at,
-                payload={"stageId": stage_id, "missionId": mission_id},
+                payload=payload,
             )
+
+    def _stage_declared_executor(self, program_id: str, stage_id: str) -> str | None:
+        document = json.loads(self._program_row(program_id)["document_json"])
+        for stage in document["stages"]:
+            if stage["id"] == stage_id:
+                return stage["execution"].get("executor")
+        return None
 
     def stage_mission(self, program_id: str, stage_id: str) -> str | None:
         self._program_row(program_id)
@@ -1680,11 +1697,20 @@ class MissionStore:
         missing.
         """
 
-        columns = {
-            row[1]
-            for row in self._connection.execute("PRAGMA table_info(mission_runs)").fetchall()
-        }
         with self._write():
+            # O estado é lido DENTRO da transação de escrita, como todo o resto
+            # do store (ver tests/mission/test_store_concurrency.py): lido fora,
+            # dois processos abrindo o mesmo banco — o supervisor e o CLI do
+            # fundador — podem ambos ver as colunas ausentes e ambos tentar o
+            # ALTER, e o segundo morre com `duplicate column name` cru, que nem
+            # é um erro do plano de controle. A migração 1->2 era tolerante por
+            # construção (recria a tabela); esta não seria.
+            columns = {
+                row[1]
+                for row in self._connection.execute(
+                    "PRAGMA table_info(mission_runs)"
+                ).fetchall()
+            }
             if "executor_kind" not in columns:
                 self._connection.execute(
                     "ALTER TABLE mission_runs ADD COLUMN executor_kind TEXT NOT NULL DEFAULT 'claude'"
@@ -1695,6 +1721,7 @@ class MissionStore:
                     """
                     UPDATE mission_runs SET model = substr(executor, instr(executor, ':') + 1)
                     WHERE instr(executor, ':') > 0
+                      AND length(substr(executor, instr(executor, ':') + 1)) > 0
                     """
                 )
             self._connection.execute(

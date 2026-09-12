@@ -273,6 +273,59 @@ class RunExecutorKindMigrationTests(unittest.TestCase):
             second._connection.execute("SELECT COUNT(*) FROM mission_runs").fetchone()[0], 1
         )
 
+    def test_a_version_one_database_with_real_runs_gets_both_migrations(self) -> None:
+        """Um v1 REALISTA: com `mission_runs` populada, que é o que existe num
+        banco de verdade da época do PIP-901/902.
+
+        A fixture v1 abaixo não cria `mission_runs`, então o
+        ``CREATE TABLE IF NOT EXISTS`` do `_initialize` já traz as colunas
+        novas e a migração cai no ramo "colunas já existem" — o caminho OPOSTO
+        ao de um banco real. Sem este teste, o `ALTER TABLE` de verdade nunca é
+        exercitado a partir da versão 1.
+        """
+
+        connection = sqlite3.connect(self.path)
+        connection.executescript(
+            MISSIONS_V1
+            + DECISIONS_V1
+            + """
+            CREATE TABLE metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL);
+            INSERT INTO metadata(key, value) VALUES ('schema_version', '1');
+            CREATE TABLE mission_runs(
+                run_id TEXT PRIMARY KEY, mission_id TEXT NOT NULL, attempt INTEGER NOT NULL,
+                cycle INTEGER NOT NULL, executor TEXT NOT NULL, session_id TEXT,
+                status TEXT NOT NULL, started_at TEXT NOT NULL, ended_at TEXT,
+                cost_usd REAL NOT NULL DEFAULT 0, num_turns INTEGER NOT NULL DEFAULT 0,
+                result_ref TEXT, result_fingerprint TEXT, verdict TEXT);
+            INSERT INTO missions VALUES
+                ('MSN-antiga', 1, 'completed', '{}', 'sha256:x', 'ontem', 'ontem');
+            INSERT INTO mission_runs(run_id, mission_id, attempt, cycle, executor, status, started_at)
+                VALUES ('MRUN-aaaaaaaaaaaa', 'MSN-antiga', 1, 1, 'worker:sonnet', 'collected', 'ontem'),
+                       ('MRUN-bbbbbbbbbbbb', 'MSN-antiga', 1, 1, 'reviewer:opus', 'collected', 'ontem');
+            """
+        )
+        connection.commit()
+        connection.close()
+
+        store = MissionStore(self.path)
+        self.addCleanup(store.close)
+        linhas = store._connection.execute(
+            "SELECT run_id, executor_kind, model FROM mission_runs ORDER BY run_id"
+        ).fetchall()
+        self.assertEqual(len(linhas), 2, "run perdido na migração 1→3")
+        self.assertEqual([r["executor_kind"] for r in linhas], ["claude", "claude"])
+        self.assertEqual([r["model"] for r in linhas], ["sonnet", "opus"])
+        self.assertNotIn(
+            "REFERENCES missions",
+            store._connection.execute(
+                "SELECT sql FROM sqlite_master WHERE name = 'decisions'"
+            ).fetchone()["sql"],
+        )
+        self.assertEqual(
+            store._connection.execute("PRAGMA integrity_check").fetchone()[0], "ok"
+        )
+        self.assertEqual(store._connection.execute("PRAGMA foreign_key_check").fetchall(), [])
+
     def test_a_version_one_database_gets_both_migrations_and_keeps_its_rows(self) -> None:
         """A database old enough to still need the 1→2 decisions fix also
         needs 2→3: both run in sequence, from a bare version-1 schema (no
