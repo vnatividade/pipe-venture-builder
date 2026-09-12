@@ -123,7 +123,8 @@
       "additionalProperties": false,
       "properties": {
         "workerModel": { "type": "string", "minLength": 1, "maxLength": 200 },
-        "reviewerModel": { "type": "string", "minLength": 1, "maxLength": 200 }
+        "reviewerModel": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "executor": { "type": "string", "enum": ["claude", "local"] }
       }
     },
     "missionDraft": {

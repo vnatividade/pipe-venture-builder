@@ -38,6 +38,8 @@ from pipe_venture_builder.control_plane.model import (
 
 from .contract import (
     CRITERION_FIELDS,
+    EXECUTOR_KIND_LOCAL,
+    EXECUTOR_KINDS,
     MAX_COMMAND_CHARS,
     MAX_CRITERION_TEXT_CHARS,
     MAX_LIST_ITEMS,
@@ -78,7 +80,7 @@ PROGRAM_STATUSES = frozenset(
 STAGE_CRITERION_KINDS = frozenset({"check", "artifact"})
 MAX_DOCUMENT_BYTES = 64 * 1024
 MAX_STAGES = 64
-EXECUTION_FIELDS = frozenset({"workerModel", "reviewerModel"})
+EXECUTION_FIELDS = frozenset({"workerModel", "reviewerModel", "executor"})
 
 PROGRAM_TOP_LEVEL_FIELDS = frozenset(
     {
@@ -295,15 +297,37 @@ def _validate_stages(stages: Any) -> None:
         _validate_stage_criteria(stage["startWhen"], what="program stage startWhen")
         if not isinstance(stage["requiresFounder"], bool):
             raise ControlPlaneContractError("program stage requiresFounder must be boolean")
-        _validate_execution(stage["execution"])
+        _validate_execution(stage["execution"], stage["missionDraft"])
         declared.add(stage_id)
 
 
-def _validate_execution(execution: Any) -> None:
+def _validate_execution(execution: Any, mission_draft: Mapping[str, Any]) -> None:
     if not isinstance(execution, Mapping) or set(execution) - EXECUTION_FIELDS:
         raise ControlPlaneContractError("program stage execution is invalid")
-    for key in EXECUTION_FIELDS & set(execution):
+    for key in {"workerModel", "reviewerModel"} & set(execution):
         _text(execution[key], f"program stage execution {key}", MAX_TITLE_CHARS)
+    if "executor" in execution:
+        executor = execution["executor"]
+        if executor not in EXECUTOR_KINDS:
+            raise ControlPlaneContractError("program stage execution executor is not allowed")
+        # Deterministic policy (PIP-911), not a prompt: a rubric criterion is
+        # judged by the reviewer, and the reviewer is never local (it has no
+        # executor field of its own — supervisor._review/_answer_blockers
+        # hardcode ``claude``). A wave whose own successCriteria has a
+        # rubric therefore cannot declare its worker executor ``local``
+        # either, so the whole wave's judgement stays on a real model.
+        if executor == EXECUTOR_KIND_LOCAL and _stage_has_rubric_criterion(mission_draft):
+            raise ControlPlaneContractError(
+                "program stage with a rubric success criterion cannot declare "
+                "a local executor"
+            )
+
+
+def _stage_has_rubric_criterion(mission_draft: Mapping[str, Any]) -> bool:
+    return any(
+        isinstance(criterion, Mapping) and criterion.get("kind") == "rubric"
+        for criterion in mission_draft.get("successCriteria", [])
+    )
 
 
 # -- missionDraft ------------------------------------------------------------

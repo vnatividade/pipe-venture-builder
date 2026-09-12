@@ -216,3 +216,116 @@ class AtomicStageMissionTests(ProgramTestCase):
             h.store._connection.execute("SELECT COUNT(*) FROM missions").fetchone()[0], antes,
             "a missao ficou gravada apesar do passo seguinte ter falhado",
         )
+
+
+class Pip911Onda1ReviewTests(ProgramTestCase):
+    """PIP-911 onda 1, revisão adversarial: as guardas novas que a suíte
+    entregue não exercitava (provado por mutação, com a suíte ficando verde).
+    """
+
+    def _store(self):
+        from pipe_venture_builder.mission.store import MissionStore
+
+        store = MissionStore(self.root / "guardas.sqlite3")
+        self.addCleanup(store.close)
+        return store
+
+    def _mission(self, store) -> str:
+        from pipe_venture_builder.mission.contract import build_mission
+
+        from tests.mission.helpers import mission_input
+
+        mission_id = store.create(build_mission(mission_input()), at=utc_now())
+        store.activate(mission_id, at=utc_now())
+        return mission_id
+
+    def test_an_unknown_executor_kind_is_refused_when_a_run_opens(self) -> None:
+        from pipe_venture_builder.control_plane.model import ControlPlaneContractError
+
+        store = self._store()
+        mission_id = self._mission(store)
+        with self.assertRaises(ControlPlaneContractError):
+            store.open_run(mission_id, attempt=1, cycle=1, executor="worker:sonnet",
+                           executor_kind="ollama", model="sonnet", at=utc_now())
+
+    def test_a_model_with_an_unsafe_shape_is_refused_when_a_run_opens(self) -> None:
+        from pipe_venture_builder.control_plane.model import ControlPlaneContractError
+
+        store = self._store()
+        mission_id = self._mission(store)
+        for hostile in ("../../etc/passwd", "sonnet; rm -rf /", "modelo com espaco"):
+            with self.subTest(model=hostile):
+                with self.assertRaises(ControlPlaneContractError):
+                    store.open_run(mission_id, attempt=1, cycle=1, executor="worker:sonnet",
+                                   executor_kind="claude", model=hostile, at=utc_now())
+
+    def test_a_well_formed_run_is_accepted(self) -> None:
+        """Controle positivo: as guardas acima recusam algo, não tudo."""
+
+        store = self._store()
+        mission_id = self._mission(store)
+        run_id = store.open_run(mission_id, attempt=1, cycle=1, executor="worker:sonnet",
+                                executor_kind="claude", model="sonnet", at=utc_now())
+        row = store._connection.execute(
+            "SELECT executor_kind, model FROM mission_runs WHERE run_id = ?", (run_id,)
+        ).fetchone()
+        self.assertEqual((row["executor_kind"], row["model"]), ("claude", "sonnet"))
+
+    def test_no_run_opened_by_the_supervisor_is_ever_local(self) -> None:
+        """A política de rubric usa como RAZÃO que o revisor e o respondedor
+        rodam sempre no modelo forte. Isso precisa ser uma invariante do
+        arquivo, não uma convenção: qualquer `open_run` do supervisor que
+        passasse `local` derrubaria a justificativa da política sem derrubar
+        nenhum teste. O `_review` já era coberto; o `_answer_blockers` não era.
+        """
+
+        import ast
+
+        fonte = Path("src/pipe_venture_builder/mission/supervisor.py").read_text(encoding="utf-8")
+        arvore = ast.parse(fonte)
+        achados = []
+        for no in ast.walk(arvore):
+            if not isinstance(no, ast.Call):
+                continue
+            alvo = no.func
+            if not (isinstance(alvo, ast.Attribute) and alvo.attr == "open_run"):
+                continue
+            kwargs = {k.arg: k.value for k in no.keywords if k.arg}
+            achados.append(kwargs.get("executor_kind"))
+
+        self.assertGreaterEqual(len(achados), 3, "esperava worker, revisor e respondedor")
+        for valor in achados:
+            self.assertIsNotNone(valor, "um open_run do supervisor omitiu executor_kind")
+            self.assertIsInstance(valor, ast.Name)
+            self.assertEqual(
+                valor.id, "EXECUTOR_KIND_CLAUDE",
+                "um run do supervisor pode abrir fora do modelo forte; "
+                "a política de rubric perde a razão de ser",
+            )
+
+    def test_a_declared_executor_the_dispatch_ignores_is_recorded_as_divergence(self) -> None:
+        """P2 da revisão: declarar `executor: local` na onda 1 rodava no Claude
+        pago em silêncio absoluto — nada em evento, log ou status. Agora a
+        divergência entra na cadeia de auditoria."""
+
+        h = self.program_harness([stage("a", execution={"executor": "local"})])
+        h.fakes.scenario(worker=[writes("a")], reviewer=[satisfied()])
+        h.run()
+
+        eventos = h.store.list_program_events(h.program_id)
+        gravados = [e for e in eventos
+                    if e["eventType"] == "program.stage_mission_recorded"]
+        self.assertEqual(len(gravados), 1)
+        payload = gravados[0]["payload"]
+        self.assertEqual(payload.get("executorDeclared"), "local")
+        self.assertEqual(payload.get("executorUsed"), "claude")
+
+    def test_a_wave_without_a_declared_executor_records_no_divergence(self) -> None:
+        """Controle: o campo só aparece quando há divergência de verdade."""
+
+        h = self.program_harness([stage("a")])
+        h.fakes.scenario(worker=[writes("a")], reviewer=[satisfied()])
+        h.run()
+        gravados = [e for e in h.store.list_program_events(h.program_id)
+                    if e["eventType"] == "program.stage_mission_recorded"]
+        self.assertNotIn("executorDeclared", gravados[0]["payload"])

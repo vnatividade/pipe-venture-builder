@@ -77,7 +77,13 @@ from .reviewer import (
     run_review,
 )
 from .status import SUPERVISOR_PID_FILE, default_mission_home, pid_is_alive
-from .store import ANSWER_BLOCKERS_RULE, DELEGATED_ORCHESTRATOR_SOURCE, UNKNOWN_SOURCES, MissionStore
+from .store import (
+    ANSWER_BLOCKERS_RULE,
+    DELEGATED_ORCHESTRATOR_SOURCE,
+    EXECUTOR_KIND_CLAUDE,
+    UNKNOWN_SOURCES,
+    MissionStore,
+)
 from .verify import (
     DEFAULT_CHECK_TIMEOUT_SECONDS,
     changed_files,
@@ -449,6 +455,12 @@ class _Cycle:
             cycle=cycle,
             attempt=attempt,
             executor=f"{WORKER_EXECUTOR}:{self.worker_model}",
+            # PIP-911: recorded as the executor/model that actually ran.
+            # Onda 2 wires a stage's declared ``execution.executor`` into
+            # dispatch; until then every worker run is Claude, so the record
+            # says exactly that — never a declared intent it did not act on.
+            executor_kind=EXECUTOR_KIND_CLAUDE,
+            model=self.worker_model,
             at=self.now(),
         )
         _log(self.home, self.mission_id, "worker.dispatched", run=run_id, cycle=cycle, attempt=attempt)
@@ -609,6 +621,11 @@ class _Cycle:
             cycle=cycle,
             attempt=attempt,
             executor=f"{REVIEWER_EXECUTOR}:{self.reviewer_model}",
+            # PIP-911: the reviewer has no executor field of its own in the
+            # contract, and this is hardcoded, never read from the mission or
+            # the stage — the reviewer is never local, deterministically.
+            executor_kind=EXECUTOR_KIND_CLAUDE,
+            model=self.reviewer_model,
             role=REVIEWER_ROLE,
             at=self.now(),
         )
@@ -1042,6 +1059,10 @@ class _Cycle:
                 cycle=cycle,
                 attempt=1,
                 executor=f"{RESPONDER_EXECUTOR}:{self.reviewer_model}",
+                # PIP-911: same policy as the reviewer — hardcoded, never
+                # local (see ``_review`` above).
+                executor_kind=EXECUTOR_KIND_CLAUDE,
+                model=self.reviewer_model,
                 role=RESPONDER_ROLE,
                 at=self.now(),
             )

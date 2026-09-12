@@ -159,6 +159,11 @@ class HappyPathTests(SupervisorTestCase):
         self.assertAlmostEqual(h.store.total_cost_usd(h.mission_id), 1.75)
         runs = h.store.list_runs(h.mission_id)
         self.assertEqual(sorted(run["executor"] for run in runs), ["reviewer:sonnet", "worker:sonnet"])
+        # PIP-911: executor_kind/model are the queryable columns going
+        # forward — both runs are Claude today (no executor routes anywhere
+        # else yet), each with its own model recorded.
+        self.assertEqual({run["executor_kind"] for run in runs}, {"claude"})
+        self.assertEqual(sorted(run["model"] for run in runs), ["sonnet", "sonnet"])
         self.assertTrue(all(item["satisfied"] for item in h.store.criteria_status(h.mission_id)))
         collected = h.payloads("run.collected")[0]
         self.assertEqual(collected["model"], "sonnet")
