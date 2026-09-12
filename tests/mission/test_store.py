@@ -13,7 +13,7 @@ from pipe_venture_builder.control_plane.model import (
 )
 from pipe_venture_builder.mission.contract import build_mission
 from pipe_venture_builder.mission.events import EVENT_TYPES, verify_mission_event
-from pipe_venture_builder.mission.store import MissionStore
+from pipe_venture_builder.mission.store import DATABASE_SCHEMA_VERSION, MissionStore
 from tests.mission.helpers import CREATED_AT, EVEN_LATER, LATER, mission_input
 
 
@@ -333,7 +333,7 @@ class MissionStoreDurabilityTests(TestCase):
                 self.assertEqual(reopened.get(mission_id)["status"], "active")
                 self.assertEqual(len(reopened.list_events(mission_id)), 2)
                 self.assertTrue(reopened.verify_chain(mission_id))
-                self.assertEqual(reopened.schema_version, 1)
+                self.assertEqual(reopened.schema_version, DATABASE_SCHEMA_VERSION)
 
     def test_symlink_database_is_rejected(self) -> None:
         with TemporaryDirectory() as directory:

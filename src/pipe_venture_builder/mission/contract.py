@@ -32,6 +32,15 @@ SCHEMA_VERSION = "0.1.0"
 DELEGATION_SCHEMA_VERSION = "0.2.0"
 SUPPORTED_SCHEMA_VERSIONS = frozenset({SCHEMA_VERSION, DELEGATION_SCHEMA_VERSION})
 MISSION_ID_PREFIX = "MSN"
+# The raw (dash-less) program id prefix ``stable_id``/``require_stable_id``
+# expect; ``mission.program.PROGRAM_ID_PREFIX`` is the dash-included form the
+# PIP-910 contract exposes. Defined here (not in ``program.py``) so a Mission's
+# optional ``program`` reference can validate it without a circular import
+# (``program.py`` imports mission validators from this module).
+PROGRAM_ID_PREFIX_RAW = "PRG"
+# A program stage id: a slug, used both in the Program contract and in a
+# Mission's optional ``program.stage`` back-reference.
+STAGE_ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 
 MISSION_STATUSES = frozenset(
     {"draft", "active", "paused", "blocked", "completed", "cancelled", "unknown"}
@@ -72,13 +81,18 @@ TOP_LEVEL_FIELDS = frozenset(
         "createdAt",
         "updatedAt",
         "fingerprint",
+        "program",
     }
 )
-# ``delegation`` is the one optional top-level key: absent in every v0.1.0
-# document (old and new — it never enters the fingerprint for them, so the
-# same v0.1.0 JSON keeps the same ``missionId``), present (``null`` or a rule)
-# only when a v0.2.0 draft supplies it.
-REQUIRED_TOP_LEVEL_FIELDS = TOP_LEVEL_FIELDS - {"delegation"}
+# ``delegation`` and ``program`` are the two optional top-level keys: absent
+# from a mission that never opted in (a v0.1.0 document, or one never created
+# by a Program's stage supervisor — see ``mission/program.py``, PIP-910) —
+# neither enters the fingerprint when absent, so the same JSON keeps the same
+# ``missionId`` it always had. ``program`` is stamped by
+# ``program_supervisor.supervise_program`` when it creates the stage's
+# mission; nothing else ever sets it.
+REQUIRED_TOP_LEVEL_FIELDS = TOP_LEVEL_FIELDS - {"delegation", "program"}
+PROGRAM_REF_FIELDS = frozenset({"programId", "stage"})
 CONSTRAINT_FIELDS = frozenset(
     {"maxCycles", "maxBudgetUsd", "maxTurnsPerRun", *ABSOLUTE_GATE_FLAGS}
 )
@@ -194,6 +208,7 @@ def validate_mission(document: Mapping[str, Any]) -> dict[str, Any]:
     for key in ("nonGoals", "delegable", "reservedToHuman"):
         _text_list(document[key], f"mission {key}")
     _validate_delegation(document.get("delegation"), document["schemaVersion"])
+    _validate_program_ref(document.get("program"))
     _validate_constraints(document["constraints"])
     _validate_workspace(document["workspace"])
     _validate_delivery(document["delivery"])
@@ -334,6 +349,22 @@ def _validate_answer_blockers(rule: Any) -> None:
         or not (1 <= max_times <= MAX_ANSWER_BLOCKERS_TIMES)
     ):
         raise ControlPlaneContractError("delegation answerBlockers maxTimes is out of range")
+
+
+def _validate_program_ref(value: Any) -> None:
+    """A stage mission's back-reference to the Program that created it
+    (``{"programId": "PRG-...", "stage": "<stage id>"}``), or ``None`` for a
+    mission created outside a program (every mission before PIP-910, and
+    still most missions after it)."""
+
+    if value is None:
+        return
+    if not isinstance(value, Mapping) or set(value) != PROGRAM_REF_FIELDS:
+        raise ControlPlaneContractError("mission program reference is invalid")
+    require_stable_id(value["programId"], PROGRAM_ID_PREFIX_RAW)
+    stage = value["stage"]
+    if not isinstance(stage, str) or not STAGE_ID_PATTERN.fullmatch(stage):
+        raise ControlPlaneContractError("mission program reference stage is invalid")
 
 
 def _validate_constraints(constraints: Any) -> None:

@@ -86,6 +86,7 @@ def build_status(
         "updatedAt": document["updatedAt"],
         "supervisor": supervisor_liveness(document["missionId"], home),
         "delivery": delivery_state(store, mission_id),
+        "program": document.get("program"),
     }
 
 
@@ -102,6 +103,39 @@ def delivery_state(store: MissionStore, mission_id: str) -> dict[str, Any]:
         elif event["eventType"] == "delivery.checks_failed":
             checks = "failed"
     return {"pullRequest": pull_request, "checks": checks}
+
+
+def build_program_status(
+    store: MissionStore, program_id: str, *, home: Path | None = None
+) -> dict[str, Any]:
+    """Where a Program is, per stage — from durable state only (PIP-910)."""
+
+    document = store.get_program(program_id)
+    stages = []
+    for stage in document["stages"]:
+        mission_id = store.stage_mission(program_id, stage["id"])
+        if mission_id is None:
+            stages.append({"id": stage["id"], "status": "pending", "missionId": None, "reason": None})
+            continue
+        mission = store.get(mission_id)
+        last = store.last_event(mission_id)
+        stages.append(
+            {
+                "id": stage["id"],
+                "status": mission["status"],
+                "missionId": mission_id,
+                "reason": last["eventType"] if last else None,
+            }
+        )
+    return {
+        "programId": document["programId"],
+        "status": document["status"],
+        "objective": document["objective"],
+        "costUsd": store.program_cost_usd(program_id),
+        "auditChainValid": store.verify_program_chain(program_id),
+        "pendingDecisions": store.pending_decisions(program_id),
+        "stages": stages,
+    }
 
 
 def render_status_text(status: dict[str, Any]) -> str:

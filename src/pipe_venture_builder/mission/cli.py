@@ -26,7 +26,9 @@ from pipe_venture_builder.exit_codes import INPUT_UNAVAILABLE, READINESS_BLOCKED
 from pipe_venture_builder.validation import load_json_document
 
 from .contract import build_mission
-from .status import build_status, default_mission_home, render_status_text
+from .program import build_program
+from .program_supervisor import ProgramStep, supervise_program
+from .status import build_program_status, build_status, default_mission_home, render_status_text
 from .store import MissionStore
 from .supervisor import (
     Step,
@@ -49,7 +51,12 @@ NOT_FOUND = "MISSION_NOT_FOUND"
 SUPERVISOR_REFUSED = "MISSION_SUPERVISOR_REFUSED"
 SUPERVISOR_ERROR = "MISSION_SUPERVISOR_ERROR"
 _NOT_FOUND_MESSAGES = frozenset(
-    {"mission is not registered", "run is not registered", "decision is not registered"}
+    {
+        "mission is not registered",
+        "run is not registered",
+        "decision is not registered",
+        "program is not registered",
+    }
 )
 
 
@@ -138,6 +145,62 @@ def register_mission_commands(commands: argparse._SubParsersAction) -> None:
         default="claude",
         help="Executable the worker ran (default: claude); a live worker running it is killed first.",
     )
+
+    # Program (PIP-910) — a dor em ondas de missões encadeadas, mesmo padrão de verbos.
+    register_program_commands(commands)
+
+
+def register_program_commands(commands: argparse._SubParsersAction) -> None:
+    program_parser = commands.add_parser(
+        "program",
+        help="Create, steer and supervise a Program: a dor em ondas de missões encadeadas.",
+    )
+    subcommands = program_parser.add_subparsers(dest="program_command", required=True)
+
+    create = _subcommand(
+        subcommands, "create", "Validate, fingerprint, and persist a Program JSON file.", _handle_program_create
+    )
+    create.add_argument("source", help="Program JSON file (a draft without programId is accepted).")
+    create.add_argument("--at", help="Creation timestamp (RFC 3339). Defaults to now.")
+
+    show = _subcommand(subcommands, "show", "Print the stored Program document.", _handle_program_show)
+    show.add_argument("program_id")
+
+    status = _subcommand(
+        subcommands, "status", "Where each wave is, why, and what depends on you.", _handle_program_status
+    )
+    status.add_argument("program_id")
+    _home_option(status)
+
+    for verb, help_text in (
+        ("activate", "draft -> active."),
+        ("pause", "active -> paused. Nothing new is dispatched while paused."),
+        ("resume", "paused|blocked -> active. Blocked needs its decisions resolved."),
+        ("cancel", "active|paused|blocked -> cancelled. The program never merges anything either way."),
+    ):
+        parser = _subcommand(subcommands, verb, help_text, _program_transition_handler(verb))
+        parser.add_argument("program_id")
+        parser.add_argument("--at", help="Transition timestamp (RFC 3339). Defaults to now.")
+
+    decisions = _subcommand(
+        subcommands, "decisions", "List the program's human decisions.", _handle_program_decisions
+    )
+    decisions.add_argument("program_id")
+    decisions.add_argument("--pending", action="store_true", help="Only pending decisions.")
+
+    supervise_parser = _subcommand(
+        subcommands,
+        "supervise",
+        "Run the wave loop until the program is terminal, paused, blocked, or has nothing ready.",
+        _handle_program_supervise,
+    )
+    supervise_parser.add_argument("program_id")
+    supervise_parser.add_argument(
+        "--detach",
+        action="store_true",
+        help="Start the program loop in its own session (survives the chat); pid and log in --home.",
+    )
+    _supervisor_options(supervise_parser)
 
 
 def _home_option(parser: argparse.ArgumentParser) -> None:
@@ -488,6 +551,183 @@ def _detach_supervisor(args: argparse.Namespace) -> dict[str, Any]:
             f"Follow with: pipe mission status {args.mission_id}"
         ),
     }
+
+
+# -- program (PIP-910) ----------------------------------------------------------
+
+
+def _handle_program_create(args: argparse.Namespace) -> dict[str, Any]:
+    draft = load_json_document(args.source, kind="program")
+    program = build_program(draft, created_at=args.at)
+    with _open_store(args) as store:
+        program_id = store.create_program(program, at=args.at)
+        stored = store.get_program(program_id)
+    return {
+        "ok": True,
+        "command": "program.create",
+        "programId": program_id,
+        "status": stored["status"],
+        "fingerprint": stored["fingerprint"],
+        "stages": len(stored["stages"]),
+        "message": (
+            f"Program {program_id} stored as {stored['status']} "
+            f"({len(stored['stages'])} stage(s)). Activate it to start."
+        ),
+    }
+
+
+def _handle_program_show(args: argparse.Namespace) -> dict[str, Any]:
+    with _open_store(args) as store:
+        program = store.get_program(args.program_id)
+    return {
+        "ok": True,
+        "command": "program.show",
+        "programId": program["programId"],
+        "program": program,
+        "message": f"{program['programId']} v{program['version']} {program['status']}: {program['objective']}",
+    }
+
+
+def _handle_program_status(args: argparse.Namespace) -> dict[str, Any]:
+    with _open_store(args) as store:
+        status = build_program_status(store, args.program_id, home=_home(args))
+    lines = [
+        f"{status['programId']} {status['status']}: {status['objective']}",
+        f"custo US$ {status['costUsd']:.2f}; cadeia de auditoria válida: {str(status['auditChainValid']).lower()}",
+    ]
+    for stage in status["stages"]:
+        lines.append(f"  - {stage['id']}: {stage['status']} (missão: {stage['missionId'] or '-'})")
+    pending = status["pendingDecisions"]
+    lines.append(
+        "O que depende de você: nada." if not pending
+        else f"O que depende de você: {len(pending)} decisão(ões) pendente(s)."
+    )
+    return {
+        "ok": True,
+        "command": "program.status",
+        "programId": status["programId"],
+        "status": status,
+        "message": "\n".join(lines),
+    }
+
+
+def _program_transition_handler(verb: str) -> Callable[[argparse.Namespace], dict[str, Any]]:
+    def handle(args: argparse.Namespace) -> dict[str, Any]:
+        with _open_store(args) as store:
+            getattr(store, f"{verb}_program")(args.program_id, at=args.at)
+            document = store.get_program(args.program_id)
+        return {
+            "ok": True,
+            "command": f"program.{verb}",
+            "programId": document["programId"],
+            "status": document["status"],
+            "message": f"Program {document['programId']} is now {document['status']}.",
+        }
+
+    return handle
+
+
+def _handle_program_decisions(args: argparse.Namespace) -> dict[str, Any]:
+    with _open_store(args) as store:
+        decisions = store.list_decisions(args.program_id, pending_only=args.pending)
+    if not decisions:
+        message = "No pending decisions." if args.pending else "No decisions recorded."
+    else:
+        lines = []
+        for decision in decisions:
+            lines.append(
+                f"{decision['decisionId']} [{decision['kind']}] {decision['status']}; "
+                f"blocks {decision['blockedScope']}; options: {', '.join(decision['options'])}; "
+                f"safe default: {decision['safeDefault']}"
+            )
+        message = "\n".join(lines)
+    return {
+        "ok": True,
+        "command": "program.decisions",
+        "programId": args.program_id,
+        "pendingOnly": bool(args.pending),
+        "decisions": decisions,
+        "message": message,
+    }
+
+
+def _program_step_payload(program_id: str, step: ProgramStep) -> dict[str, Any]:
+    return {
+        "ok": True,
+        "command": "program.supervise",
+        "programId": program_id,
+        "status": step.status,
+        "reason": step.reason,
+        "stage": step.stage,
+        "message": f"Program {program_id} is {step.status} ({step.reason}).",
+    }
+
+
+def _handle_program_supervise(args: argparse.Namespace) -> dict[str, Any]:
+    if args.detach:
+        return _detach_program_supervisor(args)
+    with _open_store(args) as store:
+        step = supervise_program(args.program_id, store=store, **_supervisor_kwargs(args))
+    return _program_step_payload(args.program_id, step)
+
+
+def _detach_program_supervisor(args: argparse.Namespace) -> dict[str, Any]:
+    """``program supervise`` without ``--detach``, in its own session; stdout/stderr to the log."""
+
+    home = _home(args)
+    store_path = str(Path(args.store).expanduser().resolve()) if args.store else None
+    with _open_store(args) as store:
+        document = store.get_program(args.program_id)
+        if document["status"] != "active":
+            raise ControlPlaneStateError("only an active program can be supervised")
+
+    command = [
+        sys.executable, "-m", "pipe_venture_builder", "program", "supervise", args.program_id,
+        "--home", str(home),
+        "--claude-bin", _executable(args.claude_bin),
+        "--gh-bin", _executable(args.gh_bin),
+        "--poll-seconds", repr(args.poll_seconds),
+        "--worker-model", args.worker_model,
+        "--reviewer-model", args.reviewer_model,
+        "--json",
+    ]
+    if store_path:
+        command += ["--store", store_path]
+    log_path = _program_home(home, args.program_id) / "supervisor.log"
+    pid_path = _program_home(home, args.program_id) / "supervisor.pid"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    os.chmod(log_path.parent, 0o700)
+    descriptor = os.open(log_path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+    with os.fdopen(descriptor, "ab") as log, open(os.devnull, "rb") as devnull:
+        process = subprocess.Popen(
+            command,
+            stdin=devnull,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+            close_fds=True,
+            env=_child_env(),
+        )
+    pid_descriptor = os.open(pid_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(pid_descriptor, "w", encoding="utf-8") as handle:
+        handle.write(f"{process.pid}\n")
+    return {
+        "ok": True,
+        "command": "program.supervise",
+        "programId": args.program_id,
+        "detached": True,
+        "pid": process.pid,
+        "pidFile": str(pid_path),
+        "log": str(log_path),
+        "message": (
+            f"Program supervisor for {args.program_id} started in background (pid {process.pid}). "
+            f"Follow with: pipe program status {args.program_id}"
+        ),
+    }
+
+
+def _program_home(home: Path, program_id: str) -> Path:
+    return Path(home) / "programs" / program_id
 
 
 def _executable(value: str) -> str:

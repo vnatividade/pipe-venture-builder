@@ -51,6 +51,9 @@
     "delegation": {
       "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/delegation" }]
     },
+    "program": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/programRef" }]
+    },
     "constraints": {
       "type": "object",
       "additionalProperties": false,
@@ -114,6 +117,16 @@
   },
   "$defs": {
     "missionId": { "type": "string", "pattern": "^MSN-[a-f0-9]{12}$" },
+    "programId": { "type": "string", "pattern": "^PRG-[a-f0-9]{12}$" },
+    "programRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["programId", "stage"],
+      "properties": {
+        "programId": { "$ref": "#/$defs/programId" },
+        "stage": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$" }
+      }
+    },
     "fingerprint": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
     "textList": {
       "type": "array",
