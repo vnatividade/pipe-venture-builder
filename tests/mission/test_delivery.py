@@ -456,18 +456,30 @@ class ChildEnvGitContextTests(TestCase):
 class ChildEnvIsolationTests(TestCase):
     """PIP-905: no child of the supervisor (git, gh, checks, worker, reviewer,
     responder) may inherit a variable that changes what git does or which
-    Python interpreter runs. One test per item so removing any single piece
-    of the filter breaks something here, not only in the hidden acceptance
-    suite."""
+    Python interpreter runs. The filter is a ``GIT_`` **prefix** plus two short
+    explicit lists, so a git version with a new variable is covered without
+    anyone updating a list (revisão adversarial do PIP-905, achado A1)."""
 
-    def setUp(self) -> None:
-        self._saved_cache = delivery._local_git_env_vars_cache
-        delivery._local_git_env_vars_cache = None
+    def test_every_git_prefixed_variable_is_stripped(self) -> None:
+        # Prefixo, não lista: a revisão adversarial do PIP-905 mediu
+        # GIT_CONFIG_GLOBAL, GIT_EXTERNAL_DIFF e GIT_SSH_COMMAND executando
+        # programa e falsificando o diff mandado ao revisor.
+        names = [
+            "GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_OBJECT_DIRECTORY", "GIT_COMMON_DIR",
+            "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_PREFIX", "GIT_QUARANTINE_PATH", "GIT_NAMESPACE",
+            "GIT_CONFIG", "GIT_CONFIG_PARAMETERS", "GIT_CONFIG_COUNT", "GIT_CONFIG_KEY_0",
+            "GIT_CONFIG_VALUE_0", "GIT_CONFIG_KEY_12", "GIT_CONFIG_GLOBAL", "GIT_CONFIG_SYSTEM",
+            "GIT_CONFIG_NOSYSTEM", "GIT_EXTERNAL_DIFF", "GIT_SSH_COMMAND", "GIT_SSH",
+            "GIT_PROTOCOL_FROM_USER", "GIT_PAGER", "GIT_EDITOR", "GIT_SEQUENCE_EDITOR",
+            "GIT_GRAFT_FILE", "GIT_SHALLOW_FILE", "GIT_REPLACE_REF_BASE", "GIT_IMPLICIT_WORK_TREE",
+            "GIT_ASKPASS", "GIT_TRACE", "GIT_ALLOW_PROTOCOL", "GIT_CEILING_DIRECTORIES",
+            "GIT_FUTURE_VARIABLE_NOBODY_HAS_SEEN_YET",
+        ]
+        with mock.patch.dict(os.environ, {name: "/poison" for name in names}):
+            env = child_env()
+        self.assertEqual([name for name in names if name in env and env[name] == "/poison"], [])
 
-    def tearDown(self) -> None:
-        delivery._local_git_env_vars_cache = self._saved_cache
-
-    def test_the_local_env_vars_list_comes_from_git_itself_not_a_hand_copy(self) -> None:
+    def test_every_name_git_itself_calls_local_context_is_stripped(self) -> None:
         out = subprocess.run(
             ["git", "rev-parse", "--local-env-vars"], capture_output=True, text=True, check=True,
         )
@@ -477,64 +489,29 @@ class ChildEnvIsolationTests(TestCase):
             env = child_env()
         self.assertEqual([name for name in names if name in env], [])
 
-    def test_local_env_vars_are_cached_after_the_first_call(self) -> None:
-        with mock.patch.object(delivery.subprocess, "run") as run:
-            run.return_value = subprocess.CompletedProcess([], 0, stdout="GIT_DIR\n", stderr="")
-            first = delivery._local_git_env_vars()
-            second = delivery._local_git_env_vars()
-        self.assertEqual(run.call_count, 1, "a cached list must not re-invoke git")
-        self.assertEqual(first, second)
-
-    def test_local_env_vars_falls_back_to_git_context_env_when_git_fails(self) -> None:
-        with mock.patch.object(delivery.subprocess, "run") as run:
-            run.return_value = subprocess.CompletedProcess([], 1, stdout="", stderr="fatal: boom")
-            names = delivery._local_git_env_vars()
-        self.assertEqual(names, GIT_CONTEXT_ENV)
-
-    def test_local_env_vars_falls_back_when_the_git_binary_is_missing(self) -> None:
-        with mock.patch.object(delivery.subprocess, "run", side_effect=FileNotFoundError("no git")):
-            names = delivery._local_git_env_vars()
-        self.assertEqual(names, GIT_CONTEXT_ENV)
-
-    def test_git_config_parameters_is_stripped(self) -> None:
-        with mock.patch.dict(os.environ, {"GIT_CONFIG_PARAMETERS": "'core.bare'='true'"}):
-            env = child_env()
-        self.assertNotIn("GIT_CONFIG_PARAMETERS", env)
-
-    def test_git_config_count_is_stripped(self) -> None:
-        with mock.patch.dict(os.environ, {"GIT_CONFIG_COUNT": "1"}):
-            env = child_env()
-        self.assertNotIn("GIT_CONFIG_COUNT", env)
-
-    def test_git_config_key_n_is_stripped_for_any_index(self) -> None:
-        with mock.patch.dict(os.environ, {"GIT_CONFIG_KEY_0": "core.hooksPath", "GIT_CONFIG_KEY_12": "core.bare"}):
-            env = child_env()
-        self.assertNotIn("GIT_CONFIG_KEY_0", env)
-        self.assertNotIn("GIT_CONFIG_KEY_12", env)
-
-    def test_git_config_value_n_is_stripped_for_any_index(self) -> None:
-        with mock.patch.dict(os.environ, {"GIT_CONFIG_VALUE_0": "/evil-hooks", "GIT_CONFIG_VALUE_3": "true"}):
-            env = child_env()
-        self.assertNotIn("GIT_CONFIG_VALUE_0", env)
-        self.assertNotIn("GIT_CONFIG_VALUE_3", env)
-
-    def test_a_git_config_lookalike_that_is_not_the_real_pattern_survives(self) -> None:
-        # Proof the filter matches the real GIT_CONFIG_* shapes and not just
-        # any name containing the substring.
-        with mock.patch.dict(os.environ, {"GIT_CONFIGURATION_HINT": "keep-me"}):
-            env = child_env()
-        self.assertEqual(env.get("GIT_CONFIGURATION_HINT"), "keep-me")
-
-    def test_each_new_interpreter_variable_is_stripped(self) -> None:
-        for name in ("PYTHONNOUSERSITE", "PYTHONPLATLIBDIR", "PYTHONSAFEPATH", "VIRTUAL_ENV", "__PYVENV_LAUNCHER__"):
+    def test_program_and_editor_variables_are_stripped(self) -> None:
+        for name in ("EDITOR", "VISUAL", "PAGER", "SSH_ASKPASS"):
             with self.subTest(name=name), mock.patch.dict(os.environ, {name: "/poison"}):
                 env = child_env()
             self.assertNotIn(name, env, name)
 
-    def test_path_and_home_survive_the_filter(self) -> None:
-        env = child_env()
-        self.assertIn("PATH", env)
-        self.assertIn("HOME", env)
+    def test_terminal_prompt_is_forced_off(self) -> None:
+        with mock.patch.dict(os.environ, {"GIT_TERMINAL_PROMPT": "1"}):
+            env = child_env()
+        self.assertEqual(env["GIT_TERMINAL_PROMPT"], "0")
+
+    def test_each_new_interpreter_variable_is_stripped(self) -> None:
+        for name in ("PYTHONPATH", "PYTHONHOME", "PYTHONSTARTUP", "PYTHONUSERBASE", "PYTHONNOUSERSITE",
+                     "PYTHONPLATLIBDIR", "PYTHONSAFEPATH", "VIRTUAL_ENV", "__PYVENV_LAUNCHER__"):
+            with self.subTest(name=name), mock.patch.dict(os.environ, {name: "/poison"}):
+                env = child_env()
+            self.assertNotIn(name, env, name)
+
+    def test_what_a_child_still_needs_survives_the_filter(self) -> None:
+        with mock.patch.dict(os.environ, {"GH_TOKEN": "t", "SSH_AUTH_SOCK": "/tmp/agent.sock"}):
+            env = child_env()
+        for name in ("PATH", "HOME", "GH_TOKEN", "SSH_AUTH_SOCK"):
+            self.assertIn(name, env, name)
 
 
 class GhEnvTests(TestCase):

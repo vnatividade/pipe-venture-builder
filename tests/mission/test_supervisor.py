@@ -1514,3 +1514,36 @@ def _wait(process, timeout: float = 5.0):
         return process.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
         return None
+
+
+class InheritedGitProgramEnvTests(SupervisorTestCase):
+    """PIP-905, revisão adversarial (achado A1): ``GIT_CONFIG_GLOBAL`` e
+    ``GIT_EXTERNAL_DIFF`` herdados executavam programa durante a missão e
+    falsificavam o diff mandado ao revisor, sem a trava de config ver nada
+    (ela só lê ``--local``)."""
+
+    def test_a_program_injected_through_the_environment_never_runs(self) -> None:
+        import os
+        from unittest import mock
+
+        h = self.harness(with_origin=True, delivery={"kind": "pull_request", "requireChecks": False})
+        h.fakes.scenario(worker=[good_worker()], reviewer=[{"structured_output": satisfied_verdict()}])
+        marker = self.root / "program-ran"
+        script = self.root / "evil.sh"
+        script.write_text(f'#!/bin/sh\ntouch "{marker}"\nexit 0\n', encoding="utf-8")
+        script.chmod(0o755)
+        gitconfig = self.root / "evil.gitconfig"
+        gitconfig.write_text(f"[core]\n\tfsmonitor = {script}\n\tpager = {script}\n", encoding="utf-8")
+        poison = {
+            "GIT_CONFIG_GLOBAL": str(gitconfig),
+            "GIT_CONFIG_SYSTEM": str(gitconfig),
+            "GIT_EXTERNAL_DIFF": str(script),
+            "GIT_SSH_COMMAND": str(script),
+            "GIT_CONFIG_COUNT": "1",
+            "GIT_CONFIG_KEY_0": "core.fsmonitor",
+            "GIT_CONFIG_VALUE_0": str(script),
+        }
+        with mock.patch.dict(os.environ, poison):
+            step = h.supervise()
+        self.assertEqual(step.status, "completed", step)
+        self.assertFalse(marker.exists(), "um programa injetado pelo ambiente rodou durante a missão")
