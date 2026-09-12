@@ -314,14 +314,21 @@ class StageMissionStopsTests(ProgramTestCase):
             "blockers": ["Qual arquivo recebe o conteudo?"]}}
         h.fakes.scenario(worker=[blocked_worker], reviewer=[satisfied()])
         step = h.run()
-        self.assertIn(step.status, {"paused", "blocked"})
+        self.assertEqual(step.status, "paused")
+        self.assertEqual(step.reason, "stage_mission_paused")
         self.assertIsNone(h.missions()["b"])
         self.assertGreaterEqual(len(h.status()["pendingDecisions"]), 1)
 
 
 class BudgetCapTests(ProgramTestCase):
-    """Rule: cost above ``constraints.maxBudgetUsd`` pauses/blocks the
-    program with a decision, without starting the next wave."""
+    """Rule: cost above ``constraints.maxBudgetUsd`` BLOCKS the program with a
+    decision, without starting the next wave.
+
+    Blocked, not paused, and the test pins that: ``resume_program`` refuses a
+    blocked program until its decisions are resolved, so the founder cannot
+    resume straight back into the same overspend. Accepting either status left
+    the rule undecided — the looser assertion was the defect.
+    """
 
     def test_cost_above_the_cap_blocks_before_the_next_wave(self) -> None:
         h = self.program_harness([
@@ -331,10 +338,13 @@ class BudgetCapTests(ProgramTestCase):
         expensive["result"] = {"total_cost_usd": 0.9}
         h.fakes.scenario(worker=[expensive, writes("b")], reviewer=[satisfied(), satisfied()])
         step = h.run()
-        self.assertIn(step.status, {"paused", "blocked"})
+        self.assertEqual(step.status, "blocked")
+        self.assertEqual(step.reason, "budget_reached")
         self.assertIsNone(h.missions()["b"])
         self.assertGreater(h.store.program_cost_usd(h.program_id), 0.5)
         self.assertGreaterEqual(len(h.status()["pendingDecisions"]), 1)
+        with self.assertRaises(ControlPlaneStateError):
+            h.store.resume_program(h.program_id)
 
 
 class DoneWhenTests(ProgramTestCase):

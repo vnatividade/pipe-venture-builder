@@ -32,7 +32,7 @@ from pipe_venture_builder.control_plane.model import utc_now
 
 from . import supervisor
 from .contract import build_mission
-from .delivery import branch_name, child_env, commit_if_needed, worktree_path
+from .delivery import _no_hooks_args, branch_name, child_env, commit_if_needed, worktree_path
 from .program import chain_from_stage_id
 from .status import default_mission_home
 from .store import MissionStore
@@ -102,9 +102,9 @@ def supervise_program(
         if mission_id is None:
             base_ref = _resolve_stage_base(store, program, stage)
             mission_document = _build_stage_mission(program, stage, base_ref)
-            mission_id = store.create(mission_document, at=now())
-            store.activate(mission_id, at=now())
-            store.record_stage_mission(program_id, stage["id"], mission_id, at=now())
+            mission_id = store.start_stage_mission(
+                program_id, stage["id"], mission_document, at=now()
+            )
 
         mission_kwargs = dict(mission_options)
         execution = stage["execution"]
@@ -212,19 +212,23 @@ def _check_start_when(
     check_timeout: float,
     at: str,
 ) -> tuple[bool, ProgramStep | None]:
-    """``startWhen`` evaluated from outside, in a throwaway worktree per
-    dependency branch — the same ``check``/``artifact`` primitives a
+    """``startWhen`` evaluated from outside, in a throwaway worktree of the
+    stage's RESOLVED BASE — the same ``check``/``artifact`` primitives a
     mission's own verification uses (``verify.verify_criteria``), never the
-    stage mission's own worktree: this is the independent confirmation that
-    the wave(s) it depends on actually delivered, before anything is built on
-    top of them. A criterion is satisfied if satisfied against *any* one
-    dependency's branch (a stage with two dependencies checks each of its
-    ``startWhen`` criteria against whichever of the two produced it)."""
+    stage mission's own worktree.
+
+    The base is the one the stage's mission will actually be built on, and
+    that identity is the whole point: confirming a criterion on some other
+    dependency's branch would approve an artifact the stage cannot see. Since
+    the program never merges, a stage that depends on two parallel waves sees
+    only its ``chainFrom`` one — so a ``startWhen`` that needs the other
+    wave's delivery BLOCKS here, truthfully, instead of starting on a base
+    without it. To reconverge, serialise the waves or let the founder merge."""
 
     criteria = stage["startWhen"]
-    if not criteria or _evaluate_criteria_across_refs(
+    if not criteria or _evaluate_criteria_on_base(
         program["workspace"]["repo"],
-        _stage_base_candidates(store, program, stage),
+        _resolve_stage_base(store, program, stage),
         criteria,
         check_timeout=check_timeout,
         home=home,
@@ -286,19 +290,26 @@ def _budget_block(store: MissionStore, program: Mapping[str, Any], *, at: str) -
 def _finish_program(
     store: MissionStore, program: Mapping[str, Any], *, home: Path, check_timeout: float, at: str
 ) -> ProgramStep:
-    """Every stage is ``completed``: check the program's own ``doneWhen`` —
-    against the final stage's branch, which (branch chaining, no merge)
-    already carries every prior stage's delivered content."""
+    """Every stage is ``completed``: check the program's own ``doneWhen``
+    against every LEAF branch of the graph.
+
+    Not the last declared stage: declaration order is not the graph, and a
+    stage with no dependants carries nothing from a sibling chain. A criterion
+    is satisfied if some leaf delivered it — unlike ``startWhen``, which must
+    hold on the one base its stage will build on, ``doneWhen`` only reports on
+    what the program produced in total, and (branch chaining, no merge) that
+    total is spread across the leaves."""
 
     program_id = program["programId"]
     criteria = program["doneWhen"]
     satisfied = True
     if criteria:
-        final_stage = program["stages"][-1]
-        mission_id = store.stage_mission(program_id, final_stage["id"])
-        ref = branch_name(store.get(mission_id))
+        refs = [
+            branch_name(store.get(store.stage_mission(program_id, stage_id)))
+            for stage_id in _leaf_stage_ids(program)
+        ]
         satisfied = _evaluate_criteria_across_refs(
-            program["workspace"]["repo"], [ref], criteria, check_timeout=check_timeout, home=home
+            program["workspace"]["repo"], refs, criteria, check_timeout=check_timeout, home=home
         )
     if satisfied:
         store.complete_program(program_id, at=at)
@@ -334,23 +345,6 @@ def _resolve_stage_base(store: MissionStore, program: Mapping[str, Any], stage: 
     return branch_name(store.get(dependency_mission_id))
 
 
-def _stage_base_candidates(
-    store: MissionStore, program: Mapping[str, Any], stage: Mapping[str, Any]
-) -> list[str]:
-    """Every branch a stage's ``startWhen`` may confirm delivery against: one
-    per dependency (each may have produced a different criterion), or the
-    program's own base for a first-wave stage."""
-
-    depends_on = stage["dependsOn"]
-    if not depends_on:
-        return [program["workspace"]["baseRef"]]
-    refs = []
-    for dependency in depends_on:
-        dependency_mission_id = store.stage_mission(program["programId"], dependency)
-        refs.append(branch_name(store.get(dependency_mission_id)))
-    return refs
-
-
 def _build_stage_mission(
     program: Mapping[str, Any], stage: Mapping[str, Any], base_ref: str
 ) -> dict[str, Any]:
@@ -367,23 +361,50 @@ def _build_stage_mission(
 # -- startWhen/doneWhen: check/artifact against a throwaway worktree -----------
 
 
+def _leaf_stage_ids(program: Mapping[str, Any]) -> list[str]:
+    """Ondas que ninguém depende — as pontas da cadeia de branches."""
+
+    stages = program["stages"]
+    depended_on = {
+        dependency for stage in stages for dependency in stage["dependsOn"]
+    }
+    return [stage["id"] for stage in stages if stage["id"] not in depended_on]
+
+
 def _evaluate_criteria_across_refs(
     repo: str, refs: list[str], criteria: list[Mapping[str, Any]], *, check_timeout: float, home: Path
 ) -> bool:
-    """Every criterion satisfied in *some* ref's throwaway worktree (a single
-    ref for the common case — one dependency, or the final stage's
-    ``doneWhen`` — degrades to a plain "all satisfied here")."""
+    """Cada critério satisfeito em ALGUM dos refs. Só para ``doneWhen``: o
+    portão entre ondas (``startWhen``) usa ``_evaluate_criteria_on_base``,
+    porque lá a identidade da base é o ponto."""
 
     if not criteria:
         return True
     satisfied = [False] * len(criteria)
-    fake_mission = {"successCriteria": criteria}
     for ref in refs:
-        with _throwaway_worktree(repo, ref, home=home) as path:
-            results = verify_criteria(fake_mission, path, check_timeout=check_timeout)
+        results = _verify_on_ref(repo, ref, criteria, check_timeout=check_timeout, home=home)
         for index, result in enumerate(results):
             satisfied[index] = satisfied[index] or result.satisfied
     return all(satisfied)
+
+
+def _verify_on_ref(
+    repo: str, ref: str, criteria: list[Mapping[str, Any]], *, check_timeout: float, home: Path
+) -> list[Any]:
+    with _throwaway_worktree(repo, ref, home=home) as path:
+        return verify_criteria({"successCriteria": criteria}, path, check_timeout=check_timeout)
+
+
+def _evaluate_criteria_on_base(
+    repo: str, ref: str, criteria: list[Mapping[str, Any]], *, check_timeout: float, home: Path
+) -> bool:
+    """Every criterion satisfied in a throwaway worktree of *ref* — the single
+    ref the work will actually be built on."""
+
+    if not criteria:
+        return True
+    results = _verify_on_ref(repo, ref, criteria, check_timeout=check_timeout, home=home)
+    return all(result.satisfied for result in results)
 
 
 @contextlib.contextmanager
@@ -406,8 +427,17 @@ def _throwaway_worktree(repo: str, ref: str, *, home: Path) -> Iterator[Path]:
 
 
 def _git(repo: str, *args: str, check: bool = True) -> None:
+    """Every git here runs with hooks disabled.
+
+    ``git worktree add`` runs ``post-checkout``, and the hook directory is the
+    repository's shared one — reachable from inside a stage mission's own
+    worktree, which is outside that mission's write set and outside the diff
+    the reviewer sees. Without this, a hook written by one wave's worker
+    executes in the program supervisor, with the supervisor's credentials.
+    """
+
     subprocess.run(
-        ["git", "-C", repo, *args],
+        ["git", "-C", repo, *_no_hooks_args(), *args],
         capture_output=True, timeout=GIT_TIMEOUT_SECONDS, check=check, env=child_env(),
     )
 

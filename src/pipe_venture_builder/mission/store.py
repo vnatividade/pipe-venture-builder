@@ -44,7 +44,7 @@ from .events import (
 from .program import validate_program
 
 
-DATABASE_SCHEMA_VERSION = 1
+DATABASE_SCHEMA_VERSION = 2
 RUN_ID_PREFIX = "MRUN"
 RUN_DEFAULT_ROLE = "worker"
 DECISION_ID_PREFIX = "DEC"
@@ -1055,6 +1055,32 @@ class MissionStore:
                 payload={"costUsd": self.program_cost_usd(program_id)},
             )
 
+    def start_stage_mission(
+        self, program_id: str, stage_id: str, document: Mapping[str, Any], *, at: str | None = None
+    ) -> str:
+        """Create, activate and record a stage's mission in ONE transaction.
+
+        Done as three calls, a crash in between (SIGKILL, reboot) leaves a
+        mission that is active but not recorded against its stage. Resuming
+        then rebuilds the same document — the id is derived from content, so
+        ``create`` returns the existing mission — and ``activate`` raises on
+        ``active -> active``, with no way out through the CLI: every later
+        ``program supervise`` dies at the same line.
+
+        ``_write`` joins an already open transaction, so the three steps below
+        commit together or not at all. The ``active`` branch is the recovery
+        path for a database that already fell into that window.
+        """
+
+        occurred_at = at or utc_now()
+        with self._write():
+            self._program_row(program_id)
+            mission_id = self.create(document, at=occurred_at)
+            if self.get(mission_id)["status"] == "draft":
+                self.activate(mission_id, at=occurred_at)
+            self.record_stage_mission(program_id, stage_id, mission_id, at=occurred_at)
+        return mission_id
+
     def record_stage_mission(
         self, program_id: str, stage_id: str, mission_id: str, *, at: str | None = None
     ) -> None:
@@ -1552,8 +1578,64 @@ class MissionStore:
                     "INSERT INTO metadata(key, value) VALUES ('schema_version', ?)",
                     (str(DATABASE_SCHEMA_VERSION),),
                 )
-            elif row["value"] != str(DATABASE_SCHEMA_VERSION):
-                raise ControlPlaneStateError("unsupported mission database schema version")
+                return
+            stored = row["value"]
+        if stored == str(DATABASE_SCHEMA_VERSION):
+            return
+        if stored == "1":
+            self._migrate_1_to_2()
+            return
+        raise ControlPlaneStateError("unsupported mission database schema version")
+
+    def _migrate_1_to_2(self) -> None:
+        """Drop the ``decisions.mission_id`` foreign key onto ``missions``.
+
+        A decision's subject is no longer always a mission: a program opens
+        decisions keyed by its own ``PRG-`` id. ``CREATE TABLE IF NOT EXISTS``
+        never rewrites an existing table, so a database created before programs
+        existed keeps the old foreign key, and every program decision fails
+        with ``IntegrityError`` under ``PRAGMA foreign_keys = ON`` — a failure
+        that no test with a fresh database can reach.
+        """
+
+        # ``PRAGMA foreign_keys`` is a no-op inside a transaction, so it is set
+        # around the whole rebuild; ``executescript`` commits what is pending.
+        self._connection.execute("PRAGMA foreign_keys = OFF")
+        try:
+            self._connection.executescript(
+                """
+                BEGIN IMMEDIATE;
+                CREATE TABLE decisions_v2(
+                    decision_id TEXT PRIMARY KEY,
+                    mission_id TEXT NOT NULL,
+                    kind TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    context_json TEXT NOT NULL,
+                    options_json TEXT NOT NULL,
+                    safe_default TEXT NOT NULL,
+                    blocked_scope TEXT NOT NULL,
+                    deadline TEXT,
+                    opened_at TEXT NOT NULL,
+                    decided_by TEXT,
+                    decided_option TEXT,
+                    decided_at TEXT
+                );
+                INSERT INTO decisions_v2 SELECT
+                    decision_id, mission_id, kind, status, context_json,
+                    options_json, safe_default, blocked_scope, deadline,
+                    opened_at, decided_by, decided_option, decided_at
+                FROM decisions;
+                DROP TABLE decisions;
+                ALTER TABLE decisions_v2 RENAME TO decisions;
+                UPDATE metadata SET value = '2' WHERE key = 'schema_version';
+                COMMIT;
+                """
+            )
+        finally:
+            self._connection.execute("PRAGMA foreign_keys = ON")
+        violations = self._connection.execute("PRAGMA foreign_key_check").fetchall()
+        if violations:
+            raise ControlPlaneStateError("mission database migration left dangling references")
 
     @staticmethod
     def _restrict_database_files(database: str) -> None:
