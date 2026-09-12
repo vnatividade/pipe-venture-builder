@@ -24,6 +24,7 @@ from pipe_venture_builder.mission.status import build_status
 from pipe_venture_builder.mission.store import MissionStore
 from pipe_venture_builder.mission.supervisor import (
     SupervisorRefusal,
+    _printable,
     contains_sensitive_terms,
     reconcile,
     run_once,
@@ -589,6 +590,26 @@ class SupervisorDelegationScopeTests(SupervisorTestCase):
         self.assertEqual(h.events().count("decision.delegated"), 0)
         [decision] = h.store.pending_decisions(h.mission_id)
         self.assertEqual(set(decision["options"]), {"stop", "grant_cycle"})
+
+
+class PrintableTests(TestCase):
+    """PIP-909: U+2028/U+2029 (LINE/PARAGRAPH SEPARATOR) are ``Zl``/``Zp``,
+    not ``category[0] == "C"`` — the plain control-character filter never
+    caught them, so a line break invisible to many readers (and to
+    ``str.splitlines()``) could still reach a revision file."""
+
+    def test_unicode_line_separators_never_survive(self) -> None:
+        cleaned = _printable("linha um linha dois fim\x85x")
+        for char in (" ", " ", "\x85"):
+            self.assertNotIn(char, cleaned)
+        self.assertIn("linha um", cleaned)
+        self.assertIn("fim", cleaned)
+
+    def test_newlines_and_tabs_stay(self) -> None:
+        self.assertEqual(_printable("mantém\nabas\tok"), "mantém\nabas\tok")
+
+    def test_other_control_characters_are_still_dropped(self) -> None:
+        self.assertEqual(_printable("a\x00b\x07c"), "abc")
 
 
 class SensitiveTermsGuardTests(TestCase):

@@ -549,6 +549,26 @@ class GhEnvTests(TestCase):
         self.assertNotIn("PYTHONPATH", env)
 
 
+class FakeGhInterpreterEnvSyncTests(TestCase):
+    """PIP-909: ``fake_gh.py`` used to duplicate ``_INTERPRETER_ENV`` as a
+    literal tuple, with nothing to catch the two drifting apart. It now
+    imports the real one — this test pins that import, so a future edit to
+    either tuple without the other fails here instead of leaving the fake's
+    assertion silently vacuous."""
+
+    def test_fake_gh_derives_the_real_interpreter_env_without_importing(self) -> None:
+        # O fake roda como script, com o ambiente já limpo pelo ``gh_env()``:
+        # importar o pacote ali quebrou o fake num ``env -i`` (PIP-909, revisão
+        # adversarial, achado 1). Ele lê a tupla de ``delivery.py`` com ``ast``,
+        # e este teste é o que garante que as duas não divergem.
+        from tests.mission.fakes import fake_gh
+
+        self.assertEqual(tuple(fake_gh._INTERPRETER_ENV), tuple(delivery._INTERPRETER_ENV))
+        self.assertGreater(len(fake_gh._INTERPRETER_ENV), 0, "a derivação por ast achou a lista")
+        source = Path(fake_gh.__file__).read_text(encoding="utf-8")
+        self.assertNotIn("from pipe_venture_builder", source, "o fake continua stdlib puro")
+
+
 class GhCallsReceiveGhEnvTests(TestCase):
     """PIP-905: every ``gh`` the supervisor runs uses ``gh_env()``, not the
     plain ``child_env()`` — the fake ``gh`` records what it actually got."""

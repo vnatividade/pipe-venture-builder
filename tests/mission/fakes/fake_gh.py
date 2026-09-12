@@ -17,19 +17,36 @@ Exit codes mirror gh: ``pr checks`` exits 8 while pending and 1 when something f
 
 from __future__ import annotations
 
+import ast
 import json
 import os
 import sys
 from pathlib import Path
 
-# Mirrors ``pipe_venture_builder.mission.delivery._INTERPRETER_ENV``: this
-# script runs as a standalone process (no guarantee the package is
-# importable from here), so the names are duplicated rather than imported.
-_INTERPRETER_ENV = (
-    "PYTHONPATH", "PYTHONHOME", "PYTHONSTARTUP", "PYTHONUSERBASE",
-    "PYTHONNOUSERSITE", "PYTHONPLATLIBDIR", "PYTHONSAFEPATH",
-    "VIRTUAL_ENV", "__PYVENV_LAUNCHER__",
-)
+# This script runs as its own process (invoked as the fake ``gh``, with
+# ``gh_env()`` stripping the supervisor's PYTHONPATH before launch — PIP-905),
+# so it must stay stdlib-only: importing the package here broke the fake under
+# a clean ``env -i`` (PIP-909, revisão adversarial, achado 1). The interpreter
+# list is still not duplicated by hand — it is read out of ``delivery.py`` with
+# ``ast``, and ``tests/mission/test_delivery.py`` asserts both sides agree.
+def _interpreter_env() -> tuple[str, ...]:
+    source = Path(__file__).resolve().parents[3] / "src" / "pipe_venture_builder" / "mission" / "delivery.py"
+    try:
+        tree = ast.parse(source.read_text(encoding="utf-8"))
+    except (OSError, SyntaxError):
+        return ()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign) and any(
+            isinstance(target, ast.Name) and target.id == "_INTERPRETER_ENV" for target in node.targets
+        ):
+            try:
+                return tuple(ast.literal_eval(node.value))
+            except ValueError:
+                return ()
+    return ()
+
+
+_INTERPRETER_ENV = _interpreter_env()
 
 
 def _relevant_env() -> dict[str, str]:

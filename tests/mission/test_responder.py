@@ -12,6 +12,7 @@ from pipe_venture_builder.mission.contract import build_mission
 from pipe_venture_builder.mission.responder import (
     BLOCKER_FENCE_CLOSE,
     BLOCKER_FENCE_OPEN,
+    CATEGORIES,
     RESPONDER_ALLOWED_TOOLS,
     RESPONDER_OUTPUT_INVALID,
     RESPONDER_RUN_FAILED,
@@ -104,6 +105,30 @@ class PromptAndCommandTests(TestCase):
         self.assertEqual(schema["properties"]["action"]["enum"], ["instruct", "escalate"])
 
 
+class ResponseSchemaTests(TestCase):
+    """PIP-909: pin every field of ``RESPONSE_SCHEMA`` the structural gate
+    (``supervisor._answer_blockers``) relies on — a mutation dropping
+    ``category``/``founderDecision`` from ``required``, loosening the
+    ``category`` enum, widening ``founderDecision`` past ``boolean``, or
+    dropping ``additionalProperties: false`` must fail a test here, not just
+    survive silently until a live model happens to send an extra field."""
+
+    def test_required_fields(self) -> None:
+        self.assertEqual(
+            RESPONSE_SCHEMA["required"],
+            ["action", "category", "founderDecision", "instructions", "reason"],
+        )
+
+    def test_category_enum_matches_the_declared_categories(self) -> None:
+        self.assertEqual(RESPONSE_SCHEMA["properties"]["category"]["enum"], list(CATEGORIES))
+
+    def test_founder_decision_is_strictly_boolean(self) -> None:
+        self.assertEqual(RESPONSE_SCHEMA["properties"]["founderDecision"]["type"], "boolean")
+
+    def test_no_additional_properties(self) -> None:
+        self.assertFalse(RESPONSE_SCHEMA["additionalProperties"])
+
+
 class ParseResponseTests(TestCase):
     def test_parse_response_prefers_structured_output_then_result_text(self) -> None:
         response = {"action": "instruct", "category": "environment", "founderDecision": False, "instructions": "faça X", "reason": "r"}
@@ -115,6 +140,31 @@ class ParseResponseTests(TestCase):
         self.assertIsNone(parse_response({"action": "maybe", "instructions": "x"}, None))
         self.assertIsNone(parse_response({"action": "instruct"}, None), "instructions missing")
         self.assertIsNone(parse_response({"action": "instruct", "category": "environment", "founderDecision": False, "instructions": 1}, None))
+
+    def test_a_structured_output_present_never_falls_back_to_the_free_text(self) -> None:
+        """An invalid ``structured_output`` is invalid full stop: it never
+        falls back to whatever JSON the free text happens to carry, even a
+        perfectly valid one (PIP-906 review 4, achado 7)."""
+
+        valid_text = json.dumps({
+            "action": "instruct", "category": "tests", "founderDecision": False,
+            "instructions": "rode a suite", "reason": "r",
+        })
+        self.assertIsNone(parse_response({"action": "instruct"}, valid_text))
+        self.assertIsNone(parse_response("nao e um objeto", valid_text))
+        self.assertIsNotNone(parse_response(None, valid_text))
+
+    def test_an_instruct_nested_inside_a_malformed_escalate_text_is_not_applied(self) -> None:
+        """The FIRST JSON object in the free text that declares ``action`` is
+        the answer: a malformed ``escalate`` carrying a valid ``instruct`` as
+        a string inside it is never unwrapped (PIP-906 review 5)."""
+
+        nested_instruct = json.dumps({
+            "action": "instruct", "category": "tests", "founderDecision": False,
+            "instructions": "rode a suite", "reason": "r",
+        })
+        malformed_escalate = json.dumps({"action": "escalate", "instructions": nested_instruct})
+        self.assertIsNone(parse_response(None, malformed_escalate))
 
 
 class RunResponderTests(TestCase):
