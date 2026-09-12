@@ -2,9 +2,32 @@
 
 This file documents the operational enforcement state of the `main` branch. The substantive review policy lives in `execution/ticket-pr-handoff-system.md`; this file describes how GitHub enforces it.
 
-## Effective configuration (target state)
+## Effective configuration
 
-Applied via `gh api --method PUT repos/vnatividade/pipe-venture-builder/branches/main/protection` after PIP-140 merges:
+**Measured on 2026-09-12, before any change:** `GET /repos/vnatividade/pipe-venture-builder/branches/main/protection` returned **404** and `GET /repos/.../rules/branches/main` returned an **empty list**. The `main` branch had **no protection and no ruleset at all** — the table under "Target state, never applied" below was written in 2026-05-18 and never reached the repository.
+
+That mattered beyond documentation: `src/pipe_venture_builder/mission/delivery.py` disables git hooks (`core.hooksPath=/dev/null`) and treats `delivery.requireChecks` as its net. Until this date that net was only the mission supervisor polling `gh pr checks` — GitHub itself would have accepted a merge with red CI.
+
+**Applied on 2026-09-12** — repository ruleset `main: CI verde obrigatória`, id `23056388`, `enforcement: active`, targeting `refs/heads/main`:
+
+| Rule | Parameters | Rationale |
+|---|---|---|
+| `required_status_checks` | `runtime (node)`, `toolkit (python)`, `governança gerada em sincronia`; `strict: false` | The three jobs of `.github/workflows/ci.yml`. This is what makes `delivery.requireChecks` a real gate instead of a convention. `strict: false` so a PR is not forced to rebase onto every new `main` commit. |
+| `pull_request` | `required_approving_review_count: 0` | Deliberate. The cross-account review path (author/merge `agents-natiivis`, review `vnatividade`) is enforced by discipline, not by GitHub, because requiring an approval would block a solo merge from a single account. Raise to `1` to make the review structural. |
+| `non_fast_forward` | — | Protects history. |
+| `deletion` | — | Protects the branch from accidental deletion. |
+
+Read the live state with:
+
+```
+gh api repos/vnatividade/pipe-venture-builder/rules/branches/main --jq '.[].type'
+```
+
+Note: creating or changing the ruleset requires **admin**, which only the `vnatividade` account has (`agents-natiivis` has push/triage but `admin: false`).
+
+## Target state, never applied
+
+The table below was the 2026-05-18 intent, written for the legacy branch-protection API. It is kept for history — **it was never the effective configuration**. Where it disagrees with the ruleset above, the ruleset wins.
 
 | Setting | Value | Rationale |
 |---|---|---|
@@ -14,7 +37,7 @@ Applied via `gh api --method PUT repos/vnatividade/pipe-venture-builder/branches
 | `required_pull_request_reviews.require_last_push_approval` | `false` | Allows the same reviewer to re-approve after their own follow-up commits. Useful for the solo + agentic flow. |
 | `required_conversation_resolution` | `true` | Force resolving review threads before merge. Tightens the loop on review feedback. |
 | `enforce_admins` | `false` | Owners and admins can override in emergencies. The intent is to prevent accidental bypass, not to make merges impossible if review tooling fails. |
-| `required_status_checks` | `null` | No CI is configured. Update when CI is introduced. |
+| `required_status_checks` | `null` | Was true when written; CI has existed since 2026-08-05. Superseded by the ruleset above. |
 | `restrictions` | `null` | Anyone with write access may open PRs. |
 | `allow_force_pushes` | `false` | Protects history. |
 | `allow_deletions` | `false` | Protects the branch from accidental deletion. |
@@ -60,4 +83,5 @@ Absolute gates (production deploy, secrets, billing, customer data, external com
 
 ## Change log
 
-- 2026-05-18: Initial policy. Applied via `gh api` under PIP-140 (PR #TBD). Configuration as documented above.
+- 2026-05-18: Initial policy written under PIP-140. **Never applied** — confirmed by measurement on 2026-09-12 (404 on the protection endpoint, empty ruleset list).
+- 2026-09-12: Ruleset `main: CI verde obrigatória` (id `23056388`) created and verified active under PIP-914: required status checks (the three CI jobs), pull request required, no deletion, no force-push. Zero required approvals, by deliberate choice. To undo: `gh api -X DELETE repos/vnatividade/pipe-venture-builder/rulesets/23056388` with the `vnatividade` account.

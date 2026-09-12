@@ -8,7 +8,24 @@ This file gives the GitHub Copilot pull-request reviewer the governance context 
 
 ## Repository context
 
-`pipe-venture-builder` is a governance/protocol repository for an agentic venture-builder pipeline. It is almost entirely Markdown today (no runtime, no tests). Reviews should focus on governance adherence, scope discipline, and documentation integrity.
+`pipe-venture-builder` is a governance/protocol repository for an agentic venture-builder pipeline **and a working codebase**. Measured on 2026-09-12: **98 `.py` files under `src/`, 93 `.py` files under `tests/`, 29 `.mjs` files under `runtime/`**, alongside the Markdown that carries the protocol.
+
+This section previously said the repository was "almost entirely Markdown today (no runtime, no tests)" and told reviewers to focus only on governance. That was true when written and stopped being true; for months it pointed the reviewer away from code in pull requests that were almost entirely code. Review **both**: the governance checklist below, and the code.
+
+## Code review
+
+Judge the diff, not the PR description's claims about it. The defects this repository actually produces, in the order they have shown up:
+
+- **Subprocess and git isolation.** Any new `subprocess` call that runs `git` must disable hooks (`-c core.hooksPath=/dev/null`) and must not inherit `GIT_*` from the parent — a hook in the repository's *shared* hook directory is reachable from inside a worktree and runs with the caller's credentials. Same for `GIT_CONFIG_GLOBAL` and `GIT_EXTERNAL_DIFF`, which can falsify what a reviewer is shown.
+- **Database migration.** A new column or constraint does **not** reach an existing database through `CREATE TABLE IF NOT EXISTS`. Require a schema-version bump plus a migration, and a test that builds the *old* schema by hand — every test that starts from a fresh database is blind to this.
+- **State read outside the write transaction.** Reading state to decide, then writing in a separate transaction, is a race whenever two processes can open the same store.
+- **A guard that does not run at the gate.** Being in a validator is not the same as running in CI or in the hook. Ask for the literal output from the run, and for proof by mutation.
+- **A test that passes without exercising anything.** If removing the guard leaves the suite green, the guard is uncovered. Prefer a negative control next to every positive one.
+- **A number in a normative document that nobody measured.** Counts, scores and "N tests green" must carry the command that produced them, or be removed.
+- **Documentation that contradicts the code.** This repository has a history of it. When a diff changes behaviour, check whether the prose that describes that behaviour changed with it.
+- **Path and text sanitisation** for anything written to disk or interpolated into a prompt, including invisible and line-separator characters.
+
+Use the same severity model as below. A security-relevant isolation defect is **P0**; a missing migration or an uncovered new guard is **P1**.
 
 ## PR body must include
 
@@ -18,7 +35,7 @@ The PR description must follow `.github/pull_request_template.md`. Flag the PR i
 - **Context** — why the PR exists and what authorizing artifact or ticket produced it.
 - **Included Scope** — explicit list matching the actual diff.
 - **Excluded Scope** — explicit list of what was preserved or deferred.
-- **Validation Performed** — concrete commands or checks run; "n/a — documentation-only repo" is acceptable.
+- **Validation Performed** — concrete commands or checks run, with their output. `"n/a"` is acceptable only for a diff that touches no code; a code diff without a command that was actually run is a **P1**.
 - **Review Status** — primary reviewer (Copilot or human) and any fallback authorization.
 - **Risks And Residual Concerns** — if zero, state that.
 - **Follow-Ups** — list of follow-up tickets created, or "No follow-ups identified."
