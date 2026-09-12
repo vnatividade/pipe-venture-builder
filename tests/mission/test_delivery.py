@@ -556,11 +556,17 @@ class FakeGhInterpreterEnvSyncTests(TestCase):
     either tuple without the other fails here instead of leaving the fake's
     assertion silently vacuous."""
 
-    def test_fake_gh_imports_the_real_interpreter_env(self) -> None:
+    def test_fake_gh_derives_the_real_interpreter_env_without_importing(self) -> None:
+        # O fake roda como script, com o ambiente já limpo pelo ``gh_env()``:
+        # importar o pacote ali quebrou o fake num ``env -i`` (PIP-909, revisão
+        # adversarial, achado 1). Ele lê a tupla de ``delivery.py`` com ``ast``,
+        # e este teste é o que garante que as duas não divergem.
         from tests.mission.fakes import fake_gh
 
         self.assertEqual(tuple(fake_gh._INTERPRETER_ENV), tuple(delivery._INTERPRETER_ENV))
-        self.assertIs(fake_gh._INTERPRETER_ENV, delivery._INTERPRETER_ENV)
+        self.assertGreater(len(fake_gh._INTERPRETER_ENV), 0, "a derivação por ast achou a lista")
+        source = Path(fake_gh.__file__).read_text(encoding="utf-8")
+        self.assertNotIn("from pipe_venture_builder", source, "o fake continua stdlib puro")
 
 
 class GhCallsReceiveGhEnvTests(TestCase):

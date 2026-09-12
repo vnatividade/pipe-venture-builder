@@ -1360,19 +1360,30 @@ _LINE_BREAK_LIKE = chr(0x2028) + chr(0x2029) + "\x85"
 
 def _printable(text: str) -> str:
     """Model text without control characters (a NUL once made every later
-    write of the revision fail) and without U+2028/U+2029/U+0085; newlines
-    and tabs stay."""
+    write of the revision fail), without U+2028/U+2029/U+0085 and sem surrogate
+    solto (categoria ``Cs``, que ``json`` aceita e ``write_text`` recusa com
+    ``UnicodeEncodeError`` — era isso que derrubava o laço pelos caminhos que
+    não passavam por aqui, PIP-909, achado 2); newline e tab ficam."""
 
     return "".join(
         ch for ch in text
-        if ch in "\n\t" or (ch not in _LINE_BREAK_LIKE and unicodedata.category(ch)[0] != "C")
+        if ch in "\n\t"
+        or (
+            ch not in _LINE_BREAK_LIKE
+            and unicodedata.category(ch)[0] != "C"
+        )
     )
 
 
 def _save_revision(home: Path, mission_id: str, cycle: int, text: str) -> None:
+    """Every revision file goes through ``_printable``: the text can come from
+    the reviewer or the responder, and a lone surrogate used to crash the loop
+    while an invisible line separator silently split the file (PIP-909,
+    revisão adversarial, achado 2 — antes só o caminho do respondedor limpava)."""
+
     path = _revision_path(home, mission_id, cycle)
     path.parent.mkdir(parents=True, exist_ok=True)
-    _write_private(path, text.strip() + "\n")
+    _write_private(path, _printable(text).strip() + "\n")
 
 
 def _load_revision(home: Path, mission_id: str, cycle: int) -> str | None:

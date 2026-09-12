@@ -155,9 +155,19 @@ _PAIRS: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = (
      ("banco", "database", "db", "producao", "production", "prod", "principal", "rds", "live")),
     (("base", "cadastro*", "lista", "planilha", "csv"), ("usuario*", "cliente*", "assinante*", "email*", "emails")),
     (("termos", "politica"), ("uso", "privacidade", "servico")),
+
+    (("planilha*", "lista*", "base", "cadastro*", "csv", "dump*", "tabela"),
+     ("aluno*", "inscrit*", "matricul*", "paciente*", "beneficiari*", "socio*", "membro*",
+      "contato*", "email*", "emails", "mail", "mails", "telefone*")),
     (("claim*", "afirma*", "promete*"), ("cliente*", "customer*", "juridic*", "legal", "compliance")),
     (("reais", "real", "verdadeiros"), ("cpf*", "cliente*", "customer*", "dados", "data")),
 )
+# Um verbo de afirmação e uma norma/garantia em qualquer lugar do mesmo texto:
+# "afirma que tem registro na ANVISA", "diz que seguimos a norma legal".
+_CLAIM_VERBS = ("promet*", "prometa", "certific*", "afirm*", "garant*", "declara*", "escrev*",
+                "diz", "dizer", "informa*", "documenta*", "anuncia*", "publica*")
+_CLAIM_SUBJECTS = ("iso", "anvisa", "lgpd", "gdpr", "sox", "hipaa", "norma", "normas", "legal",
+                   "juridic*", "compliance", "sla", "slas", "disponibilidade", "uptime")
 # A message word and a customer word anywhere in the same text (no window):
 # "envie o e-mail de desculpas para todos os clientes afetados".
 _MESSAGE_VERBS = (
@@ -219,6 +229,8 @@ _TECH_AFFIXES = frozenset({
     "plan", "plans", "message", "messages", "msg", "hash", "hashed", "hasher", "test", "tests",
     "mask", "masked", "field", "fields", "fixture", "fixtures", "schema", "model", "models",
     "parser", "lexer", "id", "ids", "type", "types", "validator", "validate", "stub", "mock",
+    "seconds", "secs", "ms", "millis", "duration", "timeout", "threshold", "percent", "pct",
+    "ratio", "rate", "report", "reports", "matrix", "calculator", "factory", "module",
     "fake", "len", "length", "size", "limit", "regex", "pattern", "format", "fmt", "sort",
     "strategy", "decision", "lowercased", "normalize", "normalized",
 })
@@ -239,6 +251,7 @@ _EXEMPTIBLE = frozenset({
     "merge", "merg", "merged", "merges", "deploy", "deployment", "deployments", "prod",
     "producao", "production", "produtivo", "mode", "modes", "write", "set", "user", "users",
     "message", "messages", "client", "clients", "live", "push", "cobre", "cobra",
+    "compliance", "sla", "slas", "juridico", "juridica", "legal", "pii",
 })
 
 
@@ -328,6 +341,10 @@ def contains_sensitive_terms(text: str) -> bool:
             return True
     if any(_matches(token, _MESSAGE + _MESSAGE_VERBS) for token in tokens) and any(
         _matches(token, _BUSINESS_CUSTOMER) for token in tokens
+    ):
+        return True
+    if any(_matches(token, _CLAIM_VERBS) for token in tokens) and any(
+        _matches(token, _CLAIM_SUBJECTS) for token in tokens
     ):
         return True
     for left, right in _PAIRS:
