@@ -13,7 +13,7 @@ That mattered beyond documentation: `src/pipe_venture_builder/mission/delivery.p
 | Rule | Parameters | Rationale |
 |---|---|---|
 | `required_status_checks` | `runtime (node)`, `toolkit (python)`, `governança gerada em sincronia`; `strict: false` | The three jobs of `.github/workflows/ci.yml`. This is what makes `delivery.requireChecks` a real gate instead of a convention. `strict: false` so a PR is not forced to rebase onto every new `main` commit. |
-| `pull_request` | `required_approving_review_count: 0` | Deliberate. The cross-account review path (author/merge `agents-natiivis`, review `vnatividade`) is enforced by discipline, not by GitHub, because requiring an approval would block a solo merge from a single account. Raise to `1` to make the review structural. |
+| `pull_request` | `required_approving_review_count: 0` | **Measured, and it does not read like what it does.** PR #200 — the first PR under this ruleset — sat at `mergeStateStatus: BLOCKED` / `reviewDecision: REVIEW_REQUIRED` with all three checks green, and only became `CLEAN` after an approving review. With the `pull_request` rule present, GitHub requires *a* review even at count `0`. The cross-account path (author/merge `agents-natiivis`, review `vnatividade`) is therefore **structural**, not merely disciplinary. A single-account solo merge is blocked, because GitHub does not let an author approve their own PR — drop the `pull_request` rule if that ever has to change. |
 | `non_fast_forward` | — | Protects history. |
 | `deletion` | — | Protects the branch from accidental deletion. |
 
@@ -84,4 +84,4 @@ Absolute gates (production deploy, secrets, billing, customer data, external com
 ## Change log
 
 - 2026-05-18: Initial policy written under PIP-140. **Never applied** — confirmed by measurement on 2026-09-12 (404 on the protection endpoint, empty ruleset list).
-- 2026-09-12: Ruleset `main: CI verde obrigatória` (id `23056388`) created and verified active under PIP-914: required status checks (the three CI jobs), pull request required, no deletion, no force-push. Zero required approvals, by deliberate choice. To undo: `gh api -X DELETE repos/vnatividade/pipe-venture-builder/rulesets/23056388` with the `vnatividade` account.
+- 2026-09-12: Ruleset `main: CI verde obrigatória` (id `23056388`) created and verified active under PIP-914: required status checks (the three CI jobs), pull request required, no deletion, no force-push. Zero *nominal* approvals — which, measured on PR #200, still require one review. To undo: `gh api -X DELETE repos/vnatividade/pipe-venture-builder/rulesets/23056388` with the `vnatividade` account.
