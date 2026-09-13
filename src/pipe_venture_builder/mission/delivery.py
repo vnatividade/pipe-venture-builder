@@ -1,8 +1,10 @@
 """Delivery: the mission worktree, supervisor commits, one PR per branch, checks.
 
 Everything is idempotent by construction: ``ensure_worktree`` reuses what
-exists, ``open_pr`` asks ``gh pr list --head`` before creating, and
-``checks_status`` only reads. Merge is never automatic.
+exists and otherwise adopts (never creates — PIP-915) the worktree a worker
+run's own ``--worktree`` already produced, ``open_pr`` asks ``gh pr list
+--head`` before creating, and ``checks_status`` only reads. Merge is never
+automatic.
 """
 
 from __future__ import annotations
@@ -11,6 +13,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 import unicodedata
@@ -19,6 +22,12 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from .status import default_mission_home
+
+
+class WorktreeNotReady(RuntimeError):
+    """No native worktree exists yet for this mission (PIP-915): a worker run
+    with ``--worktree`` has to create one before ``ensure_worktree`` can adopt
+    it. Never raised once the mission's worktree has been adopted once."""
 
 
 WORKTREE_DIRNAME = "worktree"
@@ -178,14 +187,53 @@ def base_branch(mission: Mapping[str, Any]) -> str:
 # -- worktree ------------------------------------------------------------------
 
 
-def ensure_worktree(mission: Mapping[str, Any], *, home: str | Path | None = None) -> Path:
-    """``git worktree add <home>/<id>/worktree -b claude/<id>-<slug> <baseRef>``, once."""
+def native_worktree_name(mission: Mapping[str, Any]) -> str:
+    """The value passed to ``claude --worktree <name>`` for this mission's
+    worker: the mission id itself (stable, unique, safe as a directory name
+    and as a branch name). The CLI names the directory it creates
+    ``worktree-<name>`` (measured, PIP-915) — ``_find_native_worktree`` looks
+    for exactly that."""
+
+    return mission["missionId"]
+
+
+def worktree_ready(mission: Mapping[str, Any], *, home: str | Path | None = None) -> Path | None:
+    """The canonical path, if it already holds this mission's adopted
+    worktree (on its own branch) — ``None`` otherwise. Never creates or
+    adopts anything; a pure check the supervisor uses to decide whether a
+    worker run needs ``--worktree`` (nothing adopted yet) or can run directly
+    inside the existing worktree."""
 
     repo = mission["workspace"]["repo"]
     path = worktree_path(mission["missionId"], home)
     branch = branch_name(mission)
     if path.is_dir() and _is_mission_worktree(path, repo, branch):
         return path
+    return None
+
+
+def ensure_worktree(mission: Mapping[str, Any], *, home: str | Path | None = None) -> Path:
+    """Adopt, once, whatever ``claude --worktree <native_worktree_name(mission)>``
+    already created for the worker into the canonical ``<home>/<id>/worktree``
+    path, on the mission's own branch.
+
+    PIP-915: no ``git worktree add`` here — creating the worktree is a
+    worker run's job now, natively (the CLI's own wall refuses writes
+    outside a worktree it created; a plain ``git worktree add`` one, measured
+    13/09, does not). This only relocates (``git worktree move``, unlocking
+    first if the CLI locked it) and renames (``git branch -m``) what a worker
+    run left behind, so the rest of the supervisor keeps the same fixed,
+    predictable path it always has. Raises ``WorktreeNotReady`` when no
+    native worktree exists yet — the caller's job is to dispatch a worker
+    with ``--worktree`` first, not to fall back to creating one by hand.
+    """
+
+    repo = mission["workspace"]["repo"]
+    path = worktree_path(mission["missionId"], home)
+    branch = branch_name(mission)
+    ready = worktree_ready(mission, home=home)
+    if ready is not None:
+        return ready
     _git(repo, *_no_hooks_args(), "worktree", "prune")
     if path.exists():
         if any(path.iterdir()):
@@ -194,17 +242,104 @@ def ensure_worktree(mission: Mapping[str, Any], *, home: str | Path | None = Non
                 "(other repository, other branch, or not a worktree)"
             )
         path.rmdir()
+    name = native_worktree_name(mission)
+    native = _find_native_worktree(repo, name)
+    if native is None:
+        raise WorktreeNotReady(
+            f"no native worktree yet for {mission['missionId']}: dispatch a worker "
+            "with --worktree first"
+        )
     path.parent.mkdir(parents=True, exist_ok=True)
-    if _branch_exists(repo, branch):
-        _git(repo, *_no_hooks_args(), "worktree", "add", str(path), branch)
-    else:
-        # ``--no-track``: a remote ``baseRef`` (``origin/main``) would otherwise
-        # set ``branch.<branch>.remote``/``.merge`` in the repository's *shared*
-        # config — another mission creating its own worktree during this
-        # mission's worker run would then change what ``git_config_snapshot``
-        # sees and trip ``git_config_tampered`` on a run that tampered nothing.
-        _git(repo, *_no_hooks_args(), "worktree", "add", "--no-track", str(path), "-b", branch, mission["workspace"]["baseRef"])
+    _adopt_native_worktree(repo, native, path, branch, native_branch=f"worktree-{name}")
     return path
+
+
+def _adopt_native_worktree(
+    repo: str | Path, native: Path, canonical: Path, branch: str, *, native_branch: str
+) -> None:
+    """Relocate ``native`` (whatever the CLI named/placed it) to ``canonical``
+    — the "obtida por rename" of PIP-915's C4. ``git worktree move``, like
+    ``remove``, refuses a locked working tree ("cannot move a locked working
+    tree"); the CLI locks the worktrees it creates (measured), so this
+    unlocks first.
+
+    Only renames the branch when it is still ``native_branch`` — the one the
+    CLI created the worktree on. A worker that checked out something else
+    mid-session left the mission branch on its own terms, and adoption must
+    not paper over that by relabelling whatever it landed on as the mission
+    branch: ``_on_mission_branch`` has to still see the mismatch afterwards,
+    exactly as it would have with the old ``git worktree add``-then-run
+    order (branch already ``claude/<id>-<slug>`` before the worker started)."""
+
+    _unlock_if_locked(repo, native)
+    _git(repo, *_no_hooks_args(), "worktree", "move", str(native), str(canonical))
+    if current_branch(canonical) == native_branch:
+        _git(canonical, *_no_hooks_args(), "branch", "-m", branch)
+
+
+def remove_worktree(mission: Mapping[str, Any], *, home: str | Path | None = None) -> None:
+    """Retire the mission's worktree and its local branch.
+
+    Handles the same lock a native ``claude --worktree`` worktree carries:
+    ``git worktree remove --force`` alone fails on a locked working tree
+    ("cannot remove a locked working tree; use 'remove -f -f' to override or
+    unlock it first", measured) — this unlocks first. Removing a worktree
+    never deletes its branch (it would be left "solta", dangling, with no
+    working tree pointing at it), so this also deletes the local branch.
+    Every step is tolerant of already being gone: safe to call more than
+    once, and safe when nothing was ever adopted."""
+
+    repo = mission["workspace"]["repo"]
+    branch = branch_name(mission)
+    path = worktree_path(mission["missionId"], home)
+    _git(repo, *_no_hooks_args(), "worktree", "unlock", str(path), check=False)
+    _git(repo, *_no_hooks_args(), "worktree", "remove", "--force", str(path), check=False)
+    _git(repo, *_no_hooks_args(), "worktree", "prune", check=False)
+    shutil.rmtree(path, ignore_errors=True)
+    _git(repo, *_no_hooks_args(), "branch", "-D", branch, check=False)
+
+
+def _list_worktrees(repo: str | Path) -> list[dict[str, Any]]:
+    """Parsed ``git worktree list --porcelain`` blocks: each a dict with
+    ``worktree`` (absolute path, as git prints it), ``branch`` (ref or
+    ``None`` when detached/bare) and ``locked`` (bool)."""
+
+    output = _git(repo, "worktree", "list", "--porcelain")
+    entries: list[dict[str, Any]] = []
+    current: dict[str, Any] = {}
+    for line in output.splitlines():
+        if not line.strip():
+            if current:
+                entries.append(current)
+                current = {}
+            continue
+        if line.startswith("worktree "):
+            if current:
+                entries.append(current)
+            current = {"worktree": line[len("worktree "):], "branch": None, "locked": False}
+        elif line.startswith("branch "):
+            current["branch"] = line[len("branch "):]
+        elif line == "locked" or line.startswith("locked "):
+            current["locked"] = True
+    if current:
+        entries.append(current)
+    return entries
+
+
+def _find_native_worktree(repo: str | Path, name: str) -> Path | None:
+    target = f"worktree-{name}"
+    for entry in _list_worktrees(repo):
+        candidate = Path(entry["worktree"])
+        if candidate.name == target:
+            return candidate
+    return None
+
+
+def _unlock_if_locked(repo: str | Path, path: Path) -> None:
+    for entry in _list_worktrees(repo):
+        if Path(entry["worktree"]) == path and entry["locked"]:
+            _git(repo, *_no_hooks_args(), "worktree", "unlock", str(path))
+            return
 
 
 def git_config_snapshot(repo: str | Path, worktree: str | Path) -> dict[str, str | None]:
@@ -496,21 +631,13 @@ def _rev_parse(cwd: Path, option: str) -> Path | None:
     return (printed if printed.is_absolute() else Path(cwd) / printed).resolve()
 
 
-def _branch_exists(repo: str | Path, branch: str) -> bool:
-    completed = subprocess.run(
-        ["git", "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}"],
-        cwd=str(repo), capture_output=True, text=True, timeout=GIT_TIMEOUT_SECONDS, check=False, env=child_env(),
-    )
-    return completed.returncode == 0
-
-
-def _git(cwd: str | Path, *args: str) -> str:
+def _git(cwd: str | Path, *args: str, check: bool = True) -> str:
     completed = subprocess.run(
         ["git", *args],
         cwd=str(cwd), capture_output=True, text=True, encoding="utf-8", errors="replace",
         timeout=GIT_TIMEOUT_SECONDS, check=False, env=child_env(),
     )
-    if completed.returncode != 0:
+    if check and completed.returncode != 0:
         raise RuntimeError(f"git {args[0]} failed with exit code {completed.returncode}")
     return completed.stdout
 

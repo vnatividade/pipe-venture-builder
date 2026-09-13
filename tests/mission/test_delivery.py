@@ -14,6 +14,7 @@ from pipe_venture_builder.mission import delivery
 from pipe_venture_builder.mission.contract import build_mission
 from pipe_venture_builder.mission.delivery import (
     GIT_CONTEXT_ENV,
+    WorktreeNotReady,
     branch_name,
     checks_status,
     child_env,
@@ -23,15 +24,25 @@ from pipe_venture_builder.mission.delivery import (
     existing_pr,
     gh_env,
     git_config_snapshot,
+    native_worktree_name,
     open_pr,
     pr_body,
     pr_title,
     push_branch,
+    remove_worktree,
     slugify,
     worktree_path,
+    worktree_ready,
 )
 from tests.mission.helpers import CREATED_AT
-from tests.mission.loop_helpers import FakeBinaries, git, loop_mission, make_repo, remote_workspace
+from tests.mission.loop_helpers import (
+    FakeBinaries,
+    fabricate_native_worktree,
+    git,
+    loop_mission,
+    make_repo,
+    remote_workspace,
+)
 
 
 class BranchAndWorktreeTests(TestCase):
@@ -43,7 +54,10 @@ class BranchAndWorktreeTests(TestCase):
             mission = build_mission(loop_mission(make_repo(Path(directory))), created_at=CREATED_AT)
         self.assertEqual(branch_name(mission), f"claude/{mission['missionId']}-docs-param-de-contradizer-o-codigo")
 
-    def test_ensure_worktree_is_idempotent_and_survives_a_removed_directory(self) -> None:
+    def test_ensure_worktree_adopts_the_native_worktree_and_is_then_idempotent(self) -> None:
+        # PIP-915: no more ``git worktree add`` here — a worker run's own
+        # ``--worktree`` creates it natively; ``ensure_worktree`` only adopts
+        # (relocates + renames) what that run left behind, once.
         with TemporaryDirectory() as directory:
             root = Path(directory)
             repo = make_repo(root)
@@ -51,25 +65,38 @@ class BranchAndWorktreeTests(TestCase):
             mission = build_mission(loop_mission(repo), created_at=CREATED_AT)
             expected = home / mission["missionId"] / "worktree"
             self.assertEqual(worktree_path(mission["missionId"], home), expected)
+            self.assertIsNone(worktree_ready(mission, home=home))
 
+            native = fabricate_native_worktree(repo, mission)
             first = ensure_worktree(mission, home=home)
             self.assertEqual(first, expected)
+            self.assertFalse(native.exists(), "the native worktree was moved, not copied")
             self.assertTrue((first / "README.md").is_file())
             self.assertEqual(git(first, "branch", "--show-current").strip(), branch_name(mission))
             self.assertEqual(git(first, "rev-parse", "HEAD"), git(repo, "rev-parse", "main"))
+            self.assertEqual(worktree_ready(mission, home=home), first)
 
             second = ensure_worktree(mission, home=home)
             self.assertEqual(second, first)
             listed = [line for line in git(repo, "worktree", "list", "--porcelain").splitlines() if line.startswith("worktree ")]
             self.assertEqual(len(listed), 2, "main checkout + one mission worktree")
 
-            (first / "README.md").write_text("work in progress\n", encoding="utf-8")
-            git(first, "commit", "-q", "-am", "wip")
-            shutil.rmtree(first)
-            third = ensure_worktree(mission, home=home)
-            self.assertEqual(third, first)
-            self.assertEqual((third / "README.md").read_text(encoding="utf-8"), "work in progress\n",
-                             "the existing branch is reused, not recreated from baseRef")
+    def test_ensure_worktree_raises_when_the_canonical_directory_is_gone_and_nothing_native_is_left(self) -> None:
+        # PIP-915: recreating a destroyed worktree by hand is exactly the
+        # manual ``git worktree add`` capability this ticket removes — the
+        # only way back is a fresh worker dispatch with ``--worktree``.
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo = make_repo(root)
+            home = root / "home"
+            mission = build_mission(loop_mission(repo), created_at=CREATED_AT)
+            fabricate_native_worktree(repo, mission)
+            worktree = ensure_worktree(mission, home=home)
+            (worktree / "README.md").write_text("work in progress\n", encoding="utf-8")
+            git(worktree, "commit", "-q", "-am", "wip")
+            shutil.rmtree(worktree)
+            with self.assertRaises(WorktreeNotReady):
+                ensure_worktree(mission, home=home)
 
     def test_a_directory_inside_another_repository_is_not_the_mission_worktree(self) -> None:
         # B3 (review S6): ``rev-parse --is-inside-work-tree`` is true for any
@@ -84,6 +111,7 @@ class BranchAndWorktreeTests(TestCase):
             mission = build_mission(loop_mission(repo), created_at=CREATED_AT)
             empty = worktree_path(mission["missionId"], home)
             empty.mkdir(parents=True)
+            fabricate_native_worktree(repo, mission)
             created = ensure_worktree(mission, home=home)
             self.assertEqual(created, empty)
             self.assertEqual(Path(git(created, "rev-parse", "--show-toplevel").strip()).resolve(),
@@ -103,6 +131,7 @@ class BranchAndWorktreeTests(TestCase):
             repo = make_repo(root)
             home = root / "home"
             mission = build_mission(loop_mission(repo), created_at=CREATED_AT)
+            fabricate_native_worktree(repo, mission)
             worktree = ensure_worktree(mission, home=home)
             git(worktree, "checkout", "-q", "-b", "elsewhere")
             with self.assertRaises(RuntimeError, msg="wrong branch"):
@@ -124,6 +153,7 @@ class BranchAndWorktreeTests(TestCase):
             root = Path(directory)
             repo = make_repo(root)
             mission = build_mission(loop_mission(repo), created_at=CREATED_AT)
+            fabricate_native_worktree(repo, mission)
             worktree = ensure_worktree(mission, home=root / "home")
             self.assertFalse(commit_if_needed(worktree, f"{mission['missionId']}: nothing"))
             (worktree / "docs" / "guide.md").write_text("pipe idea\n", encoding="utf-8")
@@ -134,12 +164,90 @@ class BranchAndWorktreeTests(TestCase):
             self.assertFalse(commit_if_needed(worktree, "again"))
 
 
+class WorktreeCleanupTests(TestCase):
+    """PIP-915, C4: retiring a mission's worktree — including the lock the
+    native ``claude --worktree`` worktree carries — leaves no orphan worktree
+    directory and no dangling local branch behind."""
+
+    def test_remove_worktree_unlocks_removes_and_deletes_the_branch(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo = make_repo(root)
+            home = root / "home"
+            mission = build_mission(loop_mission(repo), created_at=CREATED_AT)
+            fabricate_native_worktree(repo, mission, locked=True)
+            worktree = ensure_worktree(mission, home=home)
+            branch = branch_name(mission)
+            self.assertTrue(worktree.is_dir())
+            self.assertIn(f"refs/heads/{branch}", git(repo, "branch", "--list", "--format=%(refname)"))
+            # ``ensure_worktree`` already unlocked it while adopting (see
+            # ``_adopt_native_worktree``) — lock it again here so this test
+            # exercises ``remove_worktree``'s own unlock-then-remove path
+            # directly, on the canonical worktree it actually receives.
+            git(repo, "worktree", "lock", str(worktree))
+
+            remove_worktree(mission, home=home)
+
+            self.assertFalse(worktree.exists(), "no orphan worktree directory")
+            listed = [line for line in git(repo, "worktree", "list", "--porcelain").splitlines()
+                      if line.startswith("worktree ")]
+            self.assertEqual(len(listed), 1, "only the main checkout is left")
+            self.assertNotIn(f"refs/heads/{branch}", git(repo, "branch", "--list", "--format=%(refname)"),
+                             "no branch left dangling with no working tree pointing at it")
+
+    def test_remove_worktree_still_works_when_it_was_never_locked(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo = make_repo(root)
+            home = root / "home"
+            mission = build_mission(loop_mission(repo), created_at=CREATED_AT)
+            fabricate_native_worktree(repo, mission, locked=False)
+            worktree = ensure_worktree(mission, home=home)
+            self.assertTrue(worktree.is_dir())
+
+            remove_worktree(mission, home=home)
+
+            self.assertFalse(worktree.exists())
+
+    def test_remove_worktree_is_idempotent_when_nothing_was_ever_adopted(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo = make_repo(root)
+            home = root / "home"
+            mission = build_mission(loop_mission(repo), created_at=CREATED_AT)
+            remove_worktree(mission, home=home)  # never raises
+            remove_worktree(mission, home=home)  # calling it twice is still safe
+
+    def test_plain_worktree_remove_alone_fails_on_a_locked_worktree(self) -> None:
+        """Controle: prova que o lock é o obstáculo real — sem o unlock que
+        ``remove_worktree`` faz, um ``git worktree remove --force`` comum
+        falha ('cannot remove a locked working tree'). Sem isto, o teste
+        acima passaria mesmo que ``remove_worktree`` nunca tratasse o lock."""
+
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo = make_repo(root)
+            home = root / "home"
+            mission = build_mission(loop_mission(repo), created_at=CREATED_AT)
+            fabricate_native_worktree(repo, mission, locked=True)
+            worktree = ensure_worktree(mission, home=home)
+            git(repo, "worktree", "lock", str(worktree))  # adoption already unlocked it once
+            completed = subprocess.run(
+                ["git", "worktree", "remove", "--force", str(worktree)],
+                cwd=repo, capture_output=True, text=True, check=False,
+            )
+            self.assertNotEqual(completed.returncode, 0, "the control hook is not itself locked")
+            self.assertIn("lock", (completed.stderr or "").lower())
+            self.assertTrue(worktree.is_dir(), "the plain remove must not have actually removed it")
+
+
 class GitConfigSnapshotTests(TestCase):
     def test_snapshot_changes_when_the_worktree_writes_repository_config(self) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory)
             repo = make_repo(root)
             mission = build_mission(loop_mission(repo), created_at=CREATED_AT)
+            fabricate_native_worktree(repo, mission)
             worktree = ensure_worktree(mission, home=root / "home")
             before = git_config_snapshot(repo, worktree)
             self.assertEqual(git_config_snapshot(repo, worktree), before, "stable without changes")
@@ -150,16 +258,21 @@ class GitConfigSnapshotTests(TestCase):
             self.assertNotIn("ignored/hooks", repr(git_config_snapshot(repo, worktree)),
                              "only hashes are kept")
 
-    def test_worktree_add_from_a_remote_base_ref_writes_no_shared_tracking_config(self) -> None:
-        # PIP-907 (c): without ``--no-track``, ``git worktree add -b <branch>
-        # origin/main`` writes ``branch.<branch>.remote``/``.merge`` into the
-        # repository's *shared* config — the same file every worktree reads.
+    def test_adopting_a_remote_base_ref_native_worktree_writes_no_shared_tracking_config(self) -> None:
+        # PIP-907 (c), re-scoped for PIP-915: creating the worktree off a
+        # remote ``baseRef`` (``origin/main``) is a worker run's job now
+        # (``fabricate_native_worktree`` stands in, ``--no-track`` as the
+        # native tool presumably also does); what ``ensure_worktree`` itself
+        # does — ``git worktree move`` + ``git branch -m`` — must not write
+        # ``branch.<branch>.remote``/``.merge`` into the repository's *shared*
+        # config on its own, the same file every worktree reads.
         with TemporaryDirectory() as directory:
             root = Path(directory)
             repo = make_repo(root, with_origin=True)
             mission = build_mission(
                 loop_mission(repo, workspace=remote_workspace(repo)), created_at=CREATED_AT
             )
+            fabricate_native_worktree(repo, mission)
             before = git(repo, "config", "--local", "--list")
             ensure_worktree(mission, home=root / "home")
             self.assertEqual(git(repo, "config", "--local", "--list"), before)
@@ -182,6 +295,7 @@ class GitConfigSnapshotTests(TestCase):
             mission = build_mission(
                 loop_mission(repo, workspace=remote_workspace(repo)), created_at=CREATED_AT
             )
+            fabricate_native_worktree(repo, mission)
             worktree = ensure_worktree(mission, home=root / "home")
             before = git_config_snapshot(repo, worktree)
 
@@ -189,6 +303,7 @@ class GitConfigSnapshotTests(TestCase):
                 loop_mission(repo, workspace=remote_workspace(repo), title="Outra missao concorrente"),
                 created_at=CREATED_AT,
             )
+            fabricate_native_worktree(repo, other)
             ensure_worktree(other, home=root / "home-b")
             self.assertEqual(git_config_snapshot(repo, worktree), before)
 
@@ -199,6 +314,7 @@ class PullRequestTests(TestCase):
             root = Path(directory)
             repo = make_repo(root, with_origin=True)
             mission = build_mission(loop_mission(repo), created_at=CREATED_AT)
+            fabricate_native_worktree(repo, mission)
             worktree = ensure_worktree(mission, home=root / "home")
             (worktree / "README.md").write_text("pipe idea\n", encoding="utf-8")
             commit_if_needed(worktree, f"{mission['missionId']}: change")
@@ -232,6 +348,7 @@ class PullRequestTests(TestCase):
             root = Path(directory)
             repo = make_repo(root, with_origin=True)
             mission = build_mission(loop_mission(repo), created_at=CREATED_AT)
+            fabricate_native_worktree(repo, mission)
             worktree = ensure_worktree(mission, home=root / "home")
             branch = branch_name(mission)
             (worktree / "README.md").write_text("first\n", encoding="utf-8")
@@ -269,6 +386,7 @@ class PullRequestTests(TestCase):
             hook.chmod(0o755)
             git(repo, "config", "core.hooksPath", str(hooks))
             mission = build_mission(loop_mission(repo), created_at=CREATED_AT)
+            fabricate_native_worktree(repo, mission)
             worktree = ensure_worktree(mission, home=root / "home")
             branch = branch_name(mission)
             (worktree / "README.md").write_text("changed\n", encoding="utf-8")
@@ -290,6 +408,7 @@ class PullRequestTests(TestCase):
             repo = make_repo(root, with_origin=True)
             git(repo, "config", "core.hooksPath", "scripts/git-hooks")
             mission = build_mission(loop_mission(repo), created_at=CREATED_AT)
+            fabricate_native_worktree(repo, mission)
             worktree = ensure_worktree(mission, home=root / "home")
             branch = branch_name(mission)
 
@@ -320,6 +439,7 @@ class PullRequestTests(TestCase):
             root = Path(directory)
             repo = make_repo(root, with_origin=True)
             mission = build_mission(loop_mission(repo), created_at=CREATED_AT)
+            fabricate_native_worktree(repo, mission)
             worktree = ensure_worktree(mission, home=root / "home")
             marker = root / "hook-ran"
             for name in ("pre-commit", "commit-msg", "post-commit", "reference-transaction", "pre-push"):
@@ -331,9 +451,13 @@ class PullRequestTests(TestCase):
             push_branch(worktree, branch_name(mission))
             self.assertFalse(marker.exists(), "a hook in .git/hooks ran during the supervisor's commit or push")
 
-    def test_creating_the_worktree_runs_no_hook(self) -> None:
-        # Revisão do PIP-907, P1: ``git worktree add`` executa post-checkout e
-        # reference-transaction — este com GIT_DIR absoluto do worktree novo.
+    def test_adopting_the_native_worktree_runs_no_hook(self) -> None:
+        # Revisão do PIP-907, P1, re-scoped for PIP-915: creating the
+        # worktree is a worker run's job now (``fabricate_native_worktree``
+        # stands in, hook-safe on purpose — see its own comment); what
+        # ``ensure_worktree`` itself does to adopt it — ``git worktree move``
+        # and ``git branch -m`` — must still never run a repository hook
+        # (``post-checkout``, ``reference-transaction``).
         with TemporaryDirectory() as directory:
             root = Path(directory)
             repo = make_repo(root, with_origin=True)
@@ -343,33 +467,9 @@ class PullRequestTests(TestCase):
                 hook.write_text(f'#!/bin/sh\ntouch "{marker}"\nexit 0\n', encoding="utf-8")
                 hook.chmod(0o755)
             mission = build_mission(loop_mission(repo), created_at=CREATED_AT)
+            fabricate_native_worktree(repo, mission)
             ensure_worktree(mission, home=root / "home")
-            self.assertFalse(marker.exists(), "creating the mission worktree ran a hook")
-
-    def test_recreating_the_worktree_does_not_run_hooks_committed_on_the_branch(self) -> None:
-        # Revisão do PIP-907, P1, caso 2: o worktree sumiu e a branch ficou
-        # com hooks que o worker commitou; com ``core.hooksPath`` relativo, o
-        # ``worktree add`` da branch existente os executaria.
-        with TemporaryDirectory() as directory:
-            root = Path(directory)
-            repo = make_repo(root, with_origin=True)
-            git(repo, "config", "core.hooksPath", "scripts/git-hooks")
-            mission = build_mission(loop_mission(repo), created_at=CREATED_AT)
-            home = root / "home"
-            worktree = ensure_worktree(mission, home=home)
-            marker = root / "hook-ran"
-            hooks = worktree / "scripts" / "git-hooks"
-            hooks.mkdir(parents=True)
-            for name in ("post-checkout", "reference-transaction"):
-                hook = hooks / name
-                hook.write_text(f'#!/bin/sh\ntouch "{marker}"\nexit 0\n', encoding="utf-8")
-                hook.chmod(0o755)
-            self.assertTrue(commit_if_needed(worktree, "worker planted hooks"))
-            self.assertFalse(marker.exists())
-            shutil.rmtree(worktree)
-            recreated = ensure_worktree(mission, home=home)
-            self.assertTrue((recreated / "scripts" / "git-hooks" / "post-checkout").exists())
-            self.assertFalse(marker.exists(), "re-creating the worktree ran a hook committed on the branch")
+            self.assertFalse(marker.exists(), "adopting the mission worktree ran a hook")
 
     def test_pr_body_follows_the_repository_template_and_cites_mission_and_ticket(self) -> None:
         with TemporaryDirectory() as directory:
@@ -441,6 +541,7 @@ class ChildEnvGitContextTests(TestCase):
             root = Path(directory)
             repo = make_repo(root, with_origin=True)
             mission = build_mission(loop_mission(repo), created_at=CREATED_AT)
+            fabricate_native_worktree(repo, mission)
             worktree = ensure_worktree(mission, home=root / "home")
             branch = branch_name(mission)
             (worktree / "README.md").write_text("changed\n", encoding="utf-8")

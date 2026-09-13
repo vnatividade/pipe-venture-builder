@@ -503,8 +503,18 @@ def worker_command(
     claude_bin: str,
     budget_left: float,
     model: str = DEFAULT_MODEL,
+    worktree_name: str | None = None,
 ) -> list[str]:
-    return [
+    """``worktree_name`` set: the worker runs with ``--worktree <name>``, the
+    CLI's own native worktree (PIP-915) — its wall refuses writes outside it
+    structurally, unlike the ``cwd`` the supervisor used to hand a worker
+    already sitting inside a worktree it created itself with a plain ``git
+    worktree add``. Left ``None`` (every cycle after the first, once the
+    supervisor has adopted that native worktree into the mission's canonical
+    path — see ``delivery.ensure_worktree``) the worker just runs with
+    ``cwd`` already inside it; nothing here creates a second one."""
+
+    command = [
         claude_bin,
         "-p",
         brief,
@@ -526,6 +536,9 @@ def worker_command(
         "--model",
         model,
     ]
+    if worktree_name is not None:
+        command += ["--worktree", worktree_name]
+    return command
 
 
 def run_worker(
@@ -544,13 +557,21 @@ def run_worker(
     grace_seconds: float = DEFAULT_GRACE_SECONDS,
     env: Mapping[str, str] | None = None,
     on_start: Callable[[ClaudeProcess], None] | None = None,
+    worktree_name: str | None = None,
 ) -> WorkerResult:
-    """Run one worker for ``run_id`` in ``cwd`` and reduce its output."""
+    """Run one worker for ``run_id`` in ``cwd`` and reduce its output.
+
+    ``worktree_name`` set: ``cwd`` is the repository itself and the worker's
+    own ``--worktree <name>`` creates the mission's worktree, natively (see
+    ``worker_command``). Left ``None``: ``cwd`` is already that worktree,
+    adopted by a previous cycle.
+    """
 
     del run_id  # identity lives in the store; the worker never sees it
     brief = compile_brief(mission, cycle, revision_instructions)
     command = worker_command(
-        mission, brief, claude_bin=claude_bin, budget_left=budget_left, model=model
+        mission, brief, claude_bin=claude_bin, budget_left=budget_left, model=model,
+        worktree_name=worktree_name,
     )
     result = run_claude(
         command,
