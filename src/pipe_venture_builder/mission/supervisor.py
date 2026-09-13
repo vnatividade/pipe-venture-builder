@@ -422,6 +422,11 @@ class _Cycle:
         if stage == "dispatch":
             return self._dispatch(cycle, attempt)
         worktree = ensure_worktree(self.mission, home=self.home)
+        # Retomada: se o processo morreu entre coletar o run e limpar, o
+        # resíduo do gate ficou em disco. Sem isto, `changed_files` o enxerga,
+        # `outside_write_set` acusa, e o ciclo é reprovado mandando o worker
+        # "reverter" um arquivo que ele nunca escreveu.
+        cleanup_stop_gate_residue(worktree)
         if stage == "review":
             return self._verify_and_review(cycle, worker_run, worktree)
         return self._deliver(cycle, worker_run, worktree)
@@ -496,7 +501,25 @@ class _Cycle:
             try:
                 settings_path = str(build_stop_gate_settings(self.mission, worktree_before))
             except StopGateWouldClobberError:
+                # Settings do projeto no caminho: preservar e seguir SEM o
+                # acelerador é o certo. O que faltava era o rastro — sem ele o
+                # gate desliga em silêncio e para sempre, e ninguém descobre.
                 settings_path = None
+                _log(self.home, self.mission_id, "stop_gate.skipped",
+                     cycle=cycle, reason="project_settings_present")
+            except Exception as erro:  # noqa: BLE001 — ver comentário
+                # O acelerador falha ABERTO, como todo o resto do caminho do
+                # PIP-913. Antes daqui, qualquer erro de arquivo (UTF-8
+                # inválido, diretório no lugar do arquivo, permissão) subia e
+                # matava o supervisor ANTES do `open_run`: sem evento, sem
+                # decisão, missão em `active` — e toda retomada morria igual.
+                # Missão travada para sempre sem chamar ninguém, que é pior que
+                # um portão. A limpeza deste mesmo ticket já tratava
+                # `(OSError, JSONDecodeError, UnicodeDecodeError)`; o cuidado
+                # não tinha chegado ao lado da escrita.
+                settings_path = None
+                _log(self.home, self.mission_id, "stop_gate.skipped",
+                     cycle=cycle, reason=type(erro).__name__)
         revision = _load_revision(self.home, self.mission_id, cycle - 1)
         config_before = git_config_snapshot(repo, run_cwd)
         run_id = self.store.open_run(

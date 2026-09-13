@@ -1660,3 +1660,86 @@ class InheritedGitProgramEnvTests(SupervisorTestCase):
             step = h.supervise()
         self.assertEqual(step.status, "completed", step)
         self.assertFalse(marker.exists(), "um programa injetado pelo ambiente rodou durante a missão")
+
+
+class StopGateFailsOpenTests(SupervisorTestCase):
+    """PIP-916, revisão adversarial: o acelerador não pode matar o supervisor.
+
+    O call site capturava só ``StopGateWouldClobberError``. Qualquer outro erro
+    de arquivo subia e derrubava o processo ANTES do ``open_run`` — sem evento,
+    sem decisão, missão em ``active``, e toda retomada morrendo igual. Missão
+    travada para sempre sem chamar ninguém, que é pior que um portão: portão ao
+    menos avisa.
+
+    Duas versões anteriores destes testes passaram por vacuidade: a primeira
+    plantava o arquivo depois de a missão terminar, a segunda olhava a chamada
+    de worker ANTERIOR ao plantio. Aqui cada teste conta as chamadas antes e
+    depois e afirma sobre a que veio DEPOIS.
+    """
+
+    def _cenario_de_duas_voltas(self):
+        h = self.harness()
+        h.fakes.scenario(
+            worker=[self._falha(), self._falha(), self._falha(), good_worker()],
+            reviewer=[{"structured_output": satisfied_verdict()}],
+        )
+        return h
+
+    def _falha(self) -> dict[str, Any]:
+        return {
+            "write_files": {
+                "README.md": "# Demo\n\nidea and adopt remain follow-up\n",
+                "docs/guide.md": "guide: run pipe idea or pipe adopt\n",
+            },
+            "worker_output": good_worker_output(),
+        }
+
+    def _planta(self, h, escrever) -> tuple[int, Path]:
+        """Roda até existir worktree adotado, planta o arquivo, e devolve
+        quantas chamadas de worker existiam ANTES do próximo despacho."""
+
+        h.run_once()
+        alvo = native_worktree_path(h.mission) / ".claude" / "settings.json"
+        alvo.parent.mkdir(parents=True, exist_ok=True)
+        escrever(alvo)
+        return len(h.calls("worker")), alvo
+
+    def _despachou_de_novo(self, h, antes: int):
+        h.run_once()
+        chamadas = h.calls("worker")
+        self.assertGreater(len(chamadas), antes,
+                           "nenhum despacho depois do plantio — o teste não tocou o gate")
+        return chamadas[-1]["argv"]
+
+    def test_a_settings_file_that_cannot_be_read_does_not_kill_the_supervisor(self) -> None:
+        h = self._cenario_de_duas_voltas()
+        antes, _ = self._planta(h, lambda a: a.write_bytes(b'{"hooks": "\xff\xfe latin-1"}'))
+        argv = self._despachou_de_novo(h, antes)
+        self.assertNotIn("--settings", argv, "seguiu com um settings que não consegue ler")
+
+    def test_a_directory_where_the_settings_should_be_does_not_kill_it_either(self) -> None:
+        h = self._cenario_de_duas_voltas()
+        antes, _ = self._planta(h, lambda a: a.mkdir(exist_ok=True))
+        argv = self._despachou_de_novo(h, antes)
+        self.assertNotIn("--settings", argv, "seguiu com um diretório no lugar do settings")
+
+    def test_turning_the_accelerator_off_leaves_a_trace(self) -> None:
+        """Sem rastro, o gate desliga em silêncio e para sempre."""
+
+        h = self._cenario_de_duas_voltas()
+        antes, _ = self._planta(
+            h, lambda a: a.write_text('{"permissions": {"deny": ["Bash(curl *)"]}}', encoding="utf-8")
+        )
+        self._despachou_de_novo(h, antes)
+        texto = (h.home / h.mission_id / "supervisor.log").read_text(encoding="utf-8")
+        self.assertIn("stop_gate.skipped", texto, "o acelerador desligou sem registrar nada")
+
+    def test_the_project_settings_still_survives(self) -> None:
+        """Controle: falhar aberto não pode virar «apaga o que atrapalha»."""
+
+        h = self._cenario_de_duas_voltas()
+        original = '{"permissions": {"deny": ["Bash(curl *)"]}}'
+        antes, alvo = self._planta(h, lambda a: a.write_text(original, encoding="utf-8"))
+        self._despachou_de_novo(h, antes)
+        self.assertTrue(alvo.is_file(), "o settings do projeto foi apagado")
+        self.assertEqual(alvo.read_text(encoding="utf-8"), original)
