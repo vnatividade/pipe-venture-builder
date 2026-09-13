@@ -109,6 +109,20 @@ class BriefAndCommandTests(TestCase):
         without = worker_command(mission, "B", claude_bin="c", budget_left=2, worktree_name=None)
         self.assertNotIn("--worktree", without)
 
+    def test_settings_path_adds_the_settings_flag_without_widening_isolation(self) -> None:
+        # PIP-916: the compiled Stop hook settings (PIP-913's `stop_gate`)
+        # reach the worker through an explicit `--settings <path>`, never by
+        # loosening `--setting-sources` from `project`.
+        with TemporaryDirectory() as directory:
+            mission = mission_for(make_repo(Path(directory)))
+        command = worker_command(
+            mission, "B", claude_bin="c", budget_left=2, settings_path="/tmp/x/.claude/settings.json"
+        )
+        self.assertEqual(single_values(command[3:])["--settings"], "/tmp/x/.claude/settings.json")
+        self.assertEqual(cli_options(command[3:])["--setting-sources"], ["project"])
+        without = worker_command(mission, "B", claude_bin="c", budget_left=2, settings_path=None)
+        self.assertNotIn("--settings", without)
+
     def test_command_isolates_the_worker_from_the_user_settings(self) -> None:
         # A3: without these flags ``~/.claude/settings.json`` allow rules
         # (``gh pr merge *``, ``railway up *``) and hooks reach the worker.
