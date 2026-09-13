@@ -18,6 +18,7 @@ from pipe_venture_builder.mission.delivery import (
     branch_name,
     checks_status,
     child_env,
+    cleanup_stop_gate_residue,
     commit_if_needed,
     current_branch,
     ensure_worktree,
@@ -33,6 +34,10 @@ from pipe_venture_builder.mission.delivery import (
     slugify,
     native_worktree_path,
     worktree_ready,
+)
+from pipe_venture_builder.mission.stop_gate import (
+    build_stop_gate_settings,
+    state_path as stop_gate_state_path,
 )
 from tests.mission.helpers import CREATED_AT
 from tests.mission.loop_helpers import (
@@ -239,6 +244,86 @@ class WorktreeCleanupTests(TestCase):
             self.assertNotEqual(completed.returncode, 0, "the control hook is not itself locked")
             self.assertIn("lock", (completed.stderr or "").lower())
             self.assertTrue(worktree.is_dir(), "the plain remove must not have actually removed it")
+
+
+class StopGateResidueCleanupTests(TestCase):
+    """PIP-916, C4: the Stop hook's own settings and reinforcement counter
+    (PIP-913's ``stop_gate``) must never reach ``changed_files`` outside a
+    mission's write set, nor a commit — ``commit_if_needed`` stages with
+    ``git add -A`` — and must actually be gone from disk at cycle end."""
+
+    def _mission(self, write_set: list[str] | None = None) -> dict:
+        return {
+            "missionId": "MSN-000000000000",
+            "successCriteria": [{"id": "C1", "kind": "check", "text": "x", "command": "true"}],
+            "workspace": {"writeSet": write_set or ["README.md"]},
+        }
+
+    def test_settings_and_counter_are_removed_and_never_change_the_diff(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo = make_repo(root)
+            worktree = root / "worktree"
+            git(repo, "worktree", "add", "--no-track", str(worktree), "-b", "gate-cleanup", "main")
+            mission = self._mission()
+            settings = build_stop_gate_settings(mission, worktree)
+            stop_gate_state_path(worktree).write_text("2", encoding="utf-8")
+            self.assertTrue(settings.is_file())
+            self.assertTrue(stop_gate_state_path(worktree).is_file())
+
+            from pipe_venture_builder.mission.verify import changed_files, outside_write_set
+
+            # Control: left in place (no cleanup), the gate's own residue
+            # WOULD show up as a diff outside the write set — this is
+            # exactly the false ``needs_revision``/contaminated-PR failure
+            # PIP-916 exists to prevent.
+            before = changed_files(worktree, "main")
+            self.assertNotEqual(
+                outside_write_set(before, mission["workspace"]["writeSet"]), [],
+                "control failed: the residue was not actually visible to changed_files",
+            )
+
+            cleanup_stop_gate_residue(worktree)
+
+            self.assertFalse(settings.exists(), "the gate's settings.json must be removed at cycle end")
+            self.assertFalse(stop_gate_state_path(worktree).exists(), "the reinforcement counter must be removed")
+            self.assertFalse((worktree / ".claude").exists(), "no empty .claude left behind")
+
+            after = changed_files(worktree, "main")
+            self.assertEqual(
+                outside_write_set(after, mission["workspace"]["writeSet"]), [],
+                "the gate's own residue must never show up as an out-of-write-set diff",
+            )
+
+    def test_cleanup_never_touches_a_real_project_settings_file(self) -> None:
+        # A `.claude/settings.json` checked into the base branch may carry a
+        # real `permissions.deny` or `PreToolUse` — restrictions on the
+        # worker. Cleanup must recognise it is not this gate's own shape
+        # (`stop_gate._looks_like_our_gate`) and leave it untouched, the same
+        # way `build_stop_gate_settings` itself refuses to overwrite it.
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo = make_repo(root)
+            worktree = root / "worktree"
+            git(repo, "worktree", "add", "--no-track", str(worktree), "-b", "gate-cleanup-real", "main")
+            gate_dir = worktree / ".claude"
+            gate_dir.mkdir(parents=True)
+            real_settings = gate_dir / "settings.json"
+            original = json.dumps({"permissions": {"deny": ["Bash(curl *)"]}})
+            real_settings.write_text(original, encoding="utf-8")
+
+            cleanup_stop_gate_residue(worktree)
+
+            self.assertEqual(real_settings.read_text(encoding="utf-8"), original)
+
+    def test_cleanup_is_idempotent_when_nothing_was_ever_generated(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo = make_repo(root)
+            worktree = root / "worktree"
+            git(repo, "worktree", "add", "--no-track", str(worktree), "-b", "gate-cleanup-noop", "main")
+            cleanup_stop_gate_residue(worktree)  # never raises
+            cleanup_stop_gate_residue(worktree)
 
 
 class GitConfigSnapshotTests(TestCase):

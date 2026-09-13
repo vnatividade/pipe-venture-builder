@@ -188,6 +188,60 @@ class HappyPathTests(SupervisorTestCase):
         self.assertEqual(len(h.calls("worker")), 1)
 
 
+class StopGateWiringTests(SupervisorTestCase):
+    """PIP-916: the compiled Stop hook (PIP-913's ``stop_gate``) is wired
+    into worker dispatch from the second cycle on — the bootstrap cycle's
+    worker creates its own native worktree (``--worktree``) and there is
+    nothing to write the settings into yet, so the accelerator simply sits
+    that one cycle out. Acceleration only: it never becomes evidence, and its
+    own files never leak into a diff or a commit."""
+
+    def _first_cycle_fails_the_check(self) -> dict[str, Any]:
+        # README keeps the text C1's check forbids; the artifact criterion
+        # still passes, so this is a deterministic ``criteria_failed`` —
+        # ``needs_revision`` without ever reaching the reviewer, which is
+        # what leaves a real, already-adopted worktree for cycle 2 to reuse.
+        return {
+            "write_files": {
+                "README.md": "# Demo\n\nidea and adopt remain follow-up\n",
+                "docs/guide.md": "guide: run pipe idea or pipe adopt\n",
+            },
+            "worker_output": good_worker_output(),
+        }
+
+    def test_settings_flag_reaches_only_the_cycle_after_the_worktree_is_adopted(self) -> None:
+        h = self.harness()
+        h.fakes.scenario(
+            worker=[self._first_cycle_fails_the_check(), good_worker()],
+            reviewer=[{"structured_output": satisfied_verdict()}],
+        )
+        step = h.supervise()
+        self.assertEqual(step.status, "completed")
+        first_argv, second_argv = h.calls("worker")[0]["argv"], h.calls("worker")[1]["argv"]
+        self.assertNotIn("--settings", first_argv, "bootstrap cycle: no worktree yet to write settings into")
+        gate_settings = native_worktree_path(h.mission) / ".claude" / "settings.json"
+        self.assertEqual(Path(single_values(second_argv[2:])["--settings"]), gate_settings)
+        # The gate's own files never survive to the end of the cycle that used them.
+        self.assertFalse(gate_settings.exists(), "settings.json must be cleaned up before the diff is checked")
+        self.assertFalse(
+            (native_worktree_path(h.mission) / ".claude" / "stop-gate-reinforcements").exists(),
+            "the reinforcement counter must be cleaned up too",
+        )
+
+    def test_the_hook_wiring_never_changes_what_counts_as_criterion_evidence(self) -> None:
+        # C5: ``verify_criteria`` (not the hook) is still what the store
+        # records; wiring the accelerator in changes nothing about that.
+        h = self.harness()
+        h.fakes.scenario(
+            worker=[self._first_cycle_fails_the_check(), good_worker()],
+            reviewer=[{"structured_output": satisfied_verdict()}],
+        )
+        step = h.supervise()
+        self.assertEqual(step.status, "completed")
+        self.assertTrue(all(item["satisfied"] for item in h.store.criteria_status(h.mission_id)))
+        self.assertEqual(h.events().count("verify.failed"), 1, "the deterministic gate still ran, unmoved")
+
+
 class FailureF1WorkerWithoutJsonTests(SupervisorTestCase):
     def test_f1_worker_without_json_fails_each_cycle_then_blocks_with_decision(self) -> None:
         h = self.harness()

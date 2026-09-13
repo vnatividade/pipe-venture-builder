@@ -504,6 +504,7 @@ def worker_command(
     budget_left: float,
     model: str = DEFAULT_MODEL,
     worktree_name: str | None = None,
+    settings_path: str | Path | None = None,
 ) -> list[str]:
     """``worktree_name`` set: the worker runs with ``--worktree <name>``, the
     CLI's own native worktree (PIP-915) — its wall refuses writes outside it
@@ -512,7 +513,17 @@ def worker_command(
     worktree add``. Left ``None`` (every cycle after the first, once the
     supervisor has adopted that native worktree into the mission's canonical
     path — see ``delivery.ensure_worktree``) the worker just runs with
-    ``cwd`` already inside it; nothing here creates a second one."""
+    ``cwd`` already inside it; nothing here creates a second one.
+
+    ``settings_path`` (PIP-916): the ``.claude/settings.json`` the supervisor
+    compiled from the mission's ``check`` criteria (``stop_gate.
+    build_stop_gate_settings``), passed explicitly rather than relied upon to
+    be found by ``--setting-sources project`` on its own — the worker's cwd
+    stays the repository even when ``--worktree`` is set, so nothing here
+    assumes where that flag effectively lands the process. ``None`` on the
+    mission's bootstrap cycle, when no worktree exists yet to write it into
+    (see the supervisor's ``_dispatch``); the accelerator simply sits out
+    that one cycle rather than widen anything to reach it."""
 
     command = [
         claude_bin,
@@ -538,6 +549,8 @@ def worker_command(
     ]
     if worktree_name is not None:
         command += ["--worktree", worktree_name]
+    if settings_path is not None:
+        command += ["--settings", str(settings_path)]
     return command
 
 
@@ -558,20 +571,21 @@ def run_worker(
     env: Mapping[str, str] | None = None,
     on_start: Callable[[ClaudeProcess], None] | None = None,
     worktree_name: str | None = None,
+    settings_path: str | Path | None = None,
 ) -> WorkerResult:
     """Run one worker for ``run_id`` in ``cwd`` and reduce its output.
 
     ``worktree_name`` set: ``cwd`` is the repository itself and the worker's
     own ``--worktree <name>`` creates the mission's worktree, natively (see
     ``worker_command``). Left ``None``: ``cwd`` is already that worktree,
-    adopted by a previous cycle.
+    adopted by a previous cycle. ``settings_path``: see ``worker_command``.
     """
 
     del run_id  # identity lives in the store; the worker never sees it
     brief = compile_brief(mission, cycle, revision_instructions)
     command = worker_command(
         mission, brief, claude_bin=claude_bin, budget_left=budget_left, model=model,
-        worktree_name=worktree_name,
+        worktree_name=worktree_name, settings_path=settings_path,
     )
     result = run_claude(
         command,

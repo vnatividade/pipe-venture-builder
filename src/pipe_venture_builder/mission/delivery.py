@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from . import stop_gate as _stop_gate
 from .status import default_mission_home
 
 
@@ -300,6 +301,48 @@ def remove_worktree(mission: Mapping[str, Any], *, home: str | Path | None = Non
     _git(repo, *_no_hooks_args(), "worktree", "prune", check=False)
     shutil.rmtree(path, ignore_errors=True)
     _git(repo, *_no_hooks_args(), "branch", "-D", branch, check=False)
+
+
+def cleanup_stop_gate_residue(worktree: str | Path) -> None:
+    """Remove the Stop hook accelerator's own files (PIP-916, wiring PIP-913's
+    ``stop_gate`` module) from ``worktree`` right after a worker run, before
+    anything computes a diff or stages a commit.
+
+    Neither ``<worktree>/.claude/settings.json`` nor its reinforcement
+    counter (``stop_gate.state_path``) is ever part of a mission's write
+    set, and ``commit_if_needed`` below stages with ``git add -A`` — left in
+    place, both would reach ``changed_files`` as an out-of-write-set diff and,
+    on a ``pull_request`` delivery, the PR itself. Only a settings file that
+    is structurally this gate's own is removed
+    (``stop_gate._looks_like_our_gate``): a project's real
+    ``.claude/settings.json`` — the one ``build_stop_gate_settings`` itself
+    refuses to overwrite — is left untouched either way.
+    """
+
+    root = Path(worktree)
+    settings_file = _stop_gate.settings_path(root)
+    if settings_file.exists():
+        try:
+            parsed = json.loads(settings_file.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+            parsed = None
+        if _stop_gate._looks_like_our_gate(parsed):
+            try:
+                settings_file.unlink()
+            except OSError:
+                pass
+    state_file = _stop_gate.state_path(root)
+    try:
+        if state_file.exists():
+            state_file.unlink()
+    except OSError:
+        pass
+    gate_dir = root / _stop_gate.STOP_GATE_DIR_NAME
+    try:
+        if gate_dir.is_dir() and not any(gate_dir.iterdir()):
+            gate_dir.rmdir()
+    except OSError:
+        pass
 
 
 def _list_worktrees(repo: str | Path) -> list[dict[str, Any]]:

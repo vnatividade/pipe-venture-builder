@@ -63,6 +63,7 @@ from .delivery import (
     branch_name,
     checks_status,
     child_env,
+    cleanup_stop_gate_residue,
     commit_if_needed,
     current_branch,
     ensure_worktree,
@@ -77,6 +78,7 @@ from .delivery import (
 )
 from .guard import contains_sensitive_terms  # noqa: F401 - re-exported for callers and tests
 from .responder import DELEGABLE_CATEGORIES, run_responder
+from .stop_gate import StopGateWouldClobberError, build_stop_gate_settings
 from .reviewer import (
     DEFAULT_REVIEW_TIMEOUT_SECONDS,
     REVIEWER_OUTPUT_INVALID,
@@ -478,7 +480,23 @@ class _Cycle:
         # Só o ciclo que CRIA o worktree muda a contagem de worktrees do
         # repositório; nos seguintes ele já existia, e aí qualquer mudança de
         # config volta a ser sinal.
-        criou_worktree_agora = worktree_ready(self.mission, home=self.home) is None
+        worktree_before = worktree_ready(self.mission, home=self.home)
+        criou_worktree_agora = worktree_before is None
+        # PIP-916: compile the mission's `check` criteria into a Stop hook
+        # (PIP-913's `stop_gate`) so the worker sees a failing check inside
+        # its own turn instead of waiting a whole cycle — acceleration only,
+        # never a verdict (`verify_criteria` still runs below, unmoved). Only
+        # possible once a worktree already exists to write it into: the
+        # bootstrap cycle's worker creates its own via `--worktree` and there
+        # is nothing to write into yet, so it simply runs without the hook.
+        # A pre-existing, non-gate `.claude/settings.json` (a real project
+        # file) is left alone — no widening, per `build_stop_gate_settings`.
+        settings_path: str | None = None
+        if worktree_before is not None:
+            try:
+                settings_path = str(build_stop_gate_settings(self.mission, worktree_before))
+            except StopGateWouldClobberError:
+                settings_path = None
         revision = _load_revision(self.home, self.mission_id, cycle - 1)
         config_before = git_config_snapshot(repo, run_cwd)
         run_id = self.store.open_run(
@@ -511,6 +529,7 @@ class _Cycle:
                 should_stop=self._should_stop,
                 on_start=self._worker_started,
                 worktree_name=worktree_name,
+                settings_path=settings_path,
             )
         except BaseException:
             self._terminate_worker()
@@ -546,6 +565,14 @@ class _Cycle:
         # post-stage commit) expects. Any other status keeps ``run_cwd``:
         # the early-return branches below never touch the worktree.
         worktree = ensure_worktree(self.mission, home=self.home) if status == "collected" else run_cwd
+        if status == "collected":
+            # Before anything below computes a diff or stages a commit: the
+            # gate's own settings.json and reinforcement counter are never
+            # part of any mission's write set, and `commit_if_needed` stages
+            # with `git add -A`. Removing them here — never counted, never
+            # committed — is what keeps the accelerator's own residue out of
+            # `changed_files`/`_handle_worker_blockers`'s write-set check.
+            cleanup_stop_gate_residue(worktree)
         after = git_config_snapshot(repo, worktree)
         tampered = [key for key, value in after.items() if config_before.get(key) != value]
         if criou_worktree_agora:
