@@ -177,7 +177,11 @@ def fabricate_native_worktree(repo: Path, mission: dict[str, Any], *, locked: bo
     from pipe_venture_builder.mission.delivery import native_worktree_name
 
     name = native_worktree_name(mission)
-    native_path = repo.parent / f"worktree-{name}"
+    # Layout REAL, medido contra o binário: `<repo>/.claude/worktrees/<nome>`,
+    # com `worktree-<nome>` sendo a BRANCH. Fabricar em `repo.parent/worktree-*`
+    # repetia a suposição errada do código e tornava a suíte cega ao defeito.
+    native_path = repo / ".claude" / "worktrees" / name
+    native_path.parent.mkdir(parents=True, exist_ok=True)
     # ``-c core.hooksPath=/dev/null``: this is test setup standing in for the
     # CLI, not the supervisor's own code — a repo hook must never fire just
     # because a test fabricated the "native" worktree, or it would pollute

@@ -19,7 +19,11 @@ from unittest import TestCase
 
 from pipe_venture_builder.control_plane.model import ControlPlaneStateError
 from pipe_venture_builder.mission.contract import build_mission
-from pipe_venture_builder.mission.delivery import branch_name, ensure_worktree, worktree_path
+from pipe_venture_builder.mission.delivery import (
+    branch_name,
+    ensure_worktree,
+    native_worktree_path,
+)
 from pipe_venture_builder.mission.status import build_status
 from pipe_venture_builder.mission.store import MissionStore
 from pipe_venture_builder.mission.supervisor import (
@@ -178,7 +182,7 @@ class HappyPathTests(SupervisorTestCase):
         # only adopts it into the canonical path once the run collects.
         self.assertEqual(Path(h.calls("worker")[0]["cwd"]).resolve(), h.repo.resolve())
         self.assertEqual(flags(worker_argv)["--worktree"], h.mission_id)
-        self.assertEqual(git(worktree_path(h.mission_id, h.home), "branch", "--show-current").strip(),
+        self.assertEqual(git(native_worktree_path(h.mission), "branch", "--show-current").strip(),
                          branch_name(h.mission), "adopted onto the mission's own branch")
         self.assertEqual(h.run_once().reason, "not_active", "a completed mission dispatches nothing")
         self.assertEqual(len(h.calls("worker")), 1)
@@ -1181,7 +1185,7 @@ class GitConfigTamperTests(SupervisorTestCase):
         self.assertEqual(decision["safeDefault"], "stop")
         self.assertEqual(h.calls("reviewer"), [], "nothing after the worker runs")
         self.assertEqual(h.fakes.gh_calls(), [], "no PR")
-        worktree = worktree_path(h.mission_id, h.home)
+        worktree = native_worktree_path(h.mission)
         self.assertEqual(git(worktree, "rev-parse", "HEAD").strip(), base, "no supervisor commit")
         self.assertNotEqual(git(worktree, "status", "--porcelain"), "", "the worker's diff is left as is")
         self.assertEqual(git(h.repo, "ls-remote", "--heads", "origin", branch_name(h.mission)), "", "no push")
@@ -1274,10 +1278,10 @@ class DeliveryTests(SupervisorTestCase):
         branch = branch_name(h.mission)
         self.assertEqual(
             git(h.repo, "ls-remote", "--heads", "origin", branch).split()[0],
-            git(worktree_path(h.mission_id, h.home), "rev-parse", "HEAD").strip(),
+            git(native_worktree_path(h.mission), "rev-parse", "HEAD").strip(),
             "the last cycle's commit was pushed to the PR branch",
         )
-        self.assertEqual(git(worktree_path(h.mission_id, h.home), "status", "--porcelain"), "")
+        self.assertEqual(git(native_worktree_path(h.mission), "status", "--porcelain"), "")
 
         status = build_status(h.store, h.mission_id, home=h.home)
         self.assertEqual(status["delivery"],
@@ -1335,7 +1339,7 @@ class DeliveryTests(SupervisorTestCase):
         base = git(h.repo, "rev-parse", "main").strip()
         step = h.run_once()
         self.assertEqual((step.status, step.reason), ("blocked", "delivery_outside_write_set"))
-        worktree = worktree_path(h.mission_id, h.home)
+        worktree = native_worktree_path(h.mission)
         self.assertEqual(git(worktree, "rev-parse", "HEAD").strip(), base, "no supervisor commit")
         self.assert_nothing_delivered(h, base)
 

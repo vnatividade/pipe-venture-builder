@@ -32,7 +32,13 @@ from pipe_venture_builder.control_plane.model import utc_now
 
 from . import supervisor
 from .contract import build_mission
-from .delivery import _no_hooks_args, branch_name, child_env, commit_if_needed, worktree_path
+from .delivery import (
+    _no_hooks_args,
+    branch_name,
+    child_env,
+    commit_if_needed,
+    native_worktree_path,
+)
 from .program import chain_from_stage_id
 from .status import default_mission_home
 from .store import MissionStore
@@ -126,7 +132,7 @@ def supervise_program(
         # a no-op then; a ``none`` delivery (every stage in the PIP-910
         # contract's examples) never commits on its own.
         commit_if_needed(
-            worktree_path(mission_id, root),
+            native_worktree_path(mission),
             f"{program_id}: onda {stage['id']} concluida (commit do supervisor de programa)",
         )
         # loop again and pick the next ready stage

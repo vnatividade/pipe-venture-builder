@@ -70,23 +70,32 @@ def _next_call(role: str) -> dict:
 
 
 def _enter_native_worktree(argv: list[str], call: dict) -> None:
-    """Stand-in for the real CLI's ``--worktree <name>`` (PIP-915): create a
-    linked worktree named ``worktree-<name>`` next to the repository this
-    fake was launched in (it always launches with ``cwd`` at the repository
-    when this flag is passed — ``worker.py`` never asks for it otherwise),
-    lock it by default (measured: the real CLI locks the worktrees it
-    creates), and ``chdir`` into it. Idempotent by directory existence: a
-    retried bootstrap cycle (the previous attempt failed before the
-    supervisor could adopt it) reuses what is already there instead of
-    failing on ``git worktree add`` of an existing path."""
+    """Stand-in for the real CLI's ``--worktree <name>``, no LAYOUT REAL.
+
+    Medido contra o binário de verdade em 12 e 13/09:
+
+        diretório  <repo>/.claude/worktrees/<nome>
+        branch     worktree-<nome>
+        estado     locked
+
+    A primeira versão deste fake criava em ``repo.parent/worktree-<nome>`` —
+    aplicando o prefixo da BRANCH ao diretório. Como o código de produção fazia
+    exatamente a mesma suposição, os 386 testes passavam contra uma ficção e o
+    defeito só apareceria numa missão real. Fixture que repete a premissa do
+    código não prova nada.
+
+    Reaproveita por caminho, como o real: invocar de novo com o mesmo nome
+    devolve o mesmo worktree, com os arquivos do ciclo anterior, mesmo depois
+    de a branch ter sido renomeada (medido)."""
 
     index = argv.index("--worktree")
     name = argv[index + 1] if index + 1 < len(argv) and not argv[index + 1].startswith("--") else None
     if not name:
         return
     repo = Path.cwd()
-    native = repo.parent / f"worktree-{name}"
+    native = repo / ".claude" / "worktrees" / name
     if not native.exists():
+        native.parent.mkdir(parents=True, exist_ok=True)
         # ``-c core.hooksPath=/dev/null``: a repo-level hook (this fake's own
         # tests plant one to prove the *disposable* startWhen worktree never
         # runs it) must not fire just because this simulation also creates a

@@ -466,9 +466,19 @@ class _Cycle:
         # detects tampering either way — a linked worktree's ``--local``
         # config *is* the repository's, so using ``repo`` as the "worktree"
         # side of the pre-run snapshot on this bootstrap cycle costs nothing.
-        adopted = worktree_ready(self.mission, home=self.home)
-        run_cwd = adopted if adopted is not None else repo
-        worktree_name = None if adopted is not None else native_worktree_name(self.mission)
+        # ``--worktree`` em TODO ciclo, não só no primeiro. Medido em 13/09: o
+        # CLI reaproveita por nome/caminho — invocá-lo de novo com o mesmo nome
+        # devolve o MESMO worktree, com os arquivos do ciclo anterior, mesmo
+        # depois de a branch ter sido renomeada. Passar o flag só no ciclo 1
+        # (como a primeira entrega do PIP-915 fazia) deixava todo ciclo de
+        # revisão rodar sem a parede — e ciclo de revisão é justamente onde o
+        # worker está mais perdido.
+        run_cwd = repo
+        worktree_name = native_worktree_name(self.mission)
+        # Só o ciclo que CRIA o worktree muda a contagem de worktrees do
+        # repositório; nos seguintes ele já existia, e aí qualquer mudança de
+        # config volta a ser sinal.
+        criou_worktree_agora = worktree_ready(self.mission, home=self.home) is None
         revision = _load_revision(self.home, self.mission_id, cycle - 1)
         config_before = git_config_snapshot(repo, run_cwd)
         run_id = self.store.open_run(
@@ -538,14 +548,14 @@ class _Cycle:
         worktree = ensure_worktree(self.mission, home=self.home) if status == "collected" else run_cwd
         after = git_config_snapshot(repo, worktree)
         tampered = [key for key, value in after.items() if config_before.get(key) != value]
-        if adopted is None:
-            # Bootstrap cycle: adopting the worker's native worktree takes
-            # the repository from one worktree to two, which alone flips
-            # whatever the ``--worktree`` config scope reads as without
-            # ``extensions.worktreeConfig`` (``git_config_snapshot``'s own
-            # comment: the error itself is the state, and that error depends
-            # on how many worktrees exist) — not tampering. Only ``:local``
-            # is a config file the worker could actually have touched.
+        if criou_worktree_agora:
+            # O ciclo tirou o repositório de um worktree para dois (o worker
+            # criou o dele com ``--worktree``), e só isso já muda o que o
+            # escopo ``--worktree`` do git responde quando não há
+            # ``extensions.worktreeConfig`` — o próprio comentário de
+            # ``git_config_snapshot`` diz que o erro É o estado, e esse erro
+            # depende de quantos worktrees existem. Não é adulteração. Só
+            # ``:local`` é arquivo que o worker poderia de fato ter tocado.
             tampered = [key for key in tampered if key.endswith(":local")]
         if tampered:
             return self._config_tampered(cycle, run_id, status, len(tampered))
