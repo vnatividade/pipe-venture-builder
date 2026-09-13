@@ -165,6 +165,35 @@ def loop_mission(repo: Path, **overrides: Any) -> dict[str, Any]:
     return document
 
 
+def fabricate_native_worktree(repo: Path, mission: dict[str, Any], *, locked: bool = True) -> Path:
+    """Stand in for what ``claude --worktree <name>`` (PIP-915) already left
+    behind before a test calls ``delivery.ensure_worktree`` directly (without
+    going through a fake worker run — ``fake_claude.py`` does this same thing
+    itself when the real dispatch path is exercised instead): a plain linked
+    worktree named ``worktree-<mission id>``, on a throwaway branch of that
+    same name, off the mission's own ``baseRef`` — optionally locked, the way
+    the CLI locks the worktrees it creates (measured)."""
+
+    from pipe_venture_builder.mission.delivery import native_worktree_name
+
+    name = native_worktree_name(mission)
+    # Layout REAL, medido contra o binário: `<repo>/.claude/worktrees/<nome>`,
+    # com `worktree-<nome>` sendo a BRANCH. Fabricar em `repo.parent/worktree-*`
+    # repetia a suposição errada do código e tornava a suíte cega ao defeito.
+    native_path = repo / ".claude" / "worktrees" / name
+    native_path.parent.mkdir(parents=True, exist_ok=True)
+    # ``-c core.hooksPath=/dev/null``: this is test setup standing in for the
+    # CLI, not the supervisor's own code — a repo hook must never fire just
+    # because a test fabricated the "native" worktree, or it would pollute
+    # tests that exist specifically to prove the supervisor's own git calls
+    # (``ensure_worktree``'s adopt step) never run one.
+    git(repo, "-c", "core.hooksPath=/dev/null", "worktree", "add", "--no-track", str(native_path),
+        "-b", f"worktree-{name}", mission["workspace"]["baseRef"])
+    if locked:
+        git(repo, "-c", "core.hooksPath=/dev/null", "worktree", "lock", str(native_path))
+    return native_path
+
+
 def remote_workspace(repo: Path, *, write_set: tuple[str, ...] = ("README.md", "docs/guide.md")) -> dict[str, Any]:
     """A ``workspace`` override whose ``baseRef`` is a remote-tracking ref
     (``origin/main``), the case ``git worktree add -b`` would otherwise wire

@@ -19,7 +19,11 @@ from unittest import TestCase
 
 from pipe_venture_builder.control_plane.model import ControlPlaneStateError
 from pipe_venture_builder.mission.contract import build_mission
-from pipe_venture_builder.mission.delivery import branch_name, ensure_worktree, worktree_path
+from pipe_venture_builder.mission.delivery import (
+    branch_name,
+    ensure_worktree,
+    native_worktree_path,
+)
 from pipe_venture_builder.mission.status import build_status
 from pipe_venture_builder.mission.store import MissionStore
 from pipe_venture_builder.mission.supervisor import (
@@ -35,6 +39,7 @@ from tests.mission.loop_helpers import (
     GOOD_FILES,
     WORKER_SENTINEL,
     FakeBinaries,
+    fabricate_native_worktree,
     git,
     good_worker_output,
     kill_quietly,
@@ -171,8 +176,14 @@ class HappyPathTests(SupervisorTestCase):
         worker_argv = h.calls("worker")[0]["argv"]
         self.assertEqual(flags(worker_argv)["--max-budget-usd"], "13.50",
                          "worker budget = mission budget minus the reviewer reserve")
-        self.assertEqual(Path(h.calls("worker")[0]["cwd"]).resolve(),
-                         worktree_path(h.mission_id, h.home).resolve())
+        # PIP-915: the only cycle here is the bootstrap one — nothing is
+        # adopted yet, so the worker runs in the repository itself and
+        # creates its own worktree natively (``--worktree``); the supervisor
+        # only adopts it into the canonical path once the run collects.
+        self.assertEqual(Path(h.calls("worker")[0]["cwd"]).resolve(), h.repo.resolve())
+        self.assertEqual(flags(worker_argv)["--worktree"], h.mission_id)
+        self.assertEqual(git(native_worktree_path(h.mission), "branch", "--show-current").strip(),
+                         branch_name(h.mission), "adopted onto the mission's own branch")
         self.assertEqual(h.run_once().reason, "not_active", "a completed mission dispatches nothing")
         self.assertEqual(len(h.calls("worker")), 1)
 
@@ -1101,6 +1112,27 @@ class AntiLoopGuardTests(SupervisorTestCase):
         self.assertFalse((h.home / h.mission_id / "revisions" / "cycle-1.md").exists(),
                          "no revision file when the cycle does not need revision")
 
+    def test_a_write_denied_outside_the_worktree_does_not_pause_or_open_a_decision(self) -> None:
+        # PIP-915, C5: the native worktree's wall refuses a write/edit outside
+        # it structurally — surfacing to the supervisor exactly like any
+        # other denied tool call, in ``permission_denials``. Containment is a
+        # wall, not a gate: the worker just bumps into it and keeps going,
+        # same as the ``WebFetch``/``Bash`` denials above — no new decision,
+        # no pause, no escalation to the founder.
+        h = self.harness()
+        h.fakes.scenario(
+            worker=[good_worker(result={"permission_denials": [
+                {"tool_name": "Write", "tool_input": {"file_path": "/etc/passwd"}},
+                {"tool_name": "Edit", "tool_input": {"file_path": "/Users/agents/.ssh/id_rsa"}},
+            ]})],
+            reviewer=[{"structured_output": satisfied_verdict()}],
+        )
+        step = h.run_once()
+        self.assertEqual((step.status, step.reason), ("completed", "completed"))
+        self.assertEqual(h.payloads("run.collected")[0]["permissionDenials"], 2)
+        self.assertEqual(h.store.pending_decisions(h.mission_id), [], "no decision opened for a denied write")
+        self.assertEqual(h.status(), "completed", "the mission was never paused")
+
     def test_permission_denials_reach_the_revision_only_when_the_cycle_needs_revision(self) -> None:
         h = self.harness()
         h.fakes.scenario(
@@ -1153,7 +1185,7 @@ class GitConfigTamperTests(SupervisorTestCase):
         self.assertEqual(decision["safeDefault"], "stop")
         self.assertEqual(h.calls("reviewer"), [], "nothing after the worker runs")
         self.assertEqual(h.fakes.gh_calls(), [], "no PR")
-        worktree = worktree_path(h.mission_id, h.home)
+        worktree = native_worktree_path(h.mission)
         self.assertEqual(git(worktree, "rev-parse", "HEAD").strip(), base, "no supervisor commit")
         self.assertNotEqual(git(worktree, "status", "--porcelain"), "", "the worker's diff is left as is")
         self.assertEqual(git(h.repo, "ls-remote", "--heads", "origin", branch_name(h.mission)), "", "no push")
@@ -1192,6 +1224,7 @@ class GitConfigTamperTests(SupervisorTestCase):
             time.sleep(0.02)
         time.sleep(0.2)
         other = build_mission(loop_mission(h.repo, workspace=remote_workspace(h.repo), title="Outra missao concorrente"))
+        fabricate_native_worktree(h.repo, other)
         ensure_worktree(other, home=self.root / "home-b")
         thread.join(timeout=30)
         self.assertFalse(thread.is_alive(), "the supervisor thread did not finish")
@@ -1245,10 +1278,10 @@ class DeliveryTests(SupervisorTestCase):
         branch = branch_name(h.mission)
         self.assertEqual(
             git(h.repo, "ls-remote", "--heads", "origin", branch).split()[0],
-            git(worktree_path(h.mission_id, h.home), "rev-parse", "HEAD").strip(),
+            git(native_worktree_path(h.mission), "rev-parse", "HEAD").strip(),
             "the last cycle's commit was pushed to the PR branch",
         )
-        self.assertEqual(git(worktree_path(h.mission_id, h.home), "status", "--porcelain"), "")
+        self.assertEqual(git(native_worktree_path(h.mission), "status", "--porcelain"), "")
 
         status = build_status(h.store, h.mission_id, home=h.home)
         self.assertEqual(status["delivery"],
@@ -1306,7 +1339,7 @@ class DeliveryTests(SupervisorTestCase):
         base = git(h.repo, "rev-parse", "main").strip()
         step = h.run_once()
         self.assertEqual((step.status, step.reason), ("blocked", "delivery_outside_write_set"))
-        worktree = worktree_path(h.mission_id, h.home)
+        worktree = native_worktree_path(h.mission)
         self.assertEqual(git(worktree, "rev-parse", "HEAD").strip(), base, "no supervisor commit")
         self.assert_nothing_delivered(h, base)
 

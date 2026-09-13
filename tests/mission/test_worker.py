@@ -94,6 +94,20 @@ class BriefAndCommandTests(TestCase):
         custom = worker_command(mission, "B", claude_bin="c", budget_left=2, model="opus")
         self.assertEqual(single_values(custom[3:])["--model"], "opus")
         self.assertGreaterEqual(MIN_RUN_BUDGET_USD, 1.5)
+        self.assertNotIn("--worktree", command, "no worktree name given: the worker runs where cwd already is")
+
+    def test_worktree_name_adds_the_native_worktree_flag(self) -> None:
+        # PIP-915: this is the whole fix — the worker's own ``--worktree``
+        # creates the CLI's native worktree, whose wall refuses writes
+        # outside it (a plain ``git worktree add`` one does not).
+        with TemporaryDirectory() as directory:
+            mission = mission_for(make_repo(Path(directory)))
+        command = worker_command(
+            mission, "B", claude_bin="c", budget_left=2, worktree_name=mission["missionId"]
+        )
+        self.assertEqual(single_values(command[3:])["--worktree"], mission["missionId"])
+        without = worker_command(mission, "B", claude_bin="c", budget_left=2, worktree_name=None)
+        self.assertNotIn("--worktree", without)
 
     def test_command_isolates_the_worker_from_the_user_settings(self) -> None:
         # A3: without these flags ``~/.claude/settings.json`` allow rules
@@ -178,6 +192,19 @@ class ParsingTests(TestCase):
 
 
 class RunWorkerTests(TestCase):
+    def test_worktree_name_reaches_the_claude_argv(self) -> None:
+        with TemporaryDirectory() as directory, FakeBinaries(Path(directory)) as fakes:
+            repo = make_repo(Path(directory))
+            mission = mission_for(repo)
+            fakes.scenario(worker=[{"worker_output": good_worker_output()}])
+            run_worker(
+                mission, run_id="MRUN-000000000001", cwd=repo,
+                claude_bin=fakes.claude_bin, budget_left=5.0, poll_seconds=0.05,
+                worktree_name=mission["missionId"],
+            )
+            call = fakes.claude_calls()[0]
+            self.assertEqual(single_values(call["argv"][2:])["--worktree"], mission["missionId"])
+
     def test_collected_run_reports_session_cost_turns_and_output(self) -> None:
         with TemporaryDirectory() as directory, FakeBinaries(Path(directory)) as fakes:
             repo = make_repo(Path(directory))

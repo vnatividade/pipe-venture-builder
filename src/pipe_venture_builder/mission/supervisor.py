@@ -11,11 +11,16 @@ Order of a cycle (desenho D4/D6/D7/D10/D11 and the anti-loop guards):
 3. the mission must be ``active`` with no pending decision;
 4. budget: worker budget = ``maxBudgetUsd`` − cost so far − reviewer reserve,
    never below ``MIN_RUN_BUDGET_USD``; otherwise ``budget.reached``;
-5. worktree → worker (``claude -p``, isolated from the user's settings)
-   while the store is polled every ``poll_seconds``: ``paused``/``cancelled``
-   → SIGTERM to the group → ``run.interrupted``; the repository git config is
-   compared before/after the run (changed → ``blocked``
-   ``git_config_tampered``); permission denials are not a verdict;
+5. worker (``claude -p``, isolated from the user's settings) while the store
+   is polled every ``poll_seconds``: the first cycle runs in the repository
+   itself with ``--worktree`` — the CLI creates its own worktree, natively,
+   and its wall refuses writes outside it (PIP-915); every cycle after that
+   runs directly inside the worktree a previous cycle already adopted
+   (``delivery.ensure_worktree``, never a manual ``git worktree add``).
+   ``paused``/``cancelled`` → SIGTERM to the group → ``run.interrupted``; the
+   repository git config is compared before/after the run (changed →
+   ``blocked`` ``git_config_tampered``); permission denials are not a
+   verdict;
 6. verify: HEAD on the mission branch, circuit breaker (same diff fingerprint
    as the previous cycle → ``blocked``), write set without rename detection
    (outside → ``needs_revision`` without the reviewer), ``check``/``artifact``
@@ -63,10 +68,12 @@ from .delivery import (
     ensure_worktree,
     git_config_snapshot,
     mission_home,
+    native_worktree_name,
     open_pr,
     pr_body,
     pr_title,
     push_branch,
+    worktree_ready,
 )
 from .guard import contains_sensitive_terms  # noqa: F401 - re-exported for callers and tests
 from .responder import DELEGABLE_CATEGORIES, run_responder
@@ -446,10 +453,34 @@ class _Cycle:
         worker_budget = self._budget_left() - REVIEW_RESERVE_USD
         if worker_budget < MIN_RUN_BUDGET_USD:
             return self._budget_reached(cycle)
-        worktree = ensure_worktree(self.mission, home=self.home)
-        revision = _load_revision(self.home, self.mission_id, cycle - 1)
         repo = self.mission["workspace"]["repo"]
-        config_before = git_config_snapshot(repo, worktree)
+        # PIP-915: no worktree is created here any more. When one has already
+        # been adopted (a previous cycle's worker created it natively and
+        # ``ensure_worktree`` moved it into place), the worker just runs
+        # inside it, same as before. The very first cycle has nothing to
+        # adopt yet: the worker runs in the repository itself and creates its
+        # own worktree with ``--worktree`` (the CLI's own wall — a plain
+        # ``git worktree add`` one does not refuse writes outside it,
+        # measured 13/09); this dispatch adopts it right after, once the run
+        # collects. ``git_config_snapshot``'s ``repo`` side is what actually
+        # detects tampering either way — a linked worktree's ``--local``
+        # config *is* the repository's, so using ``repo`` as the "worktree"
+        # side of the pre-run snapshot on this bootstrap cycle costs nothing.
+        # ``--worktree`` em TODO ciclo, não só no primeiro. Medido em 13/09: o
+        # CLI reaproveita por nome/caminho — invocá-lo de novo com o mesmo nome
+        # devolve o MESMO worktree, com os arquivos do ciclo anterior, mesmo
+        # depois de a branch ter sido renomeada. Passar o flag só no ciclo 1
+        # (como a primeira entrega do PIP-915 fazia) deixava todo ciclo de
+        # revisão rodar sem a parede — e ciclo de revisão é justamente onde o
+        # worker está mais perdido.
+        run_cwd = repo
+        worktree_name = native_worktree_name(self.mission)
+        # Só o ciclo que CRIA o worktree muda a contagem de worktrees do
+        # repositório; nos seguintes ele já existia, e aí qualquer mudança de
+        # config volta a ser sinal.
+        criou_worktree_agora = worktree_ready(self.mission, home=self.home) is None
+        revision = _load_revision(self.home, self.mission_id, cycle - 1)
+        config_before = git_config_snapshot(repo, run_cwd)
         run_id = self.store.open_run(
             self.mission_id,
             cycle=cycle,
@@ -468,7 +499,7 @@ class _Cycle:
             result = run_worker(
                 self.mission,
                 run_id,
-                worktree,
+                run_cwd,
                 self.claude_bin,
                 worker_budget,
                 cycle=cycle,
@@ -479,6 +510,7 @@ class _Cycle:
                 poll_seconds=self.poll_seconds,
                 should_stop=self._should_stop,
                 on_start=self._worker_started,
+                worktree_name=worktree_name,
             )
         except BaseException:
             self._terminate_worker()
@@ -508,10 +540,23 @@ class _Cycle:
             },
         )
         _log(self.home, self.mission_id, "worker.closed", run=run_id, status=status, reason=reason)
-        tampered = [
-            key for key, value in git_config_snapshot(repo, worktree).items()
-            if config_before.get(key) != value
-        ]
+        # A ``collected`` run means the CLI session ran to completion, so the
+        # bootstrap cycle's native worktree exists now — adopt it once, into
+        # the fixed path everything below (and ``program_supervisor``'s own
+        # post-stage commit) expects. Any other status keeps ``run_cwd``:
+        # the early-return branches below never touch the worktree.
+        worktree = ensure_worktree(self.mission, home=self.home) if status == "collected" else run_cwd
+        after = git_config_snapshot(repo, worktree)
+        tampered = [key for key, value in after.items() if config_before.get(key) != value]
+        if criou_worktree_agora:
+            # O ciclo tirou o repositório de um worktree para dois (o worker
+            # criou o dele com ``--worktree``), e só isso já muda o que o
+            # escopo ``--worktree`` do git responde quando não há
+            # ``extensions.worktreeConfig`` — o próprio comentário de
+            # ``git_config_snapshot`` diz que o erro É o estado, e esse erro
+            # depende de quantos worktrees existem. Não é adulteração. Só
+            # ``:local`` é arquivo que o worker poderia de fato ter tocado.
+            tampered = [key for key in tampered if key.endswith(":local")]
         if tampered:
             return self._config_tampered(cycle, run_id, status, len(tampered))
         if status == "interrupted":

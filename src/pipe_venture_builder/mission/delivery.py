@@ -1,8 +1,10 @@
 """Delivery: the mission worktree, supervisor commits, one PR per branch, checks.
 
 Everything is idempotent by construction: ``ensure_worktree`` reuses what
-exists, ``open_pr`` asks ``gh pr list --head`` before creating, and
-``checks_status`` only reads. Merge is never automatic.
+exists and otherwise adopts (never creates — PIP-915) the worktree a worker
+run's own ``--worktree`` already produced, ``open_pr`` asks ``gh pr list
+--head`` before creating, and ``checks_status`` only reads. Merge is never
+automatic.
 """
 
 from __future__ import annotations
@@ -11,6 +13,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 import unicodedata
@@ -19,6 +22,12 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from .status import default_mission_home
+
+
+class WorktreeNotReady(RuntimeError):
+    """No native worktree exists yet for this mission (PIP-915): a worker run
+    with ``--worktree`` has to create one before ``ensure_worktree`` can adopt
+    it. Never raised once the mission's worktree has been adopted once."""
 
 
 WORKTREE_DIRNAME = "worktree"
@@ -178,33 +187,153 @@ def base_branch(mission: Mapping[str, Any]) -> str:
 # -- worktree ------------------------------------------------------------------
 
 
-def ensure_worktree(mission: Mapping[str, Any], *, home: str | Path | None = None) -> Path:
-    """``git worktree add <home>/<id>/worktree -b claude/<id>-<slug> <baseRef>``, once."""
+def native_worktree_name(mission: Mapping[str, Any]) -> str:
+    """The value passed to ``claude --worktree <name>``: the mission id
+    itself — stable, unique, and safe both as a directory and as a branch."""
 
+    return mission["missionId"]
+
+
+def native_worktree_path(mission: Mapping[str, Any]) -> Path:
+    """Where the CLI actually puts the worktree it creates — MEASURED, twice,
+    against the real binary on 12 and 13/09:
+
+        directory  <repo>/.claude/worktrees/<name>
+        branch     worktree-<name>
+        state      locked
+
+    The first PIP-915 delivery looked for a *directory* named
+    ``worktree-<name>``; that prefix belongs to the BRANCH. Adoption therefore
+    never found anything in production, and the fake reproduced the same wrong
+    premise, so 386 tests were green against a fiction.
+
+    The mission works HERE and stays here. Moving it out was what forfeited
+    containment from cycle 2 on: the CLI reuses a worktree by name/path (also
+    measured — invoking it again with the same ``--worktree`` returns the same
+    worktree, with the previous cycle's files, even after the branch was
+    renamed). Move it and the next cycle either gets a fresh empty worktree or
+    runs with no wall at all."""
+
+    return Path(mission["workspace"]["repo"]) / ".claude" / "worktrees" / native_worktree_name(mission)
+
+
+def worktree_ready(mission: Mapping[str, Any], *, home: str | Path | None = None) -> Path | None:
+    """The canonical path, if it already holds this mission's adopted
+    worktree (on its own branch) — ``None`` otherwise. Never creates or
+    adopts anything; a pure check the supervisor uses to decide whether a
+    worker run needs ``--worktree`` (nothing adopted yet) or can run directly
+    inside the existing worktree."""
+
+    del home  # o caminho vem do repositório, não do home da missão
     repo = mission["workspace"]["repo"]
-    path = worktree_path(mission["missionId"], home)
+    path = native_worktree_path(mission)
     branch = branch_name(mission)
     if path.is_dir() and _is_mission_worktree(path, repo, branch):
         return path
-    _git(repo, *_no_hooks_args(), "worktree", "prune")
-    if path.exists():
-        if any(path.iterdir()):
-            raise RuntimeError(
-                "mission worktree path exists and is not this mission's worktree "
-                "(other repository, other branch, or not a worktree)"
-            )
-        path.rmdir()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if _branch_exists(repo, branch):
-        _git(repo, *_no_hooks_args(), "worktree", "add", str(path), branch)
-    else:
-        # ``--no-track``: a remote ``baseRef`` (``origin/main``) would otherwise
-        # set ``branch.<branch>.remote``/``.merge`` in the repository's *shared*
-        # config — another mission creating its own worktree during this
-        # mission's worker run would then change what ``git_config_snapshot``
-        # sees and trip ``git_config_tampered`` on a run that tampered nothing.
-        _git(repo, *_no_hooks_args(), "worktree", "add", "--no-track", str(path), "-b", branch, mission["workspace"]["baseRef"])
+    return None
+
+
+def ensure_worktree(mission: Mapping[str, Any], *, home: str | Path | None = None) -> Path:
+    """Return the mission's worktree — the one the worker's own
+    ``claude --worktree`` created — putting its branch on the mission's name.
+
+    No ``git worktree add`` and no ``git worktree move``. The path is
+    deterministic (``native_worktree_path``), so there is nothing to search
+    for and nothing to relocate: the worktree stays exactly where the CLI put
+    it, which is what lets every later cycle ask for it again by name and get
+    the same contained worktree back.
+
+    Raises ``WorktreeNotReady`` when the worker has not created it yet — the
+    caller's job is to dispatch a worker with ``--worktree``, never to fall
+    back to creating one by hand (a hand-made worktree does not refuse writes
+    outside itself; measured 13/09).
+    """
+
+    del home  # o caminho vem do repositório
+    repo = mission["workspace"]["repo"]
+    path = native_worktree_path(mission)
+    branch = branch_name(mission)
+    if not path.is_dir():
+        raise WorktreeNotReady(
+            f"no native worktree yet for {mission['missionId']}: dispatch a worker "
+            "with --worktree first"
+        )
+    if not _is_worktree_of(path, repo):
+        # Alguma coisa ocupa o caminho e não é um worktree DESTE repositório
+        # (diretório solto, worktree de outro repo). Seguir daqui comitaria e
+        # empurraria histórico alheio — a mesma guarda que a versão anterior
+        # tinha, preservada agora que o caminho é fixo.
+        raise RuntimeError(
+            f"{path} exists and is not a worktree of {repo}"
+        )
+    atual = current_branch(path)
+    if atual == f"worktree-{native_worktree_name(mission)}":
+        # Renomear é seguro: medido em 13/09 que o CLI reaproveita por
+        # nome/caminho e continua devolvendo o mesmo worktree depois disto.
+        _git(path, *_no_hooks_args(), "branch", "-m", branch)
+    elif atual != branch:
+        # Um worker que trocou de branch no meio da sessão sai da linha por
+        # conta própria; adotar não pode carimbar de mission branch o que ele
+        # escolheu. ``_on_mission_branch`` precisa continuar vendo o desvio.
+        return path
     return path
+
+
+def remove_worktree(mission: Mapping[str, Any], *, home: str | Path | None = None) -> None:
+    """Retire the mission's worktree and its local branch.
+
+    Handles the same lock a native ``claude --worktree`` worktree carries:
+    ``git worktree remove --force`` alone fails on a locked working tree
+    ("cannot remove a locked working tree; use 'remove -f -f' to override or
+    unlock it first", measured) — this unlocks first. Removing a worktree
+    never deletes its branch (it would be left "solta", dangling, with no
+    working tree pointing at it), so this also deletes the local branch.
+    Every step is tolerant of already being gone: safe to call more than
+    once, and safe when nothing was ever adopted."""
+
+    del home  # o caminho vem do repositório
+    repo = mission["workspace"]["repo"]
+    branch = branch_name(mission)
+    path = native_worktree_path(mission)
+    _git(repo, *_no_hooks_args(), "worktree", "unlock", str(path), check=False)
+    _git(repo, *_no_hooks_args(), "worktree", "remove", "--force", str(path), check=False)
+    _git(repo, *_no_hooks_args(), "worktree", "prune", check=False)
+    shutil.rmtree(path, ignore_errors=True)
+    _git(repo, *_no_hooks_args(), "branch", "-D", branch, check=False)
+
+
+def _list_worktrees(repo: str | Path) -> list[dict[str, Any]]:
+    """Parsed ``git worktree list --porcelain`` blocks: each a dict with
+    ``worktree`` (absolute path, as git prints it), ``branch`` (ref or
+    ``None`` when detached/bare) and ``locked`` (bool)."""
+
+    output = _git(repo, "worktree", "list", "--porcelain")
+    entries: list[dict[str, Any]] = []
+    current: dict[str, Any] = {}
+    for line in output.splitlines():
+        if not line.strip():
+            if current:
+                entries.append(current)
+                current = {}
+            continue
+        if line.startswith("worktree "):
+            if current:
+                entries.append(current)
+            current = {"worktree": line[len("worktree "):], "branch": None, "locked": False}
+        elif line.startswith("branch "):
+            current["branch"] = line[len("branch "):]
+        elif line == "locked" or line.startswith("locked "):
+            current["locked"] = True
+    if current:
+        entries.append(current)
+    return entries
+
+
+def _unlock_if_locked(repo: str | Path, path: Path) -> None:
+    for entry in _list_worktrees(repo):
+        if Path(entry["worktree"]) == path and entry["locked"]:
+            _git(repo, *_no_hooks_args(), "worktree", "unlock", str(path))
+            return
 
 
 def git_config_snapshot(repo: str | Path, worktree: str | Path) -> dict[str, str | None]:
@@ -462,6 +591,22 @@ No follow-ups identified by the supervisor. Record any in Linear under {", ".joi
 # -- internals -----------------------------------------------------------------
 
 
+def _is_worktree_of(path: Path, repo: str | Path) -> bool:
+    """``path`` é um worktree ligado a ``repo``?"""
+
+    try:
+        toplevel = _git(path, *_no_hooks_args(), "rev-parse", "--show-toplevel").strip()
+        common = _git(path, *_no_hooks_args(), "rev-parse", "--git-common-dir").strip()
+    except Exception:
+        return False
+    if Path(toplevel).resolve() != Path(path).resolve():
+        return False
+    common_path = Path(common)
+    if not common_path.is_absolute():
+        common_path = Path(path) / common_path
+    return common_path.resolve() == (Path(repo).resolve() / ".git")
+
+
 def _is_mission_worktree(path: Path, repo: str | Path, branch: str) -> bool:
     """``path`` is the top of a worktree of ``repo`` checked out on ``branch``.
 
@@ -496,21 +641,13 @@ def _rev_parse(cwd: Path, option: str) -> Path | None:
     return (printed if printed.is_absolute() else Path(cwd) / printed).resolve()
 
 
-def _branch_exists(repo: str | Path, branch: str) -> bool:
-    completed = subprocess.run(
-        ["git", "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}"],
-        cwd=str(repo), capture_output=True, text=True, timeout=GIT_TIMEOUT_SECONDS, check=False, env=child_env(),
-    )
-    return completed.returncode == 0
-
-
-def _git(cwd: str | Path, *args: str) -> str:
+def _git(cwd: str | Path, *args: str, check: bool = True) -> str:
     completed = subprocess.run(
         ["git", *args],
         cwd=str(cwd), capture_output=True, text=True, encoding="utf-8", errors="replace",
         timeout=GIT_TIMEOUT_SECONDS, check=False, env=child_env(),
     )
-    if completed.returncode != 0:
+    if check and completed.returncode != 0:
         raise RuntimeError(f"git {args[0]} failed with exit code {completed.returncode}")
     return completed.stdout
 
