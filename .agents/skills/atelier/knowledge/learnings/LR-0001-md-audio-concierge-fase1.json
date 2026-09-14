@@ -1,0 +1,86 @@
+{
+  "schemaVersion": "0.1.0",
+  "recordId": "LR-0001",
+  "title": "Primeira execução concierge do Atelier: inferir brief do repo funciona; fill-mode de animação CSS sobrepõe estilos inline de scroll",
+  "learningType": "capability_usage",
+  "source": {
+    "originType": "manual_observation",
+    "linearId": "PIP-661",
+    "pullRequestUrl": null,
+    "artifactPathOrUrl": "design/atelier/",
+    "observedAt": "2026-07-16",
+    "sourceSummary": "Piloto do skill atelier (concierge fase 1) na venture md-audio: brief inferido de app.py (Flask single-file), 3 direcoes renderizadas em HTML unico, verificadas com screenshots desktop/mobile antes da entrega."
+  },
+  "scope": {
+    "domains": ["capability", "execution"],
+    "appliesToAgents": ["claude-code", "any-agent"],
+    "ticketTypes": ["skill", "product"],
+    "horizon": "now",
+    "limits": "Aprendizados de front-end vanilla e do fluxo concierge; nao cobre stacks React/Flutter nem decisao final de direcao (pendente do fundador)."
+  },
+  "agent": {
+    "recordedBy": "claude-code (Atelier, Fable 5)",
+    "agentRole": "executor",
+    "intendedConsumers": ["atelier skill (knowledge/patterns)", "futuras execucoes Atelier", "founder"]
+  },
+  "capability": {
+    "name": "atelier",
+    "type": "skill",
+    "maturity": "pilot",
+    "notes": "Primeira execucao concierge completa: brief -> 3 direcoes -> verificacao visual. Referencias usadas: design-brief, design-philosophy, typography, motion-scroll, stack-adapters/vanilla."
+  },
+  "confidence": {
+    "level": "high",
+    "score": 4,
+    "rationale": "Cada achado foi reproduzido e verificado com evidencia visual (screenshots com hash comparado antes/depois do fix)."
+  },
+  "importance": {
+    "level": "medium",
+    "score": 3,
+    "rationale": "Dois achados reutilizaveis (bug de fill-mode em motion scroll-driven; pipeline de verificacao com playwright-core) que afetam qualquer landing animada futura."
+  },
+  "tags": ["atelier", "concierge", "landing", "scroll-motion", "verificacao-visual", "vanilla"],
+  "summary": "Na direcao tipografica, o recorte de headline por caractere com animacao de entrada (animation-fill-mode: both) impedia o efeito de queda scroll-driven: keyframes com fill-mode sobrepoem estilos inline definidos por JS. Limpar a animacao no animationend resolve. A verificacao visual com playwright-core + Chrome do sistema exigiu reducedMotion:'no-preference' explicito porque o Reduce Motion do macOS vaza para o headless.",
+  "insight": "1) Em qualquer padrao pin+scroll com entrada animada por keyframes, remover a animacao ao terminar (animationend -> animation:none), senao o estado final do keyframe congela o elemento. 2) O loop de verificacao precisa fotografar TAMBEM o caminho prefers-reduced-motion (o vazamento do macOS validou esse caminho por acidente). 3) Inferir o brief do proprio repo funciona: os tokens do tema Lampiao (grounds, ambar) ja estavam em CSS custom properties no app.py e viraram sementes das direcoes B e C sem inventar paleta. 4) Medir largura de texto para fit-to-width exige getBoundingClientRect dos spans; scrollWidth de elemento block devolve a largura do container.",
+  "evidence": [
+    {
+      "type": "repository_file",
+      "pathOrUrl": "design/atelier/direction-a.html",
+      "summary": "Fix do animationend + medicao por getBoundingClientRect; motion reversivel funcao do progresso do pin.",
+      "confidence": "high"
+    },
+    {
+      "type": "repository_file",
+      "pathOrUrl": "design/atelier/screenshots/",
+      "summary": "17 screenshots (3 direcoes x desktop/mobile/scroll + app atual) capturados com playwright-core; hero e scroll-mid tinham hash identico antes do fix e divergem depois.",
+      "confidence": "high"
+    }
+  ],
+  "recommendation": {
+    "action": "record_only",
+    "owner": "founder (curadoria do skill atelier)",
+    "timing": "batch-review",
+    "rationale": "Promover o padrao 'animationend limpa fill-mode' e o harness de captura para knowledge/patterns do skill quando houver segunda ocorrencia."
+  },
+  "promotion": {
+    "state": "candidate",
+    "humanReviewRequiredForPromotion": true,
+    "humanReviewStatus": "not_requested",
+    "automaticPromotionAllowed": false,
+    "targetCanonicalArtifact": null,
+    "promotionRationale": "Candidato a knowledge/patterns do skill atelier apos revisao humana; nao altera politica nem template canonico."
+  },
+  "sensitivity": {
+    "containsSensitiveData": false,
+    "containsCustomerEvidence": false,
+    "redactionRequired": false,
+    "humanReviewStatus": "not_required",
+    "notes": "Somente artefatos de design e codigo do repositorio; nenhum dado de cliente ou segredo."
+  },
+  "copiedFrom": {
+    "repo": "~/Developer/md-audio-proxy",
+    "path": "design/atelier/learning-record.json",
+    "copiedAt": "2026-09-14",
+    "by": "atelier weekly consolidation (PIP-665)"
+  }
+}

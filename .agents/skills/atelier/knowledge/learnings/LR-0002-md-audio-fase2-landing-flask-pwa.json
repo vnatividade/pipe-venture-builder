@@ -1,0 +1,86 @@
+{
+  "schemaVersion": "0.1.0",
+  "recordId": "LR-0002",
+  "title": "Fase 2 do concierge Atelier: integrar landing a app Flask com PWA sem quebrar acesso existente; expandir direcao escolhida reusando os dispositivos dela",
+  "learningType": "execution_learning",
+  "source": {
+    "originType": "manual_observation",
+    "linearId": "PIP-661",
+    "pullRequestUrl": null,
+    "artifactPathOrUrl": "landing.html",
+    "observedAt": "2026-07-16",
+    "sourceSummary": "Fase 2 do piloto Atelier em md-audio: direcao B 'Lampiao' escolhida pelo fundador, expandida para landing completa e integrada ao Flask (app.py) servindo app e vitrine no mesmo servico Railway."
+  },
+  "scope": {
+    "domains": ["execution", "capability", "product"],
+    "appliesToAgents": ["claude-code", "any-agent"],
+    "ticketTypes": ["code", "product", "skill"],
+    "horizon": "now",
+    "limits": "Padrao de integracao vale para apps Flask/single-service com auth por cookie/token; nao cobre SPAs com roteamento proprio nem multi-servico."
+  },
+  "agent": {
+    "recordedBy": "claude-code (Atelier, Fable 5)",
+    "agentRole": "executor",
+    "intendedConsumers": ["atelier skill (knowledge/patterns)", "futuras execucoes Atelier", "founder"]
+  },
+  "capability": {
+    "name": "atelier",
+    "type": "skill",
+    "maturity": "pilot",
+    "notes": "Fase 2 (build final + integracao + audit gate + loop exploration de PR). Audit checklist aplicado como gate de saida."
+  },
+  "confidence": {
+    "level": "high",
+    "score": 4,
+    "rationale": "Todos os estados de rota testados por curl (visitante, ?token valido/invalido, cookie, /app, health/manifest/sw) e evidencia visual completa em screenshots/final/."
+  },
+  "importance": {
+    "level": "medium",
+    "score": 3,
+    "rationale": "O padrao de rota raiz sensivel a auth + rota fixa do app resolve a coexistencia landing/PWA que vai se repetir em outras ventures com vitrine."
+  },
+  "tags": ["atelier", "landing", "flask", "pwa", "integracao", "audit-gate"],
+  "summary": "Para servir vitrine e app no mesmo servico: a raiz decide por _user_ok (cookie md_auth, ?token= ou header) — quem tem acesso cai no app (inclui PWA instalada e link com token), visitante ve a landing — e /app fica como rota fixa do app (destino do CTA, onde vive o formulario de token). Fallback: se landing.html faltar no disco, a raiz volta ao comportamento antigo. A landing vive em arquivo proprio lido no import (exige COPY no Dockerfile e restart para refletir mudanca).",
+  "insight": "1) Roteamento por posse de credencial preserva TODOS os fluxos existentes sem tocar no HTML do app — o diff no app.py e minimo e auditavel. 2) Expandir a direcao escolhida = reusar os dispositivos dela (regua, serifa italica ambar, onda) nas secoes novas em vez de inventar novos; a pagina inteira le como um sistema. 3) Os P2 recorrentes de audit em landings sao touch target de link de nav (<44px) e falta de landmark <main> — checar por padrao antes do gate. 4) Ler o arquivo da landing no import do modulo implica que teste local exige restart do Flask apos editar o HTML.",
+  "evidence": [
+    {
+      "type": "repository_file",
+      "pathOrUrl": "app.py",
+      "summary": "Rotas / (sensivel a _user_ok, com fallback) e /app (fixa); INDEX_HTML intocado.",
+      "confidence": "high"
+    },
+    {
+      "type": "repository_file",
+      "pathOrUrl": "design/atelier/screenshots/final/",
+      "summary": "17 capturas: cada secao da landing em 1280 e 375, onda em movimento, caminho reduced-motion, app em /app (form de token) e app autenticado na raiz; console limpo e ordem de foco verificada.",
+      "confidence": "high"
+    }
+  ],
+  "recommendation": {
+    "action": "record_only",
+    "owner": "founder (curadoria do skill atelier)",
+    "timing": "batch-review",
+    "rationale": "Promover o padrao de integracao landing+app single-service para knowledge/patterns quando outra venture repetir a necessidade."
+  },
+  "promotion": {
+    "state": "candidate",
+    "humanReviewRequiredForPromotion": true,
+    "humanReviewStatus": "not_requested",
+    "automaticPromotionAllowed": false,
+    "targetCanonicalArtifact": null,
+    "promotionRationale": "Candidato a pattern do skill atelier apos revisao humana; nao altera politica nem template canonico."
+  },
+  "sensitivity": {
+    "containsSensitiveData": false,
+    "containsCustomerEvidence": false,
+    "redactionRequired": false,
+    "humanReviewStatus": "not_required",
+    "notes": "Somente codigo e artefatos de design do repositorio; tokens usados nos testes sao valores dummy locais."
+  },
+  "copiedFrom": {
+    "repo": "~/Developer/md-audio-proxy",
+    "path": "design/atelier/learning-record-2.json",
+    "copiedAt": "2026-09-14",
+    "by": "atelier weekly consolidation (PIP-665)"
+  }
+}

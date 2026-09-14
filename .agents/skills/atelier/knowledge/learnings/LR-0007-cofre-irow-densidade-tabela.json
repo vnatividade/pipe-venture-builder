@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "0.1.0",
+  "recordId": "LR-0007",
+  "title": "Cofre: tabela espremida se resolve voltando ao layout do protótipo (cabeçalho + barra em duas linhas), não apertando o grid",
+  "learningType": "pattern",
+  "source": {
+    "originType": "founder_feedback",
+    "linearId": null,
+    "pullRequestUrl": "https://github.com/vnatividade/cofre/pull/8",
+    "artifactPathOrUrl": "~/Developer/cofre app/(app)/page.tsx + app/globals.css (.irows/.irow)",
+    "observedAt": "2026-08-01",
+    "sourceSummary": "Founder mandou screenshot da seção 'Ideal contra real' (tela Mês, redesign v3) espremida: chip de estouro quebrando em duas linhas sob o nome, barra estreita na coluna do meio, valores apertados à direita. Causa: na implementação eu tinha encaixado o conteúdo do protótipo num grid legado de 3 colunas (.dist-row nome|barra|valores). O protótipo Cofre v2 nunca usou esse grid nessa seção: usa pilha de duas linhas — cabeçalho flex (ponto · nome · chip KIND · badge inline · spacer · 'R$ real de R$ ideal') e barra em linha própria com largura cheia + % ao lado."
+  },
+  "scope": {
+    "domains": ["capability", "execution"],
+    "appliesToAgents": ["claude-code", "any-agent"],
+    "ticketTypes": ["product"],
+    "horizon": "now",
+    "limits": "Aplicado só à tela Mês (.irow novo); .dist-row legado segue nas outras telas (Decisão 'cada área contra a fatia' é candidata à mesma migração se apertar). Verificação visual via pane teve artefato de composição após scroll — medir pelo DOM (getBoundingClientRect) foi o que provou o conserto (headH 24px, badge 1 linha)."
+  },
+  "agent": {
+    "recordedBy": "claude-code (Atelier, Fable 5)",
+    "agentRole": "executor",
+    "intendedConsumers": ["atelier skill", "futuras execucoes Atelier no Cofre"]
+  },
+  "capability": {
+    "name": "atelier",
+    "type": "skill",
+    "maturity": "pilot",
+    "notes": "Padrão generalizável: quando uma linha de tabela carrega nome + chips + valores + barra, grid de colunas fixas espreme em qualquer largura intermediária; a pilha de duas linhas (header flex-wrap + barra full-width) absorve chips de tamanho variável sem quebrar. Regra prática: se o protótipo de origem já define o layout da seção, implementar O LAYOUT DO PROTÓTIPO — encaixar conteúdo novo em grid legado foi a origem do defeito. Bônus: quando a pane de screenshot glitchar pós-scroll, validar geometria por javascript_tool (rects/alturas) antes de confiar no pixel."
+  }
+}

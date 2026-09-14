@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "0.1.0",
+  "recordId": "LR-0008",
+  "title": "Harness que não compila as cores do tema mente sobre a tela: verificar utilitário semântico ANTES de julgar qualquer coisa visual",
+  "learningType": "pattern",
+  "source": {
+    "originType": "agent_execution",
+    "linearId": "PIP-797",
+    "pullRequestUrl": null,
+    "artifactPathOrUrl": "~/Developer/aurasite/client/src/components/site/InterviewForm.tsx + worker-local/harness/ui.css",
+    "observedAt": "2026-08-14",
+    "sourceSummary": "Ao transformar a entrevista de estilo do AuraSite (lista empilhada de 1897px) num wizard de uma pergunta por tela, a primeira verificação visual no harness local mostrou barra de progresso invisível. Medindo o elemento real: `bg-border` computava rgba(0,0,0,0) — e `bg-primary`, `bg-card`, `text-muted-foreground` também. Causa: `worker-local/harness/harness.css` abria um SEGUNDO root do Tailwind (`@import \"tailwindcss\"` + `@source ../../client/src`) SEM o bloco `@theme` do app; o root que tinha o tema (client/src/index.css) só enxergava a pasta do harness (raiz do vite). Resultado: toda utility semântica usada apenas em client/ deixava de ser gerada — botão primário transparente, texto 'mudo' em preto. Conserto: `ui.css` próprio com UM root só (`@import ../../client/src/index.css` + `@source ../../client/src`)."
+  },
+  "scope": {
+    "domains": ["capability", "execution"],
+    "appliesToAgents": ["claude-code", "any-agent"],
+    "ticketTypes": ["product", "infra"],
+    "horizon": "now",
+    "limits": "Vale para qualquer preview/harness Tailwind 4 que monte componentes de OUTRA pasta que a raiz do vite. Sintoma diagnóstico: `getComputedStyle` devolve rgba(0,0,0,0) para uma utility de cor semântica que existe no design system. Não confundir com transição: `transition-colors`/`transition-all` fazem a MESMA medição devolver valor intermediário em oklab por ~150ms — medir de novo em outra chamada antes de reportar defeito."
+  },
+  "agent": {
+    "recordedBy": "claude-code (Atelier, Opus 5)",
+    "agentRole": "executor",
+    "intendedConsumers": ["atelier skill", "futuras execucoes Atelier no AuraSite"]
+  },
+  "capability": {
+    "name": "atelier",
+    "type": "skill",
+    "maturity": "pilot",
+    "notes": "Três regras que saíram desta execução. (1) ANTES de olhar screenshot de preview local, provar que uma utility semântica conhecida resolve (ler `getComputedStyle` de um elemento real com `bg-primary`/`text-muted-foreground`); harness com dois roots do Tailwind é falha silenciosa e todas as rodadas visuais anteriores nele valeram nada. (2) Progresso de wizard tem que separar 'respondida' de 'resolvida' (respondeu OU pulou de propósito): usar uma no lugar da outra ou trava o avanço numa pergunta pulada, ou promete insumo inexistente ao motor. Rascunho preservado sob pulo pede estado visual próprio — anel cinza em vez do accent, com botão explícito 'Usar minha resposta', porque clicar de novo na opção marcada DESMARCA. (3) Contraste tem que ser MEDIDO com canvas+WCAG no elemento real: `text-destructive` sobre `bg-destructive/5` deu 4.36:1 (reprova AA) enquanto o `--primary` deste repo deu 5.13:1 com branco — eu ia reportar o oposto dos dois por herança de doc antigo."
+  }
+}
