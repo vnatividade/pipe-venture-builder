@@ -31,6 +31,11 @@ class WorktreeNotReady(RuntimeError):
     it. Never raised once the mission's worktree has been adopted once."""
 
 
+class WorktreeBaseMissing(RuntimeError):
+    """The mission's ``baseRef`` resolves to no commit (PIP-918). Someone has to fix the repository;
+    guessing another base would hand the worker the wrong history."""
+
+
 WORKTREE_DIRNAME = "worktree"
 SUPERVISOR_GIT_IDENTITY = ("pipe-mission-supervisor", "pipe-mission-supervisor@localhost")
 MAX_SLUG_CHARS = 40
@@ -218,6 +223,75 @@ def native_worktree_path(mission: Mapping[str, Any]) -> Path:
     return Path(mission["workspace"]["repo"]) / ".claude" / "worktrees" / native_worktree_name(mission)
 
 
+def prepare_native_worktree(mission: Mapping[str, Any]) -> Path:
+    """Put the worktree where ``claude --worktree`` will look for it, on the
+    mission's ``baseRef`` — before the first worker run (PIP-918).
+
+    Left to itself the CLI creates the worktree off the checkout's current
+    HEAD and ignores any base: a program wave chained from the previous wave's
+    branch got ``main`` instead, every commit merged since then looked like a
+    write outside the write set, and the wave blocked on ``no_progress`` with
+    the worker unable to "revert" history it never wrote. Measured on 13/09
+    against the real binary, in a throwaway repository with ``HEAD`` ≠ base:
+
+        CLI alone              HEAD = main (base ignored)
+        pre-created here       HEAD = base — the CLI reuses it by name/path
+        write to the checkout  refused in BOTH ("This session is isolated in
+                               the worktree …")
+
+    So pre-creating costs none of the protection the native worktree really
+    gives. What that protection is NOT, measured the same day: it refuses
+    writes to the repository's shared checkout only — the home directory and
+    sibling folders stay writable. Nothing here claims otherwise.
+
+    Idempotent: an existing path is left to ``ensure_worktree``. When the path
+    is gone but a branch survived (worktree pruned between cycles), the
+    worktree is re-attached to that branch so earlier cycles' commits are not
+    thrown away — the mission branch first, then the CLI's ``worktree-<name>``.
+    ``--no-track`` keeps a remote base (``origin/main``) from writing tracking
+    keys into the repository's shared config.
+    """
+
+    repo = mission["workspace"]["repo"]
+    path = native_worktree_path(mission)
+    if path.exists():
+        return path
+    name = native_worktree_name(mission)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    for existing in (branch_name(mission), f"worktree-{name}"):
+        if _commit_of(repo, f"refs/heads/{existing}") is not None:
+            _git(repo, *_no_hooks_args(), "worktree", "add", "--lock", str(path), existing)
+            return path
+    base = _resolve_base(repo, mission["workspace"]["baseRef"])
+    _git(repo, *_no_hooks_args(), "worktree", "add", "--lock", "--no-track",
+         "-b", f"worktree-{name}", str(path), base)
+    return path
+
+
+def _resolve_base(repo: str | Path, base_ref: str) -> str:
+    """The commit ``base_ref`` names, exactly as written.
+
+    No fallback to ``origin/<base_ref>`` here on purpose: verification diffs
+    against the literal ``baseRef`` too, so a worktree created from a guessed
+    ref would only move the failure one step later. Resolving a locally
+    deleted branch from the remote belongs to PIP-917, across every place the
+    base is used."""
+
+    commit = _commit_of(repo, base_ref)
+    if commit is None:
+        raise WorktreeBaseMissing(f"baseRef {base_ref!r} resolves to no commit in {repo}")
+    return commit
+
+
+def _commit_of(repo: str | Path, ref: str) -> str | None:
+    completed = subprocess.run(
+        ["git", *_no_hooks_args(), "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"],
+        cwd=str(repo), capture_output=True, text=True, timeout=GIT_TIMEOUT_SECONDS, check=False, env=child_env(),
+    )
+    commit = completed.stdout.strip()
+    return commit if completed.returncode == 0 and commit else None
+
+
 def worktree_ready(mission: Mapping[str, Any], *, home: str | Path | None = None) -> Path | None:
     """The canonical path, if it already holds this mission's adopted
     worktree (on its own branch) — ``None`` otherwise. Never creates or
@@ -238,16 +312,17 @@ def ensure_worktree(mission: Mapping[str, Any], *, home: str | Path | None = Non
     """Return the mission's worktree — the one the worker's own
     ``claude --worktree`` created — putting its branch on the mission's name.
 
-    No ``git worktree add`` and no ``git worktree move``. The path is
+    No ``git worktree move``, and no creation here (``prepare_native_worktree``
+    does that, before dispatch, on the ``baseRef``). The path is
     deterministic (``native_worktree_path``), so there is nothing to search
     for and nothing to relocate: the worktree stays exactly where the CLI put
     it, which is what lets every later cycle ask for it again by name and get
     the same contained worktree back.
 
     Raises ``WorktreeNotReady`` when the worker has not created it yet — the
-    caller's job is to dispatch a worker with ``--worktree``, never to fall
-    back to creating one by hand (a hand-made worktree does not refuse writes
-    outside itself; measured 13/09).
+    caller's job is ``prepare_native_worktree`` and a worker dispatched with
+    ``--worktree``. The flag is what matters: a worktree the worker merely runs
+    inside, without it, is no wall at all.
     """
 
     del home  # o caminho vem do repositório

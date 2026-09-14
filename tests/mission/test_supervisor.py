@@ -1743,3 +1743,58 @@ class StopGateFailsOpenTests(SupervisorTestCase):
         self._despachou_de_novo(h, antes)
         self.assertTrue(alvo.is_file(), "o settings do projeto foi apagado")
         self.assertEqual(alvo.read_text(encoding="utf-8"), original)
+
+
+class WorktreeStartsOnBaseRefTests(SupervisorTestCase):
+    """PIP-918: the worker's worktree starts on the mission's ``baseRef``,
+    never on whatever the checkout happens to have at HEAD.
+
+    Every other test here runs with ``baseRef`` == HEAD, which is exactly why
+    the defect went unseen: the real CLI (and this fake, faithfully) creates a
+    ``--worktree`` off HEAD. A program wave chained from the previous wave's
+    branch then carried every commit merged into ``main`` since, and the diff
+    against its base flagged files the worker never touched."""
+
+    def _mission_on_older_base(self, **harness_kwargs: Any) -> Harness:
+        workspace = {"repo": str(self.root / "repo"), "baseRef": "onda1",
+                     "writeSet": ["README.md", "docs/guide.md"]}
+        h = self.harness(workspace=workspace, **harness_kwargs)
+        git(h.repo, "branch", "onda1")
+        # Um commit que existe só em `main`, FORA do write set: se o worktree
+        # nascer do HEAD, ele aparece no diff contra `onda1`.
+        (h.repo / "main-only.txt").write_text("mergeado depois da onda 1\n", encoding="utf-8")
+        git(h.repo, "add", "main-only.txt")
+        git(h.repo, "commit", "-q", "-m", "main only")
+        return h
+
+    def test_the_worktree_carries_the_base_not_the_checkout_head(self) -> None:
+        h = self._mission_on_older_base()
+        h.fakes.scenario(worker=[good_worker()], reviewer=[{"structured_output": satisfied_verdict()}])
+        step = h.run_once()
+        self.assertNotEqual(step.reason, "outside_write_set",
+                            "commits de main apareceram como escrita do worker")
+        self.assertEqual((step.status, step.reason), ("completed", "completed"))
+        self.assertFalse((native_worktree_path(h.mission) / "main-only.txt").exists(),
+                         "o worktree nasceu do HEAD do checkout, não do baseRef")
+
+    def test_a_base_that_resolves_nowhere_blocks_with_a_trace_and_runs_nothing(self) -> None:
+        h = self._mission_on_older_base()
+        git(h.repo, "branch", "-D", "onda1")
+        h.fakes.scenario(worker=[good_worker()])
+        step = h.run_once()
+        self.assertEqual(step.status, "blocked")
+        self.assertEqual(h.calls("worker"), [], "despachou um worker sobre a base errada")
+        [decision] = h.store.pending_decisions(h.mission_id)
+        self.assertEqual(decision["kind"], "escalation")
+        self.assertIn("fix_and_resume", decision["options"])
+        texto = (h.home / h.mission_id / "supervisor.log").read_text(encoding="utf-8")
+        self.assertIn("worktree.prepare_failed", texto)
+
+    def test_the_cli_is_still_asked_for_the_worktree(self) -> None:
+        """Controle: pré-criar não pode virar «dispensa o flag». O flag é a
+        parede que recusa escrita no checkout (medido 13/09)."""
+
+        h = self._mission_on_older_base()
+        h.fakes.scenario(worker=[good_worker()], reviewer=[{"structured_output": satisfied_verdict()}])
+        h.run_once()
+        self.assertEqual(flags(h.calls("worker")[0]["argv"])["--worktree"], h.mission_id)

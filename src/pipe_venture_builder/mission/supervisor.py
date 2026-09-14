@@ -73,6 +73,7 @@ from .delivery import (
     open_pr,
     pr_body,
     pr_title,
+    prepare_native_worktree,
     push_branch,
     worktree_ready,
 )
@@ -464,12 +465,13 @@ class _Cycle:
         # PIP-915: no worktree is created here any more. When one has already
         # been adopted (a previous cycle's worker created it natively and
         # ``ensure_worktree`` moved it into place), the worker just runs
-        # inside it, same as before. The very first cycle has nothing to
-        # adopt yet: the worker runs in the repository itself and creates its
-        # own worktree with ``--worktree`` (the CLI's own wall — a plain
-        # ``git worktree add`` one does not refuse writes outside it,
-        # measured 13/09); this dispatch adopts it right after, once the run
-        # collects. ``git_config_snapshot``'s ``repo`` side is what actually
+        # inside it, same as before. The very first cycle has nothing adopted
+        # yet: the worker runs in the repository itself with ``--worktree``,
+        # which reuses the worktree ``prepare_native_worktree`` just put on the
+        # baseRef (PIP-918); this dispatch adopts it right after, once the run
+        # collects. The flag is the wall — it refuses writes to the shared
+        # checkout (and only there: home and sibling folders stay writable,
+        # measured 13/09). ``git_config_snapshot``'s ``repo`` side is what actually
         # detects tampering either way — a linked worktree's ``--local``
         # config *is* the repository's, so using ``repo`` as the "worktree"
         # side of the pre-run snapshot on this bootstrap cycle costs nothing.
@@ -482,11 +484,20 @@ class _Cycle:
         # worker está mais perdido.
         run_cwd = repo
         worktree_name = native_worktree_name(self.mission)
-        # Só o ciclo que CRIA o worktree muda a contagem de worktrees do
-        # repositório; nos seguintes ele já existia, e aí qualquer mudança de
-        # config volta a ser sinal.
+        # PIP-918: o worktree nasce AQUI, no `baseRef`, e o `--worktree` só o
+        # reaproveita. Deixado sozinho, o CLI cria do HEAD do checkout e ignora
+        # a base — a onda 2 do PIP-911 nasceu do `main` em vez da branch da
+        # onda 1 e bloqueou por "escrita fora do write set" em arquivos que o
+        # worker nunca tocou. Base que não resolve nem em `origin/` bloqueia
+        # pelo mesmo caminho de "confira o repositório" que já existe; nunca
+        # uma exceção nua antes do `open_run` (a lição do PIP-916).
+        try:
+            prepare_native_worktree(self.mission)
+        except Exception as erro:  # noqa: BLE001 — bloqueia com rastro, não morre
+            _log(self.home, self.mission_id, "worktree.prepare_failed",
+                 cycle=cycle, error=type(erro).__name__, detail=str(erro)[:300])
+            return self._block("branch_mismatch", cycle, None, options=WORKSPACE_OPTIONS)
         worktree_before = worktree_ready(self.mission, home=self.home)
-        criou_worktree_agora = worktree_before is None
         # PIP-916: compile the mission's `check` criteria into a Stop hook
         # (PIP-913's `stop_gate`) so the worker sees a failing check inside
         # its own turn instead of waiting a whole cycle — acceleration only,
@@ -598,15 +609,10 @@ class _Cycle:
             cleanup_stop_gate_residue(worktree)
         after = git_config_snapshot(repo, worktree)
         tampered = [key for key, value in after.items() if config_before.get(key) != value]
-        if criou_worktree_agora:
-            # O ciclo tirou o repositório de um worktree para dois (o worker
-            # criou o dele com ``--worktree``), e só isso já muda o que o
-            # escopo ``--worktree`` do git responde quando não há
-            # ``extensions.worktreeConfig`` — o próprio comentário de
-            # ``git_config_snapshot`` diz que o erro É o estado, e esse erro
-            # depende de quantos worktrees existem. Não é adulteração. Só
-            # ``:local`` é arquivo que o worker poderia de fato ter tocado.
-            tampered = [key for key in tampered if key.endswith(":local")]
+        # PIP-918: o worktree já existe ANTES do retrato `config_before`
+        # (`prepare_native_worktree`), então a contagem de worktrees não muda
+        # durante o run e toda chave alterada volta a ser sinal — inclusive no
+        # primeiro ciclo, que antes afrouxava para só `:local`.
         if tampered:
             return self._config_tampered(cycle, run_id, status, len(tampered))
         if status == "interrupted":
