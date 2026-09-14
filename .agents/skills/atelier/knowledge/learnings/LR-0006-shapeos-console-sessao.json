@@ -1,0 +1,100 @@
+{
+  "schemaVersion": "0.1.0",
+  "recordId": "LR-0006",
+  "title": "ShapeOS: direção 'Console' para app de execução, densidade como o verdadeiro problema de UI, e baseline em git worktree para provar neutralidade de E2E",
+  "learningType": "capability_usage",
+  "source": {
+    "originType": "manual_observation",
+    "linearId": null,
+    "pullRequestUrl": null,
+    "artifactPathOrUrl": "~/Developer/shapeos (working tree, sem commit — owner revisa antes)",
+    "observedAt": "2026-07-19",
+    "sourceSummary": "Refatoração visual da PWA ShapeOS (React 18 + TS + Vite, CSS puro com variáveis). Dark theme genérico virou sistema 'Console' com Archivo variável self-hosted e um sinal lima único. A tela de Sessão foi reestruturada por DENSIDADE (preâmbulo de ~900px antes da primeira série; exercícios encerrados viram linha de razão). 14 invariantes de data-testid e ~15 nomes acessíveis preservados; 4 gates verdes; E2E provado neutro contra baseline."
+  },
+  "scope": {
+    "domains": ["capability", "execution"],
+    "appliesToAgents": ["claude-code", "any-agent"],
+    "ticketTypes": ["skill", "product"],
+    "horizon": "now",
+    "limits": "Refatoração de apresentação apenas — domain/data/state/media/lib intocados. Sem commit (owner revisa). 4 dos 6 cenários E2E falham no ambiente Railway por causas pré-existentes (provadas por baseline), não pela mudança."
+  },
+  "agent": {
+    "recordedBy": "claude-code (Atelier, Opus 4.8)",
+    "agentRole": "executor",
+    "intendedConsumers": ["atelier skill (knowledge/patterns)", "futuras execucoes Atelier", "owner"]
+  },
+  "capability": {
+    "name": "atelier",
+    "type": "skill",
+    "maturity": "pilot",
+    "notes": "Primeira aplicação do Atelier a um APP DE EXECUÇÃO (não landing/marketing). A heurística de 'produto tipo' do design-philosophy.md provou-se decisiva: identificar 'instrumento' em vez de 'feed' mudou todas as decisões seguintes."
+  },
+  "confidence": {
+    "level": "high",
+    "score": 4,
+    "rationale": "Cada mudança verificada em screenshot com dado real (4 exercícios semeados via service role) em 375x812, 768x1024 e 1280x800. Neutralidade de E2E provada com baseline em git worktree no HEAD: mesmo conjunto exato de 2 passes / 4 falhas antes e depois. Gates: lint, typecheck, 16/16 testes, build."
+  },
+  "importance": {
+    "level": "high",
+    "score": 4,
+    "rationale": "Cinco padrões reutilizáveis: (1) direção 'Console' para apps de execução; (2) densidade como diagnóstico antes de estética; (3) baseline em worktree para separar regressão de ambiente; (4) subset de fonte quebra glifos de UI usados como ícone; (5) placeholder 1x1 no catálogo deve colapsar, não reservar espaço."
+  },
+  "tags": [
+    "atelier",
+    "app-execucao",
+    "console",
+    "densidade",
+    "tipografia-variavel",
+    "subset-latin",
+    "e2e-baseline",
+    "git-worktree",
+    "cors-dev-proxy",
+    "shapeos",
+    "pwa",
+    "a11y"
+  ],
+  "summary": "Refatoração visual da PWA de treino ShapeOS. A direção 'Console' (instrumento de leitura, não feed) foi derivada do contexto de uso declarado no produto — usuário em pé na academia, uma mão, luz ruim, entre séries. Substituiu o dark theme azul genérico por: Archivo variável self-hosted (eixos wght+wdth, 90 kB latin, precacheada pelo SW), chão quase preto com viés de oliva, e UM sinal lima de alta visibilidade gasto só em confirmação/progresso/CTA. O ganho maior, porém, não foi cromático: foi de DENSIDADE. A tela de Sessão tinha ~900px de preâmbulo (mídia 16:10 + instruções) antes da primeira série, e exercícios encerrados continuavam ocupando cartão inteiro.",
+  "insight": "O erro de leitura mais provável num app assim é tratar 'ficou genérico' como problema de paleta. Era de hierarquia e densidade: o usuário rolava ~900px para alcançar o único controle que ele veio tocar, e um treino de 6 exercícios era 6 cartões idênticos. As três mudanças de maior impacto foram estruturais, não cromáticas — (a) mídia de demonstração rebaixada de conteúdo a referência (faixa de 120px que amplia sob toque), (b) instrução genérica recolhida em <details> nativo enquanto a observação do treinador (específica de hoje) fica à vista, (c) exercício encerrado colapsado em linha de razão com as cargas feitas. Corolário de processo: ao mexer em UI coberta por E2E, a pergunta 'quebrei?' só tem resposta com BASELINE — rodar a suíte no HEAD via git worktree separou 4 falhas de ambiente (seed de produção ambíguo, fila de sync que não drena, mic indisponível, race no helper de login) de zero regressões minhas. Sem isso eu teria atribuído as falhas à refatoração e desfeito trabalho correto.",
+  "evidence": [
+    {
+      "type": "repository_file",
+      "pathOrUrl": "~/Developer/shapeos/frontend/src/styles/global.css",
+      "summary": "Sistema visual completo em CSS puro com variáveis: ramp neutra enviesada, sinal único, escala tipográfica com papel de 'readout' (font-stretch 118% + tabular-nums), primitivas de estado (empty/skeleton/error) e prefers-reduced-motion. 6.4 kB -> 32.8 kB de fonte, 20.9 kB no build (5.0 kB gzip).",
+      "confidence": "high"
+    },
+    {
+      "type": "repository_file",
+      "pathOrUrl": "~/Developer/shapeos/frontend/src/components/SetLogger.tsx",
+      "summary": "Ponto de maior fricção (F4.4): campos de 56px com algarismos 1.375rem, confirmar em alvo de 64x56px, legenda de coluna uma vez, select-all no foco para corrigir carga digitando por cima. Continua 1 interação por série; aria-labels intactos.",
+      "confidence": "high"
+    },
+    {
+      "type": "screenshot",
+      "pathOrUrl": "/tmp/atelier-shots/ (02 sessao, 04 serie+timer, 06 ledger, 07 sheet, 01 hoje, 14 desktop)",
+      "summary": "Capturas com dado real via helpers E2E sancionados (service role), em 375x812 / 768x1024 / 1280x800. Antes/depois da tela de Sessão documenta a redução de preâmbulo e o colapso do exercício encerrado.",
+      "confidence": "high"
+    },
+    {
+      "type": "command_output",
+      "pathOrUrl": "playwright test flows (HEAD em worktree vs. working tree)",
+      "summary": "Baseline e pós-mudança falham exatamente os cenários 1, 3, 5, 6 e passam 2 e 4, contra o mesmo backend. Prova de neutralidade da refatoração sobre o contrato E2E.",
+      "confidence": "high"
+    },
+    {
+      "type": "command_output",
+      "pathOrUrl": "npm --workspace frontend run lint && typecheck && test && build",
+      "summary": "lint limpo, typecheck limpo, 16/16 testes, build ok; fonte no precache do service worker (8 entradas, 710 KiB).",
+      "confidence": "high"
+    }
+  ],
+  "recommendation": "1) Para app de execução (treino, cozinha, campo, chão de fábrica), adotar a direção 'Console': número é o conteúdo (tabular + largura expandida), chão quase preto, UM sinal de alta visibilidade reservado à confirmação, zero sombra/gradiente/vidro, raios contidos. 2) Antes de discutir paleta, medir DENSIDADE: quantos pixels o usuário rola até o controle que ele veio tocar? Se houver preâmbulo, rebaixar mídia/instrução a referência recolhível antes de mexer em cor. 3) Ao refatorar UI coberta por E2E, SEMPRE rodar baseline no HEAD (git worktree add /tmp/<x> HEAD + symlink de node_modules) — é a única forma de distinguir regressão de ruído de ambiente. 4) Fonte subsetada em latin quebra glifos usados como ícone (✓ U+2713, ● U+25CF, ■ U+25A0, ← U+2190) — trocar por SVG inline com aria-hidden e rótulo no aria-label do botão, o que também permite escalar o ícone ao alvo de 56–64px. 5) Catálogo com mídia placeholder 1x1: detectar naturalWidth<=2 no onLoad e colapsar o bloco, em vez de reservar altura para o que não existe. 6) Quando o backend restringe CORS à origem publicada, verificar em dev com proxy same-origin no vite (server.proxy) — e reverter depois; propor ao time adicionar a origem de dev à allowlist.",
+  "promotion": {
+    "candidate": true,
+    "targetPath": "references/design-philosophy.md (secao 'apps de execucao') + knowledge/patterns/console-execution-app/ + references/audit-checklist.md (item 'baseline E2E antes de declarar regressao')",
+    "rationale": "A direção 'Console' e a heurística de densidade generalizam para qualquer app operado com pressa e uma mão. O padrão de baseline em worktree é de processo e vale para toda refatoração de UI sob teste — pertence ao audit-checklist. O achado de subset de fonte x glifo-como-ícone é armadilha recorrente em qualquer projeto que self-hospede fonte."
+  },
+  "sensitivity": {
+    "containsSecrets": false,
+    "notes": "Nenhum segredo no registro. Chaves lidas de ~/.shapeos-keys.json apenas como variável de ambiente para a suíte E2E do próprio projeto; nenhum valor impresso, logado ou persistido. Nenhuma conta criada manualmente pelo agente — fixtures via helpers sancionados do repositório."
+  }
+}

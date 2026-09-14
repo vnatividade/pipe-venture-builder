@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "0.1.0",
+  "recordId": "LR-0009",
+  "title": "Estado 'guardado mas não valendo' tem que ser sincronizado em três lugares (pintura, aria-pressed, reducer), e mensagem de erro de rede nunca vai crua para o usuário final",
+  "learningType": "pattern",
+  "source": {
+    "originType": "adversarial_review",
+    "linearId": "PIP-797",
+    "pullRequestUrl": "https://github.com/vnatividade/aurasite/pull/78",
+    "artifactPathOrUrl": "~/Developer/aurasite/client/src/components/site/InterviewForm.tsx",
+    "observedAt": "2026-08-14",
+    "sourceSummary": "Revisão adversarial com 3 lentes independentes sobre o wizard da entrevista. Dois defeitos foram reproduzidos por DUAS lentes cada. (1) O cartão de opção com rascunho guardado sob o pulo era pintado em cinza ('guardado, não valendo') mas continuava anunciando `aria-pressed=true` — a pintura dizia uma coisa e o leitor de tela dizia outra; e o reducer tratava o toque como 'desmarcar', apagando justamente o rascunho que a divisão em duas camadas existe para proteger. (2) O painel de erro, que este mesmo diff promoveu de toast efêmero para painel fixo, renderizava `error.message` literal: numa queda de rede o cliente final lia 'Failed to fetch', em inglês, entre duas frases em português."
+  },
+  "scope": {
+    "domains": ["capability", "execution"],
+    "appliesToAgents": ["claude-code", "any-agent"],
+    "ticketTypes": ["product"],
+    "horizon": "now",
+    "limits": "O par pintura/`aria-pressed` vale para qualquer estado intermediário (rascunho, pendente, sugerido); a regra de erro vale para qualquer superfície tRPC/RPC voltada ao usuário final. Não confundir com erro de formulário, onde a mensagem do servidor costuma ser o texto certo."
+  },
+  "agent": {
+    "recordedBy": "claude-code (Atelier, Opus 5)",
+    "agentRole": "executor",
+    "intendedConsumers": ["atelier skill", "futuras execucoes Atelier"]
+  },
+  "capability": {
+    "name": "atelier",
+    "type": "skill",
+    "maturity": "pilot",
+    "notes": "Três regras. (1) Ao inventar um estado intermediário ('guardado, não valendo'), a pintura NÃO é a implementação — é a terceira das três coisas que precisam concordar: o reducer (o que o toque faz), o atributo ARIA (o que é anunciado) e o estilo (o que é visto). Eu pintei o cinza e deixei `aria-pressed={marcada}`, que anuncia como pressionado exatamente o que não vale; a régua certa é a mesma variável que decide a pintura (`valendo`). (2) Promover um erro de efêmero (toast) para permanente (painel) MUDA o padrão de qualidade exigido da mensagem: o que passava despercebido por 4 segundos vira o texto principal da tela. Distinguir erro do servidor (tem metadado — no tRPC, `error.data?.code`) de erro de transporte (não tem) e trocar o segundo por uma frase no idioma do produto; nunca casar substring da mensagem, e provar com controle negativo (erro DE SERVIDOR cuja mensagem é literalmente 'Failed to fetch' deve ser exibida). (3) Botão indisponível: `disabled` tira da ordem de tabulação e leva junto o `aria-describedby` que explica por quê — usar `aria-disabled` + submit inerte quando existe uma explicação a alcançar."
+  }
+}
