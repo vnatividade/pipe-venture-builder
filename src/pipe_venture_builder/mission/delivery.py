@@ -275,18 +275,29 @@ def prepare_native_worktree(mission: Mapping[str, Any]) -> Path:
     return path
 
 
+def effective_base_ref(repo: str | Path, base_ref: str) -> str:
+    """The ref every git call of a mission should use for ``base_ref``: the
+    ref itself when it resolves, else ``origin/<base_ref>`` when only the
+    remote copy survived (PIP-917).
+
+    Deleting a merged branch locally is ordinary housekeeping. A program wave
+    stores its chained base as the previous wave's branch NAME, so a later
+    ``git branch -D`` used to crash worktree creation, the write-set diff and
+    the reviewer diff alike. One resolver, used by all of them, keeps them on
+    the same ref — resolving in only one place would just move the failure.
+
+    Raises ``WorktreeBaseMissing`` when neither exists."""
+
+    candidates = [base_ref] if base_ref.startswith("origin/") else [base_ref, f"origin/{base_ref}"]
+    for candidate in candidates:
+        if _commit_of(repo, candidate) is not None:
+            return candidate
+    raise WorktreeBaseMissing(f"baseRef {base_ref!r} resolves to no commit in {repo}")
+
+
 def _resolve_base(repo: str | Path, base_ref: str) -> str:
-    """The commit ``base_ref`` names, exactly as written.
-
-    No fallback to ``origin/<base_ref>`` here on purpose: verification diffs
-    against the literal ``baseRef`` too, so a worktree created from a guessed
-    ref would only move the failure one step later. Resolving a locally
-    deleted branch from the remote belongs to PIP-917, across every place the
-    base is used."""
-
-    commit = _commit_of(repo, base_ref)
-    if commit is None:
-        raise WorktreeBaseMissing(f"baseRef {base_ref!r} resolves to no commit in {repo}")
+    commit = _commit_of(repo, effective_base_ref(repo, base_ref))
+    assert commit is not None
     return commit
 
 

@@ -66,6 +66,8 @@ from .delivery import (
     cleanup_stop_gate_residue,
     commit_if_needed,
     current_branch,
+    effective_base_ref,
+    WorktreeBaseMissing,
     ensure_worktree,
     git_config_snapshot,
     mission_home,
@@ -421,6 +423,17 @@ class _Cycle:
         if self.store.pending_decisions(self.mission_id):
             return Step("active", "pending_decisions")
         stage, cycle, attempt, worker_run = self._plan()
+        # PIP-917: a base resolvida UMA vez por passo, e todo git da missão usa
+        # a mesma (worktree, diff do write set, diff do revisor). Uma onda de
+        # programa guarda o NOME da branch da onda anterior; apagá-la localmente
+        # depois que a onda começou derrubava a verificação com exit 128.
+        try:
+            self.base_ref = effective_base_ref(
+                self.mission["workspace"]["repo"], self.mission["workspace"]["baseRef"]
+            )
+        except WorktreeBaseMissing:
+            _log(self.home, self.mission_id, "base_ref.missing", cycle=cycle)
+            return self._block("branch_mismatch", cycle, worker_run, options=WORKSPACE_OPTIONS)
         if stage == "dispatch":
             return self._dispatch(cycle, attempt)
         worktree = ensure_worktree(self.mission, home=self.home)
@@ -654,7 +667,7 @@ class _Cycle:
             return Step(self._status(), "not_active", cycle)
         if not self._on_mission_branch(worktree):
             return self._block("branch_mismatch", cycle, worker_run, options=WORKSPACE_OPTIONS)
-        base_ref = self.mission["workspace"]["baseRef"]
+        base_ref = self.base_ref
         files = changed_files(worktree, base_ref)
         outside = outside_write_set(files, self.mission["workspace"]["writeSet"])
         fingerprint_now = diff_fingerprint(worktree, base_ref)
@@ -742,7 +755,7 @@ class _Cycle:
         try:
             review = run_review(
                 self.mission,
-                diff_text(worktree, self.mission["workspace"]["baseRef"]),
+                diff_text(worktree, self.base_ref),
                 claude_bin=self.claude_bin,
                 cwd=worktree,
                 budget_left=budget,
@@ -927,7 +940,7 @@ class _Cycle:
 
         if not self._on_mission_branch(worktree):
             return self._block("branch_mismatch", cycle, worker_run, options=WORKSPACE_OPTIONS)
-        files = changed_files(worktree, self.mission["workspace"]["baseRef"])
+        files = changed_files(worktree, self.base_ref)
         outside = outside_write_set(files, self.mission["workspace"]["writeSet"])
         if outside:
             _log(self.home, self.mission_id, "delivery.outside_write_set", files=len(outside))
@@ -1120,7 +1133,7 @@ class _Cycle:
         instructions: str | None = None
         outside: list[str] = []
         if self._responder_may_run(blockers):
-            files = changed_files(worktree, self.mission["workspace"]["baseRef"])
+            files = changed_files(worktree, self.base_ref)
             outside = outside_write_set(files, self.mission["workspace"]["writeSet"])
             if not outside:
                 instructions = self._answer_blockers(cycle, blockers, worktree)

@@ -513,6 +513,45 @@ class ChainedBaseHousekeepingTests(ProgramTestCase):
         self.assertEqual([d["kind"] for d in pending], ["escalation"])
 
 
+    def test_resolving_the_block_and_resuming_asks_again_instead_of_going_silent(self) -> None:
+        """Revisão do PIP-917 (P2): o dedup casava a decisão JÁ resolvida, e o
+        programa ficava `blocked` com zero decisões pendentes."""
+
+        h = self._wave_a_delivered_then_local_branch_deleted(push=False)
+        h.run()
+        [decision] = h.store.pending_decisions(h.program_id)
+        self.assertEqual(decision["context"].get("cause"), "base_ref_missing",
+                         "o fundador leria «check falhou» para uma branch que sumiu")
+        h.store.resolve_decision(decision["decisionId"], option="revise_stage", decided_by="human:cli:vitor")
+        h.store.resume_program(h.program_id)
+        step = h.run()
+        self.assertEqual(step.status, "blocked")
+        self.assertEqual(len(h.store.pending_decisions(h.program_id)), 1,
+                         "bloqueado sem nenhuma decisão pendente: travado em silêncio")
+
+    def test_done_when_on_a_leaf_deleted_everywhere_blocks_instead_of_crashing(self) -> None:
+        """Revisão do PIP-917 (P2): `_finish_program` montava as folhas com a
+        branch local e `git worktree add` estourava fora de qualquer captura."""
+
+        from pipe_venture_builder.mission.delivery import branch_name, native_worktree_path
+
+        h = self.program_harness([stage("a")], doneWhen=[{
+            "id": "D1", "text": "nunca", "kind": "check", "command": "false", "cwd": "."}])
+        h.fakes.scenario(worker=[writes("a")], reviewer=[satisfied()])
+        self.assertEqual(h.run().status, "blocked")
+        mission_a = h.store.get(h.missions()["a"])
+        worktree = native_worktree_path(mission_a)
+        git(h.repo, "-c", "core.hooksPath=/dev/null", "worktree", "unlock", str(worktree))
+        git(h.repo, "-c", "core.hooksPath=/dev/null", "worktree", "remove", "--force", str(worktree))
+        git(h.repo, "branch", "-D", branch_name(mission_a))
+        [decision] = h.store.pending_decisions(h.program_id)
+        h.store.resolve_decision(decision["decisionId"], option="stop", decided_by="human:cli:vitor")
+        h.store.resume_program(h.program_id)
+        step = h.run()
+        self.assertEqual(step.status, "blocked")
+        self.assertEqual(len(h.store.pending_decisions(h.program_id)), 1)
+
+
 class InternalErrorLeavesATraceTests(ProgramTestCase):
     def test_an_internal_error_names_the_exception_and_where_it_happened(self) -> None:
         import io
@@ -528,5 +567,5 @@ class InternalErrorLeavesATraceTests(ProgramTestCase):
         self.assertEqual(payload["code"], "INTERNAL_ERROR")
         [detail] = payload["errors"]
         self.assertEqual(detail["message"], "ValueError")
-        self.assertRegex(detail["path"], r"^[a-z_]+\.py:\d+$")
+        self.assertRegex(detail["path"], r"^[a-z_]+\.py:\d+( < [a-z_]+\.py:\d+)?$")
         self.assertNotIn("invalid reference", err.getvalue(), "a mensagem vazou — o contrato de sanitização proíbe")

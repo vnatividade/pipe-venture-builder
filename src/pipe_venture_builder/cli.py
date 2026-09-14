@@ -384,7 +384,11 @@ def _internal_error_detail(exc: BaseException) -> dict[str, str]:
         frame for frame in traceback.extract_tb(exc.__traceback__)
         if "pipe_venture_builder" in frame.filename
     ]
-    where = f"{Path(frames[-1].filename).name}:{frames[-1].lineno}" if frames else "unknown"
+    # Os DOIS últimos quadros: o último sozinho costuma ser o helper que roda
+    # o git (`_git` → `subprocess.run`) e aponta a mesma linha para toda falha.
+    where = " < ".join(
+        f"{Path(frame.filename).name}:{frame.lineno}" for frame in reversed(frames[-2:])
+    ) or "unknown"
     return {
         "path": where,
         "message": type(exc).__name__,
