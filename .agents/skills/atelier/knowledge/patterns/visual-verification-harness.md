@@ -46,7 +46,7 @@ await page.screenshot({ path: 'full-1280.png', fullPage: true });
 3. **Prove the theme resolves first.** A preview/harness that mounts components from outside the bundler root can open a second Tailwind root without the app's `@theme` — every semantic utility (`bg-primary`, `text-muted-foreground`) computes to transparent and all visual rounds on it are worthless. Fix: one root only (import the app's CSS entry and `@source` the component folder).
 4. **Measure, don't eyeball.** When a pane or screenshot disagrees with expectation, read the DOM (`getBoundingClientRect`, `getComputedStyle`) before "fixing" anything: embedded browser panes can show stale compositor frames after scroll while the DOM is correct. Fall back to the harness above.
 5. **Transitions contaminate measurements.** `transition-colors`/`transition-all` return intermediate (oklab) values for ~150ms; re-measure in a separate call before reporting a color defect.
-6. **Contrast is measured on the real element** (canvas + WCAG formula against the actual composed background), never inherited from docs — tinted backgrounds like `destructive/5` routinely fail AA where the doc says pass.
+6. **Contrast is measured on the real element** (canvas + WCAG formula against the actual composed background), never inherited from docs — in LR-0008 `text-destructive` on `bg-destructive/5` measured 4.36:1 (fails AA) while the repo's primary with white measured 5.13:1, the opposite of what inherited docs suggested for both.
 7. **Seed real data** through the project's sanctioned test helpers when judging app screens; empty states hide density problems.
 
 ## Evidence
