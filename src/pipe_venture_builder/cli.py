@@ -354,11 +354,18 @@ def main(
     except PipeError as exc:
         _render_error(exc, as_json=getattr(args, "as_json", False), stream=err)
         return exc.exit_code
-    except Exception:
+    except Exception as exc:
+        # PIP-917: o erro interno descartava também o TIPO e o LOCAL. Um
+        # `fatal: invalid reference` do git virou uma investigação inteira
+        # porque a única saída era "unexpected internal error". Vão só o tipo
+        # e o último quadro do nosso código; a MENSAGEM continua fora, por
+        # contrato (`test_unexpected_failure_is_sanitized_as_internal_error`):
+        # ela pode carregar caminho, URL com credencial ou dado de cliente.
         internal_error = PipeError(
             code="INTERNAL_ERROR",
             message="Pipe stopped after an unexpected internal error.",
             exit_code=INTERNAL_CONTRACT_ERROR,
+            details=[_internal_error_detail(exc)],
         )
         _render_error(
             internal_error, as_json=getattr(args, "as_json", False), stream=err
@@ -368,6 +375,21 @@ def main(
     exit_code = int(payload.pop("_exit_code", SUCCESS))
     _render_success(payload, as_json=getattr(args, "as_json", False), stream=out)
     return exit_code
+
+
+def _internal_error_detail(exc: BaseException) -> dict[str, str]:
+    import traceback
+
+    frames = [
+        frame for frame in traceback.extract_tb(exc.__traceback__)
+        if "pipe_venture_builder" in frame.filename
+    ]
+    where = f"{Path(frames[-1].filename).name}:{frames[-1].lineno}" if frames else "unknown"
+    return {
+        "path": where,
+        "message": type(exc).__name__,
+        "rule": "internal_error",
+    }
 
 
 def _handle_version(_args: argparse.Namespace) -> dict[str, Any]:

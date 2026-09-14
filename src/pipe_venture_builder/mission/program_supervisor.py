@@ -232,13 +232,21 @@ def _check_start_when(
     without it. To reconverge, serialise the waves or let the founder merge."""
 
     criteria = stage["startWhen"]
-    if not criteria or _evaluate_criteria_on_base(
+    try:
+        # Resolvida sempre, mesmo sem `startWhen`: uma base que não existe
+        # derrubava o supervisor mais adiante, na criação da missão.
+        base = _resolve_stage_base(store, program, stage)
+    except StageBaseMissing:
+        # Sem base não há como conferir o portão: bloqueia pelo mesmo caminho
+        # de `startWhen` insatisfeito — nenhuma forma nova de parar.
+        base = None
+    if base is not None and (not criteria or _evaluate_criteria_on_base(
         program["workspace"]["repo"],
-        _resolve_stage_base(store, program, stage),
+        base,
         criteria,
         check_timeout=check_timeout,
         home=home,
-    ):
+    )):
         return True, None
     program_id = program["programId"]
     context = {"reason": "start_when_unsatisfied", "stage": stage["id"]}
@@ -348,7 +356,30 @@ def _resolve_stage_base(store: MissionStore, program: Mapping[str, Any], stage: 
     if dependency is None:
         return program["workspace"]["baseRef"]
     dependency_mission_id = store.stage_mission(program["programId"], dependency)
-    return branch_name(store.get(dependency_mission_id))
+    branch = branch_name(store.get(dependency_mission_id))
+    # PIP-917: apagar a branch local de uma onda já entregue é faxina normal
+    # de repositório. Sem este fallback, o `git worktree add` do `startWhen`
+    # falhava com `invalid reference` e o supervisor morria com INTERNAL_ERROR
+    # — sem evento, sem decisão, programa travado para sempre. O ref devolvido
+    # vira o `baseRef` da missão da onda, e todo uso posterior (worktree,
+    # diff do write set) aceita `origin/<branch>` do mesmo jeito.
+    repo = program["workspace"]["repo"]
+    for candidate in (f"refs/heads/{branch}", f"refs/remotes/origin/{branch}"):
+        if _ref_exists(repo, candidate):
+            return branch if candidate.startswith("refs/heads/") else f"origin/{branch}"
+    raise StageBaseMissing(f"a branch {branch!r} da onda {dependency!r} não existe nem local nem em origin")
+
+
+class StageBaseMissing(RuntimeError):
+    """The chained wave's branch exists neither locally nor on ``origin``."""
+
+
+def _ref_exists(repo: str, ref: str) -> bool:
+    completed = subprocess.run(
+        ["git", "-C", repo, *_no_hooks_args(), "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"],
+        capture_output=True, timeout=GIT_TIMEOUT_SECONDS, check=False, env=child_env(),
+    )
+    return completed.returncode == 0
 
 
 def _build_stage_mission(
