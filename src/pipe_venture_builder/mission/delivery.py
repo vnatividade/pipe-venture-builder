@@ -258,6 +258,13 @@ def prepare_native_worktree(mission: Mapping[str, Any]) -> Path:
         return path
     name = native_worktree_name(mission)
     path.parent.mkdir(parents=True, exist_ok=True)
+    # Pasta apagada à mão deixa o registro no git — e travado, porque o CLI e
+    # este código travam. `prune` não mexe em registro travado, e sem limpar
+    # todo `worktree add` neste caminho falha ("missing but locked worktree"),
+    # bloqueando toda retomada. Destravar só ESTE caminho (que não existe mais)
+    # e podar é seguro: prune só remove registros cuja pasta sumiu.
+    _git(repo, *_no_hooks_args(), "worktree", "unlock", str(path), check=False)
+    _git(repo, *_no_hooks_args(), "worktree", "prune", check=False)
     for existing in (branch_name(mission), f"worktree-{name}"):
         if _commit_of(repo, f"refs/heads/{existing}") is not None:
             _git(repo, *_no_hooks_args(), "worktree", "add", "--lock", str(path), existing)
@@ -766,7 +773,14 @@ def _git(cwd: str | Path, *args: str, check: bool = True) -> str:
         timeout=GIT_TIMEOUT_SECONDS, check=False, env=child_env(),
     )
     if check and completed.returncode != 0:
-        raise RuntimeError(f"git {args[0]} failed with exit code {completed.returncode}")
+        # O stderr do git é o diagnóstico ("missing but locked worktree",
+        # "already used by worktree at ..."); sem ele o rastro de um bloqueio
+        # só dizia "exit code 128". Cortado — URL com credencial não cabe aqui.
+        detalhe = (completed.stderr or "").strip().splitlines()[-1:] or [""]
+        comando = next((a for a in args if not a.startswith("-") and "=" not in a), args[0])
+        raise RuntimeError(
+            f"git {comando} failed with exit code {completed.returncode}: {detalhe[0][:200]}"
+        )
     return completed.stdout
 
 

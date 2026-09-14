@@ -1798,3 +1798,40 @@ class WorktreeStartsOnBaseRefTests(SupervisorTestCase):
         h.fakes.scenario(worker=[good_worker()], reviewer=[{"structured_output": satisfied_verdict()}])
         h.run_once()
         self.assertEqual(flags(h.calls("worker")[0]["argv"])["--worktree"], h.mission_id)
+
+    def test_a_worktree_folder_deleted_by_hand_does_not_block_every_retry(self) -> None:
+        """Revisão adversarial (P2): `rm -rf` na pasta deixa o registro travado
+        no git; sem destravar e podar, todo `worktree add` ali falha para
+        sempre e a missão bloqueia a cada retomada."""
+
+        import shutil
+
+        from pipe_venture_builder.mission.delivery import prepare_native_worktree
+
+        h = self._mission_on_older_base()
+        caminho = prepare_native_worktree(h.mission)
+        shutil.rmtree(caminho)
+        self.assertEqual(prepare_native_worktree(h.mission), caminho)
+        self.assertTrue((caminho / "README.md").is_file(), "não recriou o worktree no caminho")
+        self.assertFalse((caminho / "main-only.txt").exists(), "recriou fora da base")
+
+    def test_worktree_scoped_config_is_not_mistaken_for_tampering(self) -> None:
+        """Revisão adversarial (P2): com `extensions.worktreeConfig` e um
+        `config.worktree` no checkout, retratar o checkout antes e o worktree
+        depois acusava adulteração em todo ciclo — um portão sem causa."""
+
+        from pipe_venture_builder.mission.delivery import prepare_native_worktree
+
+        h = self._mission_on_older_base()
+        git(h.repo, "config", "extensions.worktreeConfig", "true")
+        # Ordem medida: o `worktree add` COPIA o `config.worktree` existente,
+        # então a divergência só aparece quando o checkout ganha config de
+        # worktree depois de o worktree da missão existir (rc=128 no worktree,
+        # hash no checkout). Criado antes, os retratos saem iguais e o teste
+        # passaria sem medir nada.
+        prepare_native_worktree(h.mission)
+        git(h.repo, "config", "--worktree", "core.sparseCheckout", "false")
+        h.fakes.scenario(worker=[good_worker()], reviewer=[{"structured_output": satisfied_verdict()}])
+        step = h.run_once()
+        self.assertNotIn("git_config_tampered", [p.get("reason") for p in h.payloads("decision.opened")])
+        self.assertEqual((step.status, step.reason), ("completed", "completed"))

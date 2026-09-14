@@ -70,6 +70,7 @@ from .delivery import (
     git_config_snapshot,
     mission_home,
     native_worktree_name,
+    native_worktree_path,
     open_pr,
     pr_body,
     pr_title,
@@ -502,9 +503,10 @@ class _Cycle:
         # (PIP-913's `stop_gate`) so the worker sees a failing check inside
         # its own turn instead of waiting a whole cycle — acceleration only,
         # never a verdict (`verify_criteria` still runs below, unmoved). Only
-        # possible once a worktree already exists to write it into: the
-        # bootstrap cycle's worker creates its own via `--worktree` and there
-        # is nothing to write into yet, so it simply runs without the hook.
+        # written into a worktree already adopted onto the mission branch
+        # (`worktree_ready`). Cycle 1's worktree exists since PIP-918 but is
+        # still on `worktree-<MSN>` until the run collects, so the accelerator
+        # sits that one cycle out — acceleration only, nothing depends on it.
         # A pre-existing, non-gate `.claude/settings.json` (a real project
         # file) is left alone — no widening, per `build_stop_gate_settings`.
         settings_path: str | None = None
@@ -532,7 +534,13 @@ class _Cycle:
                 _log(self.home, self.mission_id, "stop_gate.skipped",
                      cycle=cycle, reason=type(erro).__name__)
         revision = _load_revision(self.home, self.mission_id, cycle - 1)
-        config_before = git_config_snapshot(repo, run_cwd)
+        # O lado "worktree" do retrato é o worktree da missão, antes E depois.
+        # Retratar o checkout antes e o worktree depois comparava o
+        # `config.worktree` de dois lugares diferentes: com
+        # `extensions.worktreeConfig` ligado (ex.: `git sparse-checkout init`)
+        # isso acusava adulteração falsa em todo ciclo — um portão sem causa.
+        config_side = native_worktree_path(self.mission)
+        config_before = git_config_snapshot(repo, config_side if config_side.is_dir() else repo)
         run_id = self.store.open_run(
             self.mission_id,
             cycle=cycle,
@@ -607,7 +615,7 @@ class _Cycle:
             # committed — is what keeps the accelerator's own residue out of
             # `changed_files`/`_handle_worker_blockers`'s write-set check.
             cleanup_stop_gate_residue(worktree)
-        after = git_config_snapshot(repo, worktree)
+        after = git_config_snapshot(repo, config_side if config_side.is_dir() else repo)
         tampered = [key for key, value in after.items() if config_before.get(key) != value]
         # PIP-918: o worktree já existe ANTES do retrato `config_before`
         # (`prepare_native_worktree`), então a contagem de worktrees não muda
