@@ -245,6 +245,7 @@ class MissionEventChainTests(TestCase):
                     "delivery.checks_passed",
                     "delivery.checks_failed",
                     "budget.reached",
+                    "executor.fallback",
                 }
             ),
         )

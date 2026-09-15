@@ -46,7 +46,7 @@ from .events import (
 from .program import validate_program
 
 
-DATABASE_SCHEMA_VERSION = 3
+DATABASE_SCHEMA_VERSION = 4
 RUN_ID_PREFIX = "MRUN"
 RUN_DEFAULT_ROLE = "worker"
 DECISION_ID_PREFIX = "DEC"
@@ -584,6 +584,10 @@ class MissionStore:
         payload = validate_short_mapping(dict(extra or {}), what="verification payload")
         with self._write():
             run = self._run_row(run_id)
+            self._connection.execute(
+                "UPDATE mission_runs SET verified = ? WHERE run_id = ?",
+                ("passed" if passed else "failed", run_id),
+            )
             return self._append_event(
                 run["mission_id"],
                 event_type=chosen,
@@ -639,6 +643,43 @@ class MissionStore:
             (mission_id,),
         ).fetchone()
         return float(row["total"])
+
+    def stage_declared_executor(self, mission: Mapping[str, Any]) -> str | None:
+        """The Program stage's declared ``execution.executor`` for *mission*,
+        or ``None`` for a mission with no ``program`` back-reference (every
+        mission created outside a Program, and still most missions even
+        after PIP-910) — the caller treats ``None`` the same as
+        ``"claude"``. Reuses ``_stage_declared_executor`` (PIP-910), which
+        already answers this from the Program document itself, not from any
+        assumption about what actually dispatched."""
+
+        program_ref = mission.get("program")
+        if not program_ref:
+            return None
+        return self._stage_declared_executor(program_ref["programId"], program_ref["stage"])
+
+    def record_executor_fallback(
+        self, mission_id: str, *, cycle: int, at: str | None = None
+    ) -> dict[str, Any]:
+        """PIP-911 onda 2: the dispatch downgraded this cycle from ``local``
+        to ``claude`` after two straight verification failures on the local
+        executor (``supervisor._Cycle._resolve_dispatch_executor``). Never
+        the other direction: there is no rule that ever promotes a wave back
+        onto ``local``."""
+
+        _positive_int(cycle, "fallback cycle")
+        occurred_at = at or utc_now()
+        parse_datetime(occurred_at)
+        with self._write():
+            row = self._mission_row(mission_id)
+            if row["status"] != "active":
+                raise ControlPlaneStateError("executor fallback requires an active mission")
+            return self._append_event(
+                mission_id,
+                event_type="executor.fallback",
+                occurred_at=occurred_at,
+                payload={"cycle": cycle, "executorKind": EXECUTOR_KIND_CLAUDE},
+            )
 
     # -- decisions ----------------------------------------------------------
 
@@ -1549,7 +1590,8 @@ class MissionStore:
                 num_turns INTEGER NOT NULL DEFAULT 0,
                 result_ref TEXT,
                 result_fingerprint TEXT,
-                verdict TEXT
+                verdict TEXT,
+                verified TEXT
             );
             CREATE TABLE IF NOT EXISTS decisions(
                 decision_id TEXT PRIMARY KEY,
@@ -1622,6 +1664,9 @@ class MissionStore:
             stored = "2"
         if stored == "2":
             self._migrate_2_to_3()
+            stored = "3"
+        if stored == "3":
+            self._migrate_3_to_4()
             return
         raise ControlPlaneStateError("unsupported mission database schema version")
 
@@ -1726,6 +1771,32 @@ class MissionStore:
                 )
             self._connection.execute(
                 "UPDATE metadata SET value = '3' WHERE key = 'schema_version'"
+            )
+
+    def _migrate_3_to_4(self) -> None:
+        """Add ``mission_runs.verified`` (PIP-911 onda 2).
+
+        ``record_verification`` already chains a ``verify.passed``/
+        ``verify.failed`` event per run; nothing before this let a caller ask
+        "did THIS run's verification pass?" without replaying the whole
+        event chain. The downgrade rule
+        (``supervisor._Cycle._resolve_dispatch_executor``) needs exactly that,
+        cheaply, over ``list_runs`` — the same reason ``verdict`` already
+        lives on the row instead of only in ``review.*`` events. Every run
+        before this migration predates the column: ``NULL`` (never verified)
+        is the honest backfill, not a guess at ``'passed'``/``'failed'``."""
+
+        with self._write():
+            columns = {
+                row[1]
+                for row in self._connection.execute(
+                    "PRAGMA table_info(mission_runs)"
+                ).fetchall()
+            }
+            if "verified" not in columns:
+                self._connection.execute("ALTER TABLE mission_runs ADD COLUMN verified TEXT")
+            self._connection.execute(
+                "UPDATE metadata SET value = '4' WHERE key = 'schema_version'"
             )
 
     @staticmethod

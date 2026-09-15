@@ -54,6 +54,11 @@ EVENT_TYPES = frozenset(
         "delivery.checks_passed",
         "delivery.checks_failed",
         "budget.reached",
+        # PIP-911 onda 2: o dispatch rebaixou de ``local`` para ``claude``
+        # depois de duas falhas de verificação seguidas (ver
+        # ``supervisor._Cycle._resolve_dispatch_executor``); nunca o
+        # contrário — subir de ``claude`` para ``local`` não existe.
+        "executor.fallback",
     }
 )
 
