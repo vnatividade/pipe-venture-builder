@@ -116,10 +116,11 @@ def run_local_worker(
     file writes the recovered call asked for. A run that never recovers a
     call at all (envelope absent AND no native XML) fails as
     ``local_no_tool_call``; one that calls the wrong tool, or one whose
-    arguments do not match the schema, fails too — neither is a verification
-    failure, so neither counts toward the two-strikes downgrade
-    (``supervisor._Cycle._resolve_dispatch_executor`` only counts a cycle
-    that actually reached ``verify_criteria``)."""
+    arguments do not match the schema, fails too. Each of those counts toward
+    the two-strikes downgrade the same as a failed verification
+    (``supervisor._Cycle._local_verify_failures``, revisão do PR #207): the
+    envelope/content split recorded on the run says what to fix, not whether
+    the mission may proceed."""
 
     brief = compile_brief(mission, cycle, revision_instructions)
     messages = [{"role": "user", "content": brief}]
@@ -186,6 +187,17 @@ def _failed(
     )
 
 
+def _inside(target: Path, root_real: Path) -> bool:
+    """O caminho REAL de ``target`` fica dentro do worktree. Um laço de links
+    faz ``resolve`` levantar ``RuntimeError``/``OSError``: isso é fora, não
+    exceção que derruba o supervisor."""
+
+    try:
+        return target.resolve().is_relative_to(root_real)
+    except (OSError, RuntimeError):
+        return False
+
+
 def _apply_result(
     mission: Mapping[str, Any], worktree: str | Path, arguments: Mapping[str, Any]
 ) -> dict[str, Any]:
@@ -221,16 +233,34 @@ def _apply_result(
         # write set (`docs -> /tmp/fora`) levava a escrita para fora do
         # worktree — verificado. O executor local não tem a parede do
         # `--worktree` do CLI; a contenção é esta checagem, pelo caminho REAL.
-        if not target.resolve().is_relative_to(root_real):
+        if not _inside(target, root_real):
             raise ControlPlaneContractError("local tool call file path escapes the worktree")
         planned.append((relative, target, content))
     paths: list[str] = []
-    for relative, target, content in planned:
-        target.parent.mkdir(parents=True, exist_ok=True)
-        if not target.resolve().is_relative_to(root_real):
-            raise ControlPlaneContractError("local tool call file path escapes the worktree")
-        target.write_text(content, encoding="utf-8")
-        paths.append(relative)
+    created: list[Path] = []
+    try:
+        for relative, target, content in planned:
+            existed = target.exists()
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if not _inside(target, root_real):
+                raise ControlPlaneContractError("local tool call file path escapes the worktree")
+            target.write_text(content, encoding="utf-8")
+            if not existed:
+                created.append(target)
+            paths.append(relative)
+    except (OSError, ControlPlaneContractError) as erro:
+        # Segunda revisão do PR #207 (P3): a validação não pega tudo o que o
+        # disco recusa (`docs/a` e `docs/a/b` na mesma lista, um diretório no
+        # lugar do arquivo). Desfaz o que ESTE turno criou e falha como
+        # argumento inválido — nunca como exceção nua que derruba o supervisor.
+        for path in reversed(created):
+            try:
+                path.unlink()
+            except OSError:
+                pass
+        if isinstance(erro, ControlPlaneContractError):
+            raise
+        raise ControlPlaneContractError("local tool call file write failed") from erro
     criteria = arguments.get("criteriaSelfAssessment")
     criteria = criteria if isinstance(criteria, list) else []
     blockers_raw = arguments.get("blockers")

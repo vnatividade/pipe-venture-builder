@@ -228,6 +228,36 @@ class RunLocalWorkerFailureTests(unittest.TestCase):
         self.assertEqual(result.status, "failed")
         self.assertFalse((self.worktree / "docs" / "a.md").exists(), "run falho deixou escrita parcial")
 
+    def test_a_write_the_disk_refuses_midway_undoes_this_turn_and_fails_cleanly(self) -> None:
+        """Segunda revisão do PR #207 (P3): `docs/a` e `docs/a/b` na mesma
+        lista passavam na validação, o disco recusava o segundo e o primeiro
+        ficava — com exceção nua derrubando o supervisor."""
+
+        mission = _mission_with_write_set(["docs"])
+        arguments = {
+            "done": True, "summary": "arquivo e depois diretório com o mesmo nome",
+            "filesChanged": [{"path": "docs/a", "content": "x"}, {"path": "docs/a/b", "content": "y"}],
+            "criteriaSelfAssessment": [], "blockers": [],
+        }
+        result = run_local_worker(
+            mission, worktree=self.worktree, base_url="http://fake", model="m",
+            transport=_tool_calls_transport(SUBMIT_TOOL_NAME, arguments),
+        )
+        self.assertEqual((result.status, result.reason), ("failed", "local_arguments_invalid"))
+        self.assertFalse((self.worktree / "docs" / "a").exists(), "sobrou escrita parcial")
+
+    def test_a_symlink_loop_is_refused_not_raised(self) -> None:
+        (self.worktree / "docs").symlink_to(self.worktree / "docs", target_is_directory=True)
+        arguments = {
+            "done": True, "summary": "laço", "filesChanged": [{"path": "docs/a.md", "content": "x"}],
+            "criteriaSelfAssessment": [], "blockers": [],
+        }
+        result = run_local_worker(
+            self.mission, worktree=self.worktree, base_url="http://fake", model="m",
+            transport=_tool_calls_transport(SUBMIT_TOOL_NAME, arguments),
+        )
+        self.assertEqual((result.status, result.reason), ("failed", "local_arguments_invalid"))
+
 
 
 if __name__ == "__main__":

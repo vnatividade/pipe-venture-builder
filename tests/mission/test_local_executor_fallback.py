@@ -209,3 +209,43 @@ class FallbackNeverBlocksWhatMainCompletedTests(ProgramTestCase):
         [evento] = self._fallback_events(h, mission_id)
         self.assertEqual(evento["payload"]["reason"], "local_failures")
 
+    def test_a_tight_cycle_limit_still_leaves_room_for_the_fallback(self) -> None:
+        """Segunda revisão do PR #207 (P2): com `maxCycles: 2`, duas falhas
+        locais esgotavam o limite e a missão bloqueava sem o Claude rodar."""
+
+        from tests.mission.helpers import mission_input
+
+        constraints = dict(mission_input()["constraints"], maxCycles=2)
+        h = self.program_harness([stage(
+            "a", missionDraft=stage_draft("a", successCriteria=_STAGE_A_CHECK, constraints=constraints),
+            execution={"executor": "local"},
+        )])
+        h.fakes.scenario(worker=[writes("a")], reviewer=[satisfied()])
+
+        def down(url: str, payload: bytes, headers: dict) -> bytes:
+            raise ConnectionRefusedError("fora do ar")
+
+        h.run(local_base_url="http://fake-local", local_model="m", local_transport=down)
+        mission_id = h.missions()["a"]
+        self.assertEqual(h.store.get(mission_id)["status"], "completed")
+        self.assertEqual([r["executor_kind"] for r in _worker_runs(h.store, mission_id)],
+                         ["local", "local", "claude"])
+
+    def test_a_local_model_repeating_the_same_diff_falls_back_instead_of_blocking(self) -> None:
+        """Segunda revisão do PR #207: diff idêntico entre dois runs locais
+        batia no `no_progress` e chamava o fundador antes do rebaixamento."""
+
+        def same_every_time(url: str, payload: bytes, headers: dict) -> bytes:
+            return _tool_call_response(1, {
+                "done": True, "summary": "igual", "filesChanged": [{"path": "docs/a.md", "content": "sempre igual\n"}],
+                "criteriaSelfAssessment": [], "blockers": [],
+            })
+
+        h = self.program_harness([_local_stage()])
+        h.fakes.scenario(worker=[writes("a")], reviewer=[satisfied()])
+        h.run(local_base_url="http://fake-local", local_model="m", local_transport=same_every_time)
+        mission_id = h.missions()["a"]
+        self.assertEqual(h.store.get(mission_id)["status"], "completed")
+        self.assertEqual([r["executor_kind"] for r in _worker_runs(h.store, mission_id)],
+                         ["local", "local", "claude"])
+

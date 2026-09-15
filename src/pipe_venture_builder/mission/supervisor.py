@@ -150,6 +150,9 @@ REVIEWER_INFRA_FAILURES = frozenset({REVIEWER_RUN_FAILED, REVIEWER_OUTPUT_INVALI
 MAX_REVIEWER_ATTEMPTS = 2
 # The worktree is not what was verified: a human inspects it, then resumes.
 WORKSPACE_OPTIONS = ["stop", "fix_and_resume"]
+# Ciclos do executor local que não contam contra ``maxCycles`` (PIP-911 onda 2).
+LOCAL_FREE_CYCLES = 2
+REVISION_NO_PROGRESS_LOCAL = "O diff não mudou desde o ciclo anterior: nada novo foi escrito."
 # ``active`` results that end ``supervise`` instead of starting another cycle.
 STOPPING_REASONS = frozenset({"pending_decisions", "interrupted"})
 # Signals that request a stop: SIGHUP too, since a foreground ``supervise``
@@ -814,6 +817,16 @@ class _Cycle:
             self.store.record_verification(
                 worker_run, passed=False, at=self.now(), extra={**facts, "noProgress": True}
             )
+            if self._run_is_local(worker_run) and not self._executor_fallback_recorded():
+                # Um modelo local que repete o mesmo diff (ex.: não escreve
+                # nada) é exatamente o caso de rebaixar, não de chamar o
+                # fundador: a verificação falha e o próximo despacho cai para o
+                # modelo forte (segunda revisão do PR #207).
+                _save_revision(self.home, self.mission_id, cycle, REVISION_NO_PROGRESS_LOCAL)
+                # Sem veredito, o `_plan` volta a este mesmo run para sempre —
+                # medido: o teste deste caminho travou até ser morto.
+                self.store.record_verdict(worker_run, verdict="needs_revision", at=self.now())
+                return self._needs_revision(cycle, worker_run, "no_progress")
             self.store.record_verdict(worker_run, verdict="blocked", at=self.now())
             return self._block("no_progress", cycle, worker_run)
         if outside:
@@ -1452,7 +1465,29 @@ class _Cycle:
             for decision in self.store.list_decisions(self.mission_id)
             if decision["status"] == "resolved" and decision["decidedOption"] == GRANT_CYCLE_OPTION
         )
-        return int(self.mission["constraints"]["maxCycles"]) + granted
+        return int(self.mission["constraints"]["maxCycles"]) + granted + self._local_free_cycles()
+
+    def _local_free_cycles(self) -> int:
+        """Ciclos do executor local não consomem o limite do modelo forte, até
+        ``LOCAL_FREE_CYCLES`` (segunda revisão do PR #207, P2). Sem isto, com
+        ``maxCycles: 2`` duas falhas locais esgotavam o limite e a missão
+        bloqueava ANTES do rebaixamento — o Claude nunca rodava. Com o teto,
+        um local que passa na verificação mas nunca convence o revisor não
+        ganha ciclos infinitos; o orçamento continua valendo por cima."""
+
+        if self._declared_executor() != EXECUTOR_KIND_LOCAL:
+            return 0
+        local_runs = sum(
+            1 for run in self.store.list_runs(self.mission_id)
+            if run["executor"].split(":", 1)[0] == WORKER_EXECUTOR and run["executor_kind"] == EXECUTOR_KIND_LOCAL
+        )
+        return min(local_runs, LOCAL_FREE_CYCLES)
+
+    def _run_is_local(self, run_id: str | None) -> bool:
+        return any(
+            run["run_id"] == run_id and run["executor_kind"] == EXECUTOR_KIND_LOCAL
+            for run in self.store.list_runs(self.mission_id)
+        )
 
     def _cycle_verdict(self, cycle: int) -> str | None:
         verdict = None
