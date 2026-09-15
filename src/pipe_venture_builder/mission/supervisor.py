@@ -511,12 +511,18 @@ class _Cycle:
 
     def _local_verify_failures(self) -> int:
         """How many of this mission's WORKER runs, counting back from the
-        most recent, ran on the local executor and failed verification —
-        stopping at the first that did not. Only a straight streak counts: a
-        run that failed before reaching ``verify_criteria`` at all (endpoint
-        unreachable, no tool call recovered) leaves ``verified`` ``NULL``,
-        which breaks the streak the same as a pass would — an infrastructure
-        failure is not the content failure this rule downgrades for."""
+        most recent, ran on the local executor and produced nothing usable —
+        failed verification OR failed before reaching it (endpoint
+        unreachable, no tool call recovered, invalid arguments) — stopping at
+        the first that did not.
+
+        Revisão do PR #207 (P1): a primeira versão contava só falha de
+        verificação e tratava a falha de run como quebra de sequência. Um
+        endpoint fora do ar ou um modelo que nunca devolve tool call queimava
+        todos os ciclos e BLOQUEAVA a missão, sem nunca rebaixar — pior que o
+        `main`, onde a mesma onda rodava no Claude e concluía. A separação
+        entre envelope e conteúdo continua gravada em cada run; ela diz o que
+        consertar, não se a missão pode seguir."""
 
         workers = [
             run for run in self.store.list_runs(self.mission_id)
@@ -524,31 +530,40 @@ class _Cycle:
         ]
         streak = 0
         for run in reversed(workers):
-            if run["executor_kind"] != EXECUTOR_KIND_LOCAL or run["verified"] != "failed":
+            if run["executor_kind"] != EXECUTOR_KIND_LOCAL:
+                break
+            if run["verified"] != "failed" and run["status"] != "failed":
                 break
             streak += 1
         return streak
 
-    def _resolve_dispatch_executor(self, cycle: int) -> tuple[str, bool]:
-        """Which executor pool this cycle's worker actually runs on, and
-        whether this call is the downgrade itself (PIP-911 onda 2: an
-        ``executor.fallback`` event fires exactly once per mission, the
-        cycle the second straight local verification failure is seen).
+    def _local_configured(self) -> bool:
+        return bool(self.local_base_url) or self.local_transport is not None
+
+    def _resolve_dispatch_executor(self, cycle: int) -> tuple[str, str | None]:
+        """Which executor pool this cycle's worker actually runs on, and —
+        when this call IS the downgrade — why (PIP-911 onda 2: an
+        ``executor.fallback`` event fires exactly once per mission).
 
         A stage that never declared ``local`` always dispatches on
         ``claude``, unchanged from before this ticket. One that did, but has
-        already fallen back (an ``executor.fallback`` event already exists
-        for this mission), stays on ``claude`` for every following cycle —
-        nothing here ever promotes a wave back onto ``local``."""
+        already fallen back, stays on ``claude`` for every following cycle —
+        nothing here ever promotes a wave back onto ``local``.
+
+        ``local_not_configured``: nenhum endpoint local chegou ao supervisor.
+        Tentar mesmo assim falha em todo ciclo; rebaixar logo, com rastro, é o
+        comportamento de antes deste ticket (a onda rodava no Claude)."""
 
         del cycle  # the mission's own run history already carries cycle order
         if self._declared_executor() != EXECUTOR_KIND_LOCAL:
-            return EXECUTOR_KIND_CLAUDE, False
+            return EXECUTOR_KIND_CLAUDE, None
         if self._executor_fallback_recorded():
-            return EXECUTOR_KIND_CLAUDE, False
+            return EXECUTOR_KIND_CLAUDE, None
+        if not self._local_configured():
+            return EXECUTOR_KIND_CLAUDE, "local_not_configured"
         if self._local_verify_failures() >= 2:
-            return EXECUTOR_KIND_CLAUDE, True
-        return EXECUTOR_KIND_LOCAL, False
+            return EXECUTOR_KIND_CLAUDE, "local_failures"
+        return EXECUTOR_KIND_LOCAL, None
 
     def _dispatch(self, cycle: int, attempt: int) -> Step:
         if cycle > self._max_cycles():
@@ -556,10 +571,12 @@ class _Cycle:
         worker_budget = self._budget_left() - REVIEW_RESERVE_USD
         if worker_budget < MIN_RUN_BUDGET_USD:
             return self._budget_reached(cycle)
-        executor_kind, is_fallback = self._resolve_dispatch_executor(cycle)
-        if is_fallback:
-            self.store.record_executor_fallback(self.mission_id, cycle=cycle, at=self.now())
-            _log(self.home, self.mission_id, "executor.fallback", cycle=cycle)
+        executor_kind, fallback_reason = self._resolve_dispatch_executor(cycle)
+        if fallback_reason is not None:
+            self.store.record_executor_fallback(
+                self.mission_id, cycle=cycle, reason=fallback_reason, at=self.now()
+            )
+            _log(self.home, self.mission_id, "executor.fallback", cycle=cycle, reason=fallback_reason)
         model_for_run = (
             self.worker_model
             if executor_kind != EXECUTOR_KIND_LOCAL

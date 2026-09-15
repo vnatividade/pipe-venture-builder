@@ -169,3 +169,43 @@ class ExecutorFallbackTests(ProgramTestCase):
         self.assertEqual(runs[0]["verified"], "passed")
         events = h.store.list_events(mission_id)
         self.assertFalse(any(event["eventType"] == "executor.fallback" for event in events))
+
+
+class FallbackNeverBlocksWhatMainCompletedTests(ProgramTestCase):
+    """Revisão do PR #207 (P1): uma onda `local` terminava SEMPRE bloqueada —
+    endpoint não configurado ou fora do ar queimava os ciclos sem rebaixar.
+    No `main` anterior a mesma onda rodava no Claude e concluía."""
+
+    def _fallback_events(self, h: Any, mission_id: str) -> list[dict[str, Any]]:
+        return [e for e in h.store.list_events(mission_id) if e["eventType"] == "executor.fallback"]
+
+    def test_an_unconfigured_local_endpoint_falls_back_at_once_and_completes(self) -> None:
+        h = self.program_harness([_local_stage()])
+        h.fakes.scenario(worker=[writes("a")], reviewer=[satisfied()])
+        h.run()  # nenhum local_base_url / local_transport — como pelo CLI hoje
+        mission_id = h.missions()["a"]
+        self.assertEqual(h.store.get(mission_id)["status"], "completed")
+        runs = _worker_runs(h.store, mission_id)
+        self.assertEqual([r["executor_kind"] for r in runs], ["claude"], "tentou local sem endpoint")
+        [evento] = self._fallback_events(h, mission_id)
+        self.assertEqual(evento["payload"]["reason"], "local_not_configured")
+
+    def test_an_endpoint_down_twice_falls_back_instead_of_blocking(self) -> None:
+        calls = {"count": 0}
+
+        def down(url: str, payload: bytes, headers: dict) -> bytes:
+            calls["count"] += 1
+            if calls["count"] > 2:
+                raise AssertionError("chamou o endpoint local depois do rebaixamento")
+            raise ConnectionRefusedError("fora do ar")
+
+        h = self.program_harness([_local_stage()])
+        h.fakes.scenario(worker=[writes("a")], reviewer=[satisfied()])
+        h.run(local_base_url="http://fake-local", local_model="qwen-local-fake", local_transport=down)
+        mission_id = h.missions()["a"]
+        self.assertEqual(h.store.get(mission_id)["status"], "completed")
+        runs = _worker_runs(h.store, mission_id)
+        self.assertEqual([r["executor_kind"] for r in runs], ["local", "local", "claude"])
+        [evento] = self._fallback_events(h, mission_id)
+        self.assertEqual(evento["payload"]["reason"], "local_failures")
+

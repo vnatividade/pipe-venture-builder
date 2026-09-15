@@ -659,7 +659,7 @@ class MissionStore:
         return self._stage_declared_executor(program_ref["programId"], program_ref["stage"])
 
     def record_executor_fallback(
-        self, mission_id: str, *, cycle: int, at: str | None = None
+        self, mission_id: str, *, cycle: int, reason: str = "local_failures", at: str | None = None
     ) -> dict[str, Any]:
         """PIP-911 onda 2: the dispatch downgraded this cycle from ``local``
         to ``claude`` after two straight verification failures on the local
@@ -668,6 +668,8 @@ class MissionStore:
         onto ``local``."""
 
         _positive_int(cycle, "fallback cycle")
+        if reason not in {"local_failures", "local_not_configured"}:
+            raise ControlPlaneContractError("executor fallback reason is not allowed")
         occurred_at = at or utc_now()
         parse_datetime(occurred_at)
         with self._write():
@@ -678,7 +680,7 @@ class MissionStore:
                 mission_id,
                 event_type="executor.fallback",
                 occurred_at=occurred_at,
-                payload={"cycle": cycle, "executorKind": EXECUTOR_KIND_CLAUDE},
+                payload={"cycle": cycle, "executorKind": EXECUTOR_KIND_CLAUDE, "reason": reason},
             )
 
     # -- decisions ----------------------------------------------------------
@@ -1170,13 +1172,14 @@ class MissionStore:
             payload: dict[str, Any] = {"stageId": stage_id, "missionId": mission_id}
             declared = self._stage_declared_executor(program_id, stage_id)
             if declared is not None and declared != EXECUTOR_KIND_CLAUDE:
-                # A onda declarou um executor que o dispatch ainda não honra
-                # (roteamento é a onda 2 do PIP-911). Aceitar em silêncio faria
-                # o fundador pagar modelo forte achando que rodou local, sem
-                # nada em evento, log ou status dizendo o contrário. A
-                # divergência entra na cadeia encadeada por hash.
+                # O executor DECLARADO entra na cadeia encadeada por hash. O
+                # USADO não é afirmado aqui: desde a onda 2 do PIP-911 o
+                # dispatch honra `local`, e quem rodou de verdade está em cada
+                # run (`executor_kind`) e no evento `executor.fallback` da
+                # missão, com o motivo. Gravar `executorUsed: claude` neste
+                # ponto passou a ser uma afirmação falsa na trilha de auditoria
+                # (revisão do PR #207).
                 payload["executorDeclared"] = declared
-                payload["executorUsed"] = EXECUTOR_KIND_CLAUDE
             self._append_program_event(
                 program_id,
                 event_type="program.stage_mission_recorded",

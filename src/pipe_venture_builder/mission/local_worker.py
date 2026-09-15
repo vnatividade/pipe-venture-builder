@@ -200,8 +200,12 @@ def _apply_result(
     if not isinstance(files, list):
         raise ControlPlaneContractError("local tool call filesChanged must be a list")
     root = Path(worktree)
+    root_real = root.resolve()
     write_set = mission["workspace"]["writeSet"]
-    paths: list[str] = []
+    # Duas passadas (revisão do PR #207): TUDO é validado antes de qualquer
+    # escrita. Escrever um a um e falhar no terceiro deixava os dois primeiros
+    # no worktree — sujeira que nenhum run assume, herdada pelo ciclo seguinte.
+    planned: list[tuple[str, Path, str]] = []
     for entry in files:
         if not isinstance(entry, Mapping):
             raise ControlPlaneContractError("local tool call file entry must be a mapping")
@@ -213,7 +217,18 @@ def _apply_result(
         if outside_write_set([relative], write_set):
             raise ControlPlaneContractError("local tool call file path is outside the write set")
         target = root / relative
+        # O texto do caminho não basta: um link simbólico sob um prefixo do
+        # write set (`docs -> /tmp/fora`) levava a escrita para fora do
+        # worktree — verificado. O executor local não tem a parede do
+        # `--worktree` do CLI; a contenção é esta checagem, pelo caminho REAL.
+        if not target.resolve().is_relative_to(root_real):
+            raise ControlPlaneContractError("local tool call file path escapes the worktree")
+        planned.append((relative, target, content))
+    paths: list[str] = []
+    for relative, target, content in planned:
         target.parent.mkdir(parents=True, exist_ok=True)
+        if not target.resolve().is_relative_to(root_real):
+            raise ControlPlaneContractError("local tool call file path escapes the worktree")
         target.write_text(content, encoding="utf-8")
         paths.append(relative)
     criteria = arguments.get("criteriaSelfAssessment")

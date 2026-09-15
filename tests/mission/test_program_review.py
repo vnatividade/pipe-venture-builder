@@ -341,7 +341,15 @@ class Pip911Onda1ReviewTests(ProgramTestCase):
         self.assertEqual(len(gravados), 1)
         payload = gravados[0]["payload"]
         self.assertEqual(payload.get("executorDeclared"), "local")
-        self.assertEqual(payload.get("executorUsed"), "claude")
+        # Revisão do PR #207: desde a onda 2 o dispatch honra `local`; afirmar
+        # `executorUsed: claude` na criação da onda passou a ser falso. Quem
+        # rodou de verdade fica no run e no `executor.fallback` da missão.
+        self.assertNotIn("executorUsed", payload)
+        mission_id = h.missions()["a"]
+        motivos = [e["payload"].get("reason") for e in h.store.list_events(mission_id)
+                   if e["eventType"] == "executor.fallback"]
+        self.assertEqual(motivos, ["local_not_configured"],
+                         "declarou local, rodou no Claude e a trilha não diz por quê")
 
     def test_a_wave_without_a_declared_executor_records_no_divergence(self) -> None:
         """Controle: o campo só aparece quando há divergência de verdade."""

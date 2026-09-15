@@ -189,6 +189,46 @@ class RunLocalWorkerFailureTests(unittest.TestCase):
         self.assertEqual(result.status, "failed")
         self.assertEqual(result.reason, "local_endpoint_unavailable")
 
+    def test_a_symlink_under_the_write_set_cannot_carry_the_write_outside(self) -> None:
+        """Revisão do PR #207 (P2): o caminho `docs/a.md` está no write set
+        como TEXTO, mas `docs` é um link para fora — a escrita saía do
+        worktree. O executor local não tem a parede do `--worktree` do CLI."""
+
+        fora = tempfile.TemporaryDirectory()
+        self.addCleanup(fora.cleanup)
+        (self.worktree / "docs").symlink_to(fora.name, target_is_directory=True)
+        arguments = {
+            "done": True, "summary": "link simbolico",
+            "filesChanged": [{"path": "docs/a.md", "content": "escapou\n"}],
+            "criteriaSelfAssessment": [], "blockers": [],
+        }
+        result = run_local_worker(
+            self.mission, worktree=self.worktree, base_url="http://fake", model="m",
+            transport=_tool_calls_transport(SUBMIT_TOOL_NAME, arguments),
+        )
+        self.assertEqual((result.status, result.reason), ("failed", "local_arguments_invalid"))
+        self.assertFalse((Path(fora.name) / "a.md").exists(), "a escrita saiu do worktree pelo link")
+
+    def test_a_bad_entry_later_in_the_list_writes_nothing_at_all(self) -> None:
+        """Revisão do PR #207 (P2): escrever um a um deixava os arquivos
+        anteriores no worktree quando uma entrada posterior era recusada."""
+
+        arguments = {
+            "done": True, "summary": "primeiro valido, segundo nao",
+            "filesChanged": [
+                {"path": "docs/a.md", "content": "valido\n"},
+                {"path": "../fora.md", "content": "x"},
+            ],
+            "criteriaSelfAssessment": [], "blockers": [],
+        }
+        result = run_local_worker(
+            self.mission, worktree=self.worktree, base_url="http://fake", model="m",
+            transport=_tool_calls_transport(SUBMIT_TOOL_NAME, arguments),
+        )
+        self.assertEqual(result.status, "failed")
+        self.assertFalse((self.worktree / "docs" / "a.md").exists(), "run falho deixou escrita parcial")
+
+
 
 if __name__ == "__main__":
     unittest.main()
