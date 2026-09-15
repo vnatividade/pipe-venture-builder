@@ -33,9 +33,11 @@ from pipe_venture_builder.control_plane.model import utc_now
 from . import supervisor
 from .contract import build_mission
 from .delivery import (
+    WorktreeBaseMissing,
     _no_hooks_args,
     branch_name,
     child_env,
+    effective_base_ref,
     commit_if_needed,
     native_worktree_path,
 )
@@ -171,15 +173,42 @@ def _select_ready_stage(
 # -- gates -------------------------------------------------------------------
 
 
-def _find_decision(store: MissionStore, subject_id: str, *, kind: str, context: Mapping[str, Any]) -> dict[str, Any] | None:
+def _find_decision(
+    store: MissionStore, subject_id: str, *, kind: str, context: Mapping[str, Any], pending_only: bool = False
+) -> dict[str, Any] | None:
     """A decision already opened for *subject_id* with this exact kind and
     context, pending or resolved — so a gate is asked once, not on every
-    call, and a resolved approval is honoured instead of re-opened."""
+    call, and a resolved approval is honoured instead of re-opened.
+
+    ``pending_only`` is for BLOCKS, not approvals (PIP-917 review): a block
+    whose decision was already resolved and that still holds after the resume
+    must ask again. Matching the resolved one left the program ``blocked`` with
+    zero pending decisions — stuck, and silent about it."""
 
     for decision in store.list_decisions(subject_id):
-        if decision["kind"] == kind and decision["context"] == dict(context):
+        if pending_only and decision.get("status") != "pending":
+            continue
+        if decision["kind"] == kind and _base_context(decision["context"]) == _base_context(context):
             return decision
     return None
+
+
+def _base_context(context: Mapping[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in context.items() if key != "round"}
+
+
+def _next_round(store: MissionStore, subject_id: str, *, kind: str, context: Mapping[str, Any]) -> dict[str, Any]:
+    """The context for a block decision re-asked after an earlier one was
+    resolved: the same context plus ``round``. The decision id hashes the
+    context and ``openedAt`` to the second, so re-opening the identical
+    context within one second collided on the primary key."""
+
+    resolved = [
+        decision for decision in store.list_decisions(subject_id)
+        if decision["kind"] == kind and decision.get("status") != "pending"
+        and _base_context(decision["context"]) == _base_context(context)
+    ]
+    return dict(context, round=len(resolved) + 1) if resolved else dict(context)
 
 
 def _stage_founder_gate_open(
@@ -232,20 +261,35 @@ def _check_start_when(
     without it. To reconverge, serialise the waves or let the founder merge."""
 
     criteria = stage["startWhen"]
-    if not criteria or _evaluate_criteria_on_base(
+    missing: str | None = None
+    try:
+        # Resolvida sempre, mesmo sem `startWhen`: uma base que não existe
+        # derrubava o supervisor mais adiante, na criação da missão.
+        base = _resolve_stage_base(store, program, stage)
+    except WorktreeBaseMissing:
+        # Sem base não há como conferir o portão: bloqueia pelo mesmo caminho
+        # de `startWhen` insatisfeito — nenhuma forma nova de parar — mas o
+        # contexto diz a CAUSA, para ninguém procurar um check que falhou.
+        base = None
+        missing = "base_ref_missing"
+    if base is not None and (not criteria or _evaluate_criteria_on_base(
         program["workspace"]["repo"],
-        _resolve_stage_base(store, program, stage),
+        base,
         criteria,
         check_timeout=check_timeout,
         home=home,
-    ):
+    )):
         return True, None
     program_id = program["programId"]
     context = {"reason": "start_when_unsatisfied", "stage": stage["id"]}
-    if _find_decision(store, program_id, kind="escalation", context=context) is None:
+    if missing is not None:
+        # Só identificador: o contexto da decisão não aceita texto livre.
+        context["cause"] = missing
+    if _find_decision(store, program_id, kind="escalation", context=context, pending_only=True) is None:
         store.open_decision(
-            program_id, kind="escalation", context=context, options=["stop", "revise_stage"],
-            safe_default="stop", blocked_scope="stage", deadline=None, at=at,
+            program_id, kind="escalation",
+            context=_next_round(store, program_id, kind="escalation", context=context),
+            options=["stop", "revise_stage"], safe_default="stop", blocked_scope="stage", deadline=None, at=at,
         )
     if store.get_program(program_id)["status"] == "active":
         store.block_program(program_id, reason_code="start_when_unsatisfied", at=at)
@@ -268,9 +312,10 @@ def _follow_mission(
     status = mission["status"]
     context = {"reason": f"stage_mission_{status}", "stage": stage["id"], "missionId": mission["missionId"]}
     kind = "escalation"
-    if _find_decision(store, program_id, kind=kind, context=context) is None:
+    if _find_decision(store, program_id, kind=kind, context=context, pending_only=True) is None:
         store.open_decision(
-            program_id, kind=kind, context=context, options=["stop", "resume_stage"],
+            program_id, kind=kind, context=_next_round(store, program_id, kind=kind, context=context),
+            options=["stop", "resume_stage"],
             safe_default="stop", blocked_scope="stage", deadline=None, at=at,
         )
     if status == "paused":
@@ -283,9 +328,10 @@ def _follow_mission(
 def _budget_block(store: MissionStore, program: Mapping[str, Any], *, at: str) -> ProgramStep:
     program_id = program["programId"]
     context = {"reason": "budget_reached"}
-    if _find_decision(store, program_id, kind="budget", context=context) is None:
+    if _find_decision(store, program_id, kind="budget", context=context, pending_only=True) is None:
         store.open_decision(
-            program_id, kind="budget", context=context, options=["stop", "revise_program"],
+            program_id, kind="budget", context=_next_round(store, program_id, kind="budget", context=context),
+            options=["stop", "revise_program"],
             safe_default="stop", blocked_scope="program", deadline=None, at=at,
         )
     if store.get_program(program_id)["status"] == "active":
@@ -309,22 +355,35 @@ def _finish_program(
     program_id = program["programId"]
     criteria = program["doneWhen"]
     satisfied = True
+    leaf_missing = False
     if criteria:
-        refs = [
-            branch_name(store.get(store.stage_mission(program_id, stage_id)))
-            for stage_id in _leaf_stage_ids(program)
-        ]
-        satisfied = _evaluate_criteria_across_refs(
+        try:
+            refs = [
+                effective_base_ref(
+                    program["workspace"]["repo"],
+                    branch_name(store.get(store.stage_mission(program_id, stage_id))),
+                )
+                for stage_id in _leaf_stage_ids(program)
+            ]
+        except WorktreeBaseMissing:
+            # Folha apagada em todo lugar: não há como conferir o doneWhen.
+            # Bloqueia pelo caminho que já existe em vez de morrer (PIP-917).
+            refs = []
+            leaf_missing = True
+        satisfied = bool(refs) and _evaluate_criteria_across_refs(
             program["workspace"]["repo"], refs, criteria, check_timeout=check_timeout, home=home
         )
     if satisfied:
         store.complete_program(program_id, at=at)
         return ProgramStep("completed", "done_when_satisfied")
     context = {"reason": "done_when_unsatisfied"}
-    if _find_decision(store, program_id, kind="escalation", context=context) is None:
+    if leaf_missing:
+        context["cause"] = "base_ref_missing"
+    if _find_decision(store, program_id, kind="escalation", context=context, pending_only=True) is None:
         store.open_decision(
-            program_id, kind="escalation", context=context, options=["stop", "revise_program"],
-            safe_default="stop", blocked_scope="program", deadline=None, at=at,
+            program_id, kind="escalation",
+            context=_next_round(store, program_id, kind="escalation", context=context),
+            options=["stop", "revise_program"], safe_default="stop", blocked_scope="program", deadline=None, at=at,
         )
     store.block_program(program_id, reason_code="done_when_unsatisfied", at=at)
     return ProgramStep("blocked", "done_when_unsatisfied")
@@ -348,7 +407,14 @@ def _resolve_stage_base(store: MissionStore, program: Mapping[str, Any], stage: 
     if dependency is None:
         return program["workspace"]["baseRef"]
     dependency_mission_id = store.stage_mission(program["programId"], dependency)
-    return branch_name(store.get(dependency_mission_id))
+    branch = branch_name(store.get(dependency_mission_id))
+    # PIP-917: apagar a branch local de uma onda já entregue é faxina normal.
+    # Sem o fallback, o `git worktree add` do `startWhen` falhava com `invalid
+    # reference` e o supervisor morria com INTERNAL_ERROR — sem evento, sem
+    # decisão. O mesmo resolvedor é usado pela missão da onda depois
+    # (`delivery.effective_base_ref`), então apagar a branch DEPOIS de a onda
+    # começar também não derruba mais nada.
+    return effective_base_ref(program["workspace"]["repo"], branch)
 
 
 def _build_stage_mission(

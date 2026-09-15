@@ -463,3 +463,144 @@ class AuditChainTests(ProgramTestCase):
         self.assertTrue(h.store.verify_program_chain(h.program_id))
         for event in h.store.list_program_events(h.program_id):
             self.assertNotIn("planilha", json.dumps(event.get("payload", {}), ensure_ascii=False))
+
+
+class ChainedBaseHousekeepingTests(ProgramTestCase):
+    """PIP-917: apagar a branch local de uma onda entregue é faxina normal.
+    Aconteceu de verdade com `PRG-536053595667`: o supervisor morreu com
+    INTERNAL_ERROR, sem evento e sem decisão, e toda retomada morria igual."""
+
+    def _wave_a_delivered_then_local_branch_deleted(self, *, push: bool) -> ProgramHarness:
+        import subprocess
+
+        h = self.program_harness([
+            stage("a"), stage("b", depends=["a"], start_when=delivered("a"), founder=True),
+        ])
+        h.fakes.scenario(worker=[writes("a"), writes("b")], reviewer=[satisfied(), satisfied()])
+        self.assertEqual(h.run().status, "paused")
+        mission_a = h.store.get(h.missions()["a"])
+        from pipe_venture_builder.mission.delivery import branch_name, native_worktree_path
+
+        branch = branch_name(mission_a)
+        if push:
+            origin = self.root / "origin.git"
+            subprocess.run(["git", "init", "-q", "--bare", str(origin)], check=True)
+            git(h.repo, "remote", "add", "origin", str(origin))
+            git(h.repo, "push", "-q", "origin", branch)
+            git(h.repo, "fetch", "-q", "origin")
+        worktree = native_worktree_path(mission_a)
+        git(h.repo, "-c", "core.hooksPath=/dev/null", "worktree", "unlock", str(worktree))
+        git(h.repo, "-c", "core.hooksPath=/dev/null", "worktree", "remove", "--force", str(worktree))
+        git(h.repo, "branch", "-D", branch)
+        [decision] = h.store.pending_decisions(h.program_id)
+        h.store.resolve_decision(decision["decisionId"], option="approve", decided_by="human:cli:vitor")
+        h.store.resume_program(h.program_id)
+        return h
+
+    def test_a_wave_whose_previous_branch_survives_only_on_origin_still_starts(self) -> None:
+        h = self._wave_a_delivered_then_local_branch_deleted(push=True)
+        step = h.run()
+        self.assertEqual(step.status, "completed", step)
+        base_b = h.store.get(h.missions()["b"])["workspace"]["baseRef"]
+        self.assertTrue(base_b.startswith("origin/claude/"), base_b)
+
+    def test_a_branch_gone_everywhere_blocks_with_a_decision_instead_of_crashing(self) -> None:
+        h = self._wave_a_delivered_then_local_branch_deleted(push=False)
+        step = h.run()
+        self.assertEqual((step.status, step.reason), ("blocked", "start_when_unsatisfied"), step)
+        self.assertIsNone(h.missions()["b"], "criou a missão sobre uma base que não existe")
+        pending = h.store.pending_decisions(h.program_id)
+        self.assertEqual([d["kind"] for d in pending], ["escalation"])
+
+
+    def test_resolving_the_block_and_resuming_asks_again_instead_of_going_silent(self) -> None:
+        """Revisão do PIP-917 (P2): o dedup casava a decisão JÁ resolvida, e o
+        programa ficava `blocked` com zero decisões pendentes."""
+
+        h = self._wave_a_delivered_then_local_branch_deleted(push=False)
+        h.run()
+        [decision] = h.store.pending_decisions(h.program_id)
+        self.assertEqual(decision["context"].get("cause"), "base_ref_missing",
+                         "o fundador leria «check falhou» para uma branch que sumiu")
+        h.store.resolve_decision(decision["decisionId"], option="revise_stage", decided_by="human:cli:vitor")
+        h.store.resume_program(h.program_id)
+        step = h.run()
+        self.assertEqual(step.status, "blocked")
+        self.assertEqual(len(h.store.pending_decisions(h.program_id)), 1,
+                         "bloqueado sem nenhuma decisão pendente: travado em silêncio")
+
+    def test_done_when_on_a_leaf_deleted_everywhere_blocks_instead_of_crashing(self) -> None:
+        """Revisão do PIP-917 (P2): `_finish_program` montava as folhas com a
+        branch local e `git worktree add` estourava fora de qualquer captura."""
+
+        from pipe_venture_builder.mission.delivery import branch_name, native_worktree_path
+
+        h = self.program_harness([stage("a")], doneWhen=[{
+            "id": "D1", "text": "nunca", "kind": "check", "command": "false", "cwd": "."}])
+        h.fakes.scenario(worker=[writes("a")], reviewer=[satisfied()])
+        self.assertEqual(h.run().status, "blocked")
+        mission_a = h.store.get(h.missions()["a"])
+        worktree = native_worktree_path(mission_a)
+        git(h.repo, "-c", "core.hooksPath=/dev/null", "worktree", "unlock", str(worktree))
+        git(h.repo, "-c", "core.hooksPath=/dev/null", "worktree", "remove", "--force", str(worktree))
+        git(h.repo, "branch", "-D", branch_name(mission_a))
+        [decision] = h.store.pending_decisions(h.program_id)
+        h.store.resolve_decision(decision["decisionId"], option="stop", decided_by="human:cli:vitor")
+        h.store.resume_program(h.program_id)
+        step = h.run()
+        self.assertEqual(step.status, "blocked")
+        self.assertEqual(len(h.store.pending_decisions(h.program_id)), 1)
+
+
+class InternalErrorLeavesATraceTests(ProgramTestCase):
+    def test_an_internal_error_names_the_exception_and_where_it_happened(self) -> None:
+        import io
+        from unittest import mock
+
+        from pipe_venture_builder import cli
+
+        err = io.StringIO()
+        with mock.patch.object(cli, "_handle_version", side_effect=ValueError("fatal: invalid reference: x")):
+            code = cli.main(["version", "--json"], stdout=io.StringIO(), stderr=err)
+        self.assertNotEqual(code, 0)
+        payload = json.loads(err.getvalue().strip().splitlines()[-1])
+        self.assertEqual(payload["code"], "INTERNAL_ERROR")
+        [detail] = payload["errors"]
+        self.assertEqual(detail["message"], "ValueError")
+        self.assertRegex(detail["path"], r"^[a-z_]+\.py:\d+( < [a-z_]+\.py:\d+)?$")
+        self.assertNotIn("invalid reference", err.getvalue(), "a mensagem vazou — o contrato de sanitização proíbe")
+
+
+class EveryBlockAsksAgainTests(ProgramTestCase):
+    """Segunda revisão do PIP-917 (P2): o conserto do dedup cobria startWhen e
+    doneWhen, mas não os bloqueios por missão parada nem por orçamento — que
+    seguiam casando a decisão já resolvida e ficavam calados."""
+
+    def test_a_stage_mission_still_stopped_after_resume_opens_a_new_decision(self) -> None:
+        h = self.program_harness([stage("a"), stage("b", depends=["a"], start_when=delivered("a"))])
+        blocked_worker = {"write_files": {}, "worker_output": {
+            "done": False, "summary": "preciso de ajuda", "filesChanged": [],
+            "criteriaSelfAssessment": [{"id": "C1", "met": False, "note": "parado"}],
+            "blockers": ["Qual arquivo recebe o conteudo?"]}}
+        h.fakes.scenario(worker=[blocked_worker], reviewer=[satisfied()])
+        h.run()
+        [decision] = h.store.pending_decisions(h.program_id)
+        h.store.resolve_decision(decision["decisionId"], option="resume_stage", decided_by="human:cli:vitor")
+        h.store.resume_program(h.program_id)
+        h.run()
+        self.assertEqual(len(h.store.pending_decisions(h.program_id)), 1,
+                         "programa parado sem decisão pendente: travado em silêncio")
+
+    def test_a_budget_still_exceeded_after_resume_opens_a_new_decision(self) -> None:
+        h = self.program_harness([
+            stage("a"), stage("b", depends=["a"], start_when=delivered("a")),
+        ], constraints={"maxBudgetUsd": 0.5})
+        expensive = dict(writes("a"))
+        expensive["result"] = {"total_cost_usd": 0.9}
+        h.fakes.scenario(worker=[expensive, writes("b")], reviewer=[satisfied(), satisfied()])
+        self.assertEqual(h.run().status, "blocked")
+        [decision] = h.store.pending_decisions(h.program_id)
+        h.store.resolve_decision(decision["decisionId"], option="revise_program", decided_by="human:cli:vitor")
+        h.store.resume_program(h.program_id)
+        self.assertEqual(h.run().status, "blocked")
+        self.assertEqual(len(h.store.pending_decisions(h.program_id)), 1)

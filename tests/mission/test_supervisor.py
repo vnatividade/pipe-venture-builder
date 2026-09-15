@@ -1788,7 +1788,9 @@ class WorktreeStartsOnBaseRefTests(SupervisorTestCase):
         self.assertEqual(decision["kind"], "escalation")
         self.assertIn("fix_and_resume", decision["options"])
         texto = (h.home / h.mission_id / "supervisor.log").read_text(encoding="utf-8")
-        self.assertIn("worktree.prepare_failed", texto)
+        # PIP-917: a base passou a ser resolvida no início do passo, antes do
+        # despacho — o rastro é `base_ref.missing`.
+        self.assertIn("base_ref.missing", texto)
 
     def test_the_cli_is_still_asked_for_the_worktree(self) -> None:
         """Controle: pré-criar não pode virar «dispensa o flag». O flag é a
@@ -1834,4 +1836,21 @@ class WorktreeStartsOnBaseRefTests(SupervisorTestCase):
         h.fakes.scenario(worker=[good_worker()], reviewer=[{"structured_output": satisfied_verdict()}])
         step = h.run_once()
         self.assertNotIn("git_config_tampered", [p.get("reason") for p in h.payloads("decision.opened")])
+        self.assertEqual((step.status, step.reason), ("completed", "completed"))
+
+    def test_a_base_deleted_locally_after_the_mission_started_still_verifies(self) -> None:
+        """Revisão do PIP-917 (P1): a missão guarda o NOME da base. Apagada a
+        branch local depois do ciclo 1, a verificação do ciclo 2 fazia
+        `git diff onda1...HEAD` e morria com exit 128."""
+
+        h = self._mission_on_older_base(with_origin=True)
+        git(h.repo, "push", "-q", "origin", "onda1")
+        failing = {"write_files": {"README.md": "# Demo\n\nidea and adopt remain follow-up\n",
+                                   "docs/guide.md": "guide: run pipe idea or pipe adopt\n"},
+                   "worker_output": good_worker_output()}
+        h.fakes.scenario(worker=[failing, good_worker()], reviewer=[{"structured_output": satisfied_verdict()}])
+        self.assertEqual(h.run_once().status, "active")
+        git(h.repo, "branch", "-D", "onda1")
+        git(h.repo, "fetch", "-q", "origin")
+        step = h.run_once()
         self.assertEqual((step.status, step.reason), ("completed", "completed"))
