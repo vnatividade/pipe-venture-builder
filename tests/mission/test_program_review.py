@@ -271,37 +271,60 @@ class Pip911Onda1ReviewTests(ProgramTestCase):
         ).fetchone()
         self.assertEqual((row["executor_kind"], row["model"]), ("claude", "sonnet"))
 
-    def test_no_run_opened_by_the_supervisor_is_ever_local(self) -> None:
+    def test_reviewer_and_responder_runs_never_declare_a_non_claude_executor(self) -> None:
         """A política de rubric usa como RAZÃO que o revisor e o respondedor
-        rodam sempre no modelo forte. Isso precisa ser uma invariante do
-        arquivo, não uma convenção: qualquer `open_run` do supervisor que
-        passasse `local` derrubaria a justificativa da política sem derrubar
-        nenhum teste. O `_review` já era coberto; o `_answer_blockers` não era.
+        rodam sempre no modelo forte — nenhum dos dois tem um campo de
+        executor próprio (``program._validate_execution``). Isso precisa ser
+        uma invariante do arquivo, não uma convenção: bastaria trocar
+        ``EXECUTOR_KIND_CLAUDE`` por uma variável num desses dois `open_run`
+        para a política perder o chão, sem derrubar nenhum outro teste.
+
+        O `open_run` do WORKER (`_dispatch`) fica de fora desta invariante a
+        partir da onda 2 do PIP-911: é exatamente o ponto que passou a variar
+        entre ``claude`` e ``local`` (`_resolve_dispatch_executor`) — por
+        isso o teste ainda confirma que ele existe e que sua origem é essa
+        função, mas não mais que é um literal fixo.
         """
 
         import ast
 
         fonte = Path("src/pipe_venture_builder/mission/supervisor.py").read_text(encoding="utf-8")
         arvore = ast.parse(fonte)
-        achados = []
+        por_metodo: dict[str, list] = {}
         for no in ast.walk(arvore):
-            if not isinstance(no, ast.Call):
+            if not isinstance(no, ast.FunctionDef):
                 continue
-            alvo = no.func
-            if not (isinstance(alvo, ast.Attribute) and alvo.attr == "open_run"):
-                continue
-            kwargs = {k.arg: k.value for k in no.keywords if k.arg}
-            achados.append(kwargs.get("executor_kind"))
+            for interno in ast.walk(no):
+                if not isinstance(interno, ast.Call):
+                    continue
+                alvo = interno.func
+                if not (isinstance(alvo, ast.Attribute) and alvo.attr == "open_run"):
+                    continue
+                kwargs = {k.arg: k.value for k in interno.keywords if k.arg}
+                por_metodo.setdefault(no.name, []).append(kwargs.get("executor_kind"))
 
-        self.assertGreaterEqual(len(achados), 3, "esperava worker, revisor e respondedor")
-        for valor in achados:
-            self.assertIsNotNone(valor, "um open_run do supervisor omitiu executor_kind")
+        for metodo in ("_review", "_answer_blockers"):
+            valores = por_metodo.get(metodo, [])
+            self.assertEqual(len(valores), 1, f"esperava exatamente um open_run em {metodo}")
+            valor = valores[0]
+            self.assertIsNotNone(valor, f"{metodo} omitiu executor_kind")
             self.assertIsInstance(valor, ast.Name)
             self.assertEqual(
                 valor.id, "EXECUTOR_KIND_CLAUDE",
-                "um run do supervisor pode abrir fora do modelo forte; "
+                f"{metodo} pode abrir fora do modelo forte; "
                 "a política de rubric perde a razão de ser",
             )
+
+        dispatch = por_metodo.get("_dispatch", [])
+        self.assertEqual(len(dispatch), 1, "esperava um open_run em _dispatch")
+        valor_dispatch = dispatch[0]
+        self.assertIsNotNone(valor_dispatch, "_dispatch omitiu executor_kind")
+        self.assertIsInstance(valor_dispatch, ast.Name)
+        self.assertEqual(
+            valor_dispatch.id, "executor_kind",
+            "_dispatch deve abrir o worker com o resultado de "
+            "_resolve_dispatch_executor, não um valor hardcoded",
+        )
 
     def test_a_declared_executor_the_dispatch_ignores_is_recorded_as_divergence(self) -> None:
         """P2 da revisão: declarar `executor: local` na onda 1 rodava no Claude
@@ -318,7 +341,15 @@ class Pip911Onda1ReviewTests(ProgramTestCase):
         self.assertEqual(len(gravados), 1)
         payload = gravados[0]["payload"]
         self.assertEqual(payload.get("executorDeclared"), "local")
-        self.assertEqual(payload.get("executorUsed"), "claude")
+        # Revisão do PR #207: desde a onda 2 o dispatch honra `local`; afirmar
+        # `executorUsed: claude` na criação da onda passou a ser falso. Quem
+        # rodou de verdade fica no run e no `executor.fallback` da missão.
+        self.assertNotIn("executorUsed", payload)
+        mission_id = h.missions()["a"]
+        motivos = [e["payload"].get("reason") for e in h.store.list_events(mission_id)
+                   if e["eventType"] == "executor.fallback"]
+        self.assertEqual(motivos, ["local_not_configured"],
+                         "declarou local, rodou no Claude e a trilha não diz por quê")
 
     def test_a_wave_without_a_declared_executor_records_no_divergence(self) -> None:
         """Controle: o campo só aparece quando há divergência de verdade."""

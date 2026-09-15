@@ -80,7 +80,10 @@ from .delivery import (
     push_branch,
     worktree_ready,
 )
+from .contract import EXECUTOR_KIND_LOCAL
 from .guard import contains_sensitive_terms  # noqa: F401 - re-exported for callers and tests
+from .local_adapter import Transport
+from .local_worker import run_local_worker
 from .responder import DELEGABLE_CATEGORIES, run_responder
 from .stop_gate import StopGateWouldClobberError, build_stop_gate_settings
 from .reviewer import (
@@ -147,6 +150,9 @@ REVIEWER_INFRA_FAILURES = frozenset({REVIEWER_RUN_FAILED, REVIEWER_OUTPUT_INVALI
 MAX_REVIEWER_ATTEMPTS = 2
 # The worktree is not what was verified: a human inspects it, then resumes.
 WORKSPACE_OPTIONS = ["stop", "fix_and_resume"]
+# Ciclos do executor local que não contam contra ``maxCycles`` (PIP-911 onda 2).
+LOCAL_FREE_CYCLES = 2
+REVISION_NO_PROGRESS_LOCAL = "O diff não mudou desde o ciclo anterior: nada novo foi escrito."
 # ``active`` results that end ``supervise`` instead of starting another cycle.
 STOPPING_REASONS = frozenset({"pending_decisions", "interrupted"})
 # Signals that request a stop: SIGHUP too, since a foreground ``supervise``
@@ -269,8 +275,20 @@ def run_once(
     checks_max_polls: int = DEFAULT_CHECKS_MAX_POLLS,
     sleep: Callable[[float], None] = time.sleep,
     stop_event: threading.Event | None = None,
+    local_base_url: str | None = None,
+    local_model: str | None = None,
+    local_transport: Transport | None = None,
 ) -> Step:
-    """Execute one full cycle (or resume the open one) and return the next state."""
+    """Execute one full cycle (or resume the open one) and return the next state.
+
+    ``local_base_url``/``local_model``/``local_transport`` (PIP-911 onda 2)
+    only matter for a Program stage that declared ``execution.executor:
+    "local"``: they say where the local OpenAI-compatible endpoint lives,
+    which model to ask it for, and (tests only) which fake transport to use
+    instead of a real socket. Left unset, such a stage's dispatch fails
+    closed with ``local_endpoint_unavailable`` rather than guessing a host —
+    ``local`` is never enabled by just declaring it in a Program.
+    """
 
     cycle = _Cycle(
         mission_id,
@@ -289,6 +307,9 @@ def run_once(
         checks_max_polls=checks_max_polls,
         sleep=sleep,
         stop_event=stop_event or threading.Event(),
+        local_base_url=local_base_url,
+        local_model=local_model,
+        local_transport=local_transport,
     )
     step = cycle.run()
     _log(cycle.home, mission_id, "step", status=step.status, reason=step.reason, cycle=step.cycle)
@@ -403,6 +424,11 @@ class _Cycle:
         self.checks_max_polls: int = options["checks_max_polls"]
         self.sleep: Callable[[float], None] = options["sleep"]
         self.stop: threading.Event = options["stop_event"]
+        # PIP-911 onda 2: only consulted for a Program stage that declared
+        # ``execution.executor: "local"`` (see ``_resolve_dispatch_executor``).
+        self.local_base_url: str | None = options["local_base_url"]
+        self.local_model: str | None = options["local_model"]
+        self.local_transport: Transport | None = options["local_transport"]
         self.mission: dict[str, Any] = {}
         self._process: ClaudeProcess | None = None
         # Denied worker calls of this cycle (in memory only; see ``_revise``).
@@ -472,12 +498,93 @@ class _Cycle:
 
     # -- worker -------------------------------------------------------------
 
+    def _declared_executor(self) -> str:
+        """The Program stage's declared ``execution.executor`` for this
+        mission; ``claude`` for a mission with no ``program`` back-reference
+        or no explicit declaration — the only behavior possible before this
+        ticket."""
+
+        return self.store.stage_declared_executor(self.mission) or EXECUTOR_KIND_CLAUDE
+
+    def _executor_fallback_recorded(self) -> bool:
+        return any(
+            event["eventType"] == "executor.fallback"
+            for event in self.store.list_events(self.mission_id)
+        )
+
+    def _local_verify_failures(self) -> int:
+        """How many of this mission's WORKER runs, counting back from the
+        most recent, ran on the local executor and produced nothing usable —
+        failed verification OR failed before reaching it (endpoint
+        unreachable, no tool call recovered, invalid arguments) — stopping at
+        the first that did not.
+
+        Revisão do PR #207 (P1): a primeira versão contava só falha de
+        verificação e tratava a falha de run como quebra de sequência. Um
+        endpoint fora do ar ou um modelo que nunca devolve tool call queimava
+        todos os ciclos e BLOQUEAVA a missão, sem nunca rebaixar — pior que o
+        `main`, onde a mesma onda rodava no Claude e concluía. A separação
+        entre envelope e conteúdo continua gravada em cada run; ela diz o que
+        consertar, não se a missão pode seguir."""
+
+        workers = [
+            run for run in self.store.list_runs(self.mission_id)
+            if run["executor"].split(":", 1)[0] == WORKER_EXECUTOR
+        ]
+        streak = 0
+        for run in reversed(workers):
+            if run["executor_kind"] != EXECUTOR_KIND_LOCAL:
+                break
+            if run["verified"] != "failed" and run["status"] != "failed":
+                break
+            streak += 1
+        return streak
+
+    def _local_configured(self) -> bool:
+        return bool(self.local_base_url) or self.local_transport is not None
+
+    def _resolve_dispatch_executor(self, cycle: int) -> tuple[str, str | None]:
+        """Which executor pool this cycle's worker actually runs on, and —
+        when this call IS the downgrade — why (PIP-911 onda 2: an
+        ``executor.fallback`` event fires exactly once per mission).
+
+        A stage that never declared ``local`` always dispatches on
+        ``claude``, unchanged from before this ticket. One that did, but has
+        already fallen back, stays on ``claude`` for every following cycle —
+        nothing here ever promotes a wave back onto ``local``.
+
+        ``local_not_configured``: nenhum endpoint local chegou ao supervisor.
+        Tentar mesmo assim falha em todo ciclo; rebaixar logo, com rastro, é o
+        comportamento de antes deste ticket (a onda rodava no Claude)."""
+
+        del cycle  # the mission's own run history already carries cycle order
+        if self._declared_executor() != EXECUTOR_KIND_LOCAL:
+            return EXECUTOR_KIND_CLAUDE, None
+        if self._executor_fallback_recorded():
+            return EXECUTOR_KIND_CLAUDE, None
+        if not self._local_configured():
+            return EXECUTOR_KIND_CLAUDE, "local_not_configured"
+        if self._local_verify_failures() >= 2:
+            return EXECUTOR_KIND_CLAUDE, "local_failures"
+        return EXECUTOR_KIND_LOCAL, None
+
     def _dispatch(self, cycle: int, attempt: int) -> Step:
         if cycle > self._max_cycles():
             return self._block("max_cycles", cycle, None)
         worker_budget = self._budget_left() - REVIEW_RESERVE_USD
         if worker_budget < MIN_RUN_BUDGET_USD:
             return self._budget_reached(cycle)
+        executor_kind, fallback_reason = self._resolve_dispatch_executor(cycle)
+        if fallback_reason is not None:
+            self.store.record_executor_fallback(
+                self.mission_id, cycle=cycle, reason=fallback_reason, at=self.now()
+            )
+            _log(self.home, self.mission_id, "executor.fallback", cycle=cycle, reason=fallback_reason)
+        model_for_run = (
+            self.worker_model
+            if executor_kind != EXECUTOR_KIND_LOCAL
+            else (self.local_model or self.worker_model)
+        )
         repo = self.mission["workspace"]["repo"]
         # PIP-915: no worktree is created here any more. When one has already
         # been adopted (a previous cycle's worker created it natively and
@@ -526,7 +633,7 @@ class _Cycle:
         # A pre-existing, non-gate `.claude/settings.json` (a real project
         # file) is left alone — no widening, per `build_stop_gate_settings`.
         settings_path: str | None = None
-        if worktree_before is not None:
+        if executor_kind != EXECUTOR_KIND_LOCAL and worktree_before is not None:
             try:
                 settings_path = str(build_stop_gate_settings(self.mission, worktree_before))
             except StopGateWouldClobberError:
@@ -561,41 +668,67 @@ class _Cycle:
             self.mission_id,
             cycle=cycle,
             attempt=attempt,
-            executor=f"{WORKER_EXECUTOR}:{self.worker_model}",
-            # PIP-911: recorded as the executor/model that actually ran.
-            # Onda 2 wires a stage's declared ``execution.executor`` into
-            # dispatch; until then every worker run is Claude, so the record
-            # says exactly that — never a declared intent it did not act on.
-            executor_kind=EXECUTOR_KIND_CLAUDE,
-            model=self.worker_model,
+            executor=f"{WORKER_EXECUTOR}:{model_for_run}",
+            # PIP-911 onda 2: recorded as the executor/model that actually
+            # ran this cycle — ``executor_kind`` reflects
+            # ``_resolve_dispatch_executor`` above, never just the stage's
+            # declared intent.
+            executor_kind=executor_kind,
+            model=model_for_run,
             at=self.now(),
         )
         _log(self.home, self.mission_id, "worker.dispatched", run=run_id, cycle=cycle, attempt=attempt)
-        try:
-            result = run_worker(
-                self.mission,
-                run_id,
-                run_cwd,
-                self.claude_bin,
-                worker_budget,
-                cycle=cycle,
-                revision_instructions=revision,
-                env=child_env(),
-                model=self.worker_model,
-                timeout=self.worker_timeout,
-                poll_seconds=self.poll_seconds,
-                should_stop=self._should_stop,
-                on_start=self._worker_started,
-                worktree_name=worktree_name,
-                settings_path=settings_path,
-            )
-        except BaseException:
-            self._terminate_worker()
-            self._close_run_on_error(run_id)
-            raise
-        finally:
-            self._process = None
-            _remove(self.home / self.mission_id / WORKER_PID_FILE)
+        extra_payload: dict[str, Any] = {}
+        if executor_kind == EXECUTOR_KIND_LOCAL:
+            try:
+                result = run_local_worker(
+                    self.mission,
+                    worktree=native_worktree_path(self.mission),
+                    base_url=self.local_base_url or "",
+                    model=model_for_run,
+                    cycle=cycle,
+                    revision_instructions=revision,
+                    transport=self.local_transport,
+                    timeout=self.worker_timeout,
+                )
+            except BaseException:
+                self._close_run_on_error(run_id)
+                raise
+            # PIP-911 onda 2: envelope (OpenAI ``tool_calls``) and content
+            # (a call recovered from either source) recorded SEPARATELY — a
+            # missing envelope with a call recovered from the native XML is
+            # the runtime's defect, not the model's, and must never look like
+            # the same failure as no call being recovered at all.
+            extra_payload = {
+                "localEnvelope": result.envelope_present,
+                "localRecovered": result.content_recovered,
+            }
+        else:
+            try:
+                result = run_worker(
+                    self.mission,
+                    run_id,
+                    run_cwd,
+                    self.claude_bin,
+                    worker_budget,
+                    cycle=cycle,
+                    revision_instructions=revision,
+                    env=child_env(),
+                    model=model_for_run,
+                    timeout=self.worker_timeout,
+                    poll_seconds=self.poll_seconds,
+                    should_stop=self._should_stop,
+                    on_start=self._worker_started,
+                    worktree_name=worktree_name,
+                    settings_path=settings_path,
+                )
+            except BaseException:
+                self._terminate_worker()
+                self._close_run_on_error(run_id)
+                raise
+            finally:
+                self._process = None
+                _remove(self.home / self.mission_id / WORKER_PID_FILE)
 
         status, reason = result.status, result.reason
         if status == "collected" and result.output is None:
@@ -612,8 +745,9 @@ class _Cycle:
             extra={
                 "reason": _code(reason),
                 "subtype": _code(result.subtype),
-                "model": _code(self.worker_model),
+                "model": _code(model_for_run),
                 "permissionDenials": result.permission_denials,
+                **extra_payload,
             },
         )
         _log(self.home, self.mission_id, "worker.closed", run=run_id, status=status, reason=reason)
@@ -683,6 +817,16 @@ class _Cycle:
             self.store.record_verification(
                 worker_run, passed=False, at=self.now(), extra={**facts, "noProgress": True}
             )
+            if self._run_is_local(worker_run) and not self._executor_fallback_recorded():
+                # Um modelo local que repete o mesmo diff (ex.: não escreve
+                # nada) é exatamente o caso de rebaixar, não de chamar o
+                # fundador: a verificação falha e o próximo despacho cai para o
+                # modelo forte (segunda revisão do PR #207).
+                _save_revision(self.home, self.mission_id, cycle, REVISION_NO_PROGRESS_LOCAL)
+                # Sem veredito, o `_plan` volta a este mesmo run para sempre —
+                # medido: o teste deste caminho travou até ser morto.
+                self.store.record_verdict(worker_run, verdict="needs_revision", at=self.now())
+                return self._needs_revision(cycle, worker_run, "no_progress")
             self.store.record_verdict(worker_run, verdict="blocked", at=self.now())
             return self._block("no_progress", cycle, worker_run)
         if outside:
@@ -1321,7 +1465,29 @@ class _Cycle:
             for decision in self.store.list_decisions(self.mission_id)
             if decision["status"] == "resolved" and decision["decidedOption"] == GRANT_CYCLE_OPTION
         )
-        return int(self.mission["constraints"]["maxCycles"]) + granted
+        return int(self.mission["constraints"]["maxCycles"]) + granted + self._local_free_cycles()
+
+    def _local_free_cycles(self) -> int:
+        """Ciclos do executor local não consomem o limite do modelo forte, até
+        ``LOCAL_FREE_CYCLES`` (segunda revisão do PR #207, P2). Sem isto, com
+        ``maxCycles: 2`` duas falhas locais esgotavam o limite e a missão
+        bloqueava ANTES do rebaixamento — o Claude nunca rodava. Com o teto,
+        um local que passa na verificação mas nunca convence o revisor não
+        ganha ciclos infinitos; o orçamento continua valendo por cima."""
+
+        if self._declared_executor() != EXECUTOR_KIND_LOCAL:
+            return 0
+        local_runs = sum(
+            1 for run in self.store.list_runs(self.mission_id)
+            if run["executor"].split(":", 1)[0] == WORKER_EXECUTOR and run["executor_kind"] == EXECUTOR_KIND_LOCAL
+        )
+        return min(local_runs, LOCAL_FREE_CYCLES)
+
+    def _run_is_local(self, run_id: str | None) -> bool:
+        return any(
+            run["run_id"] == run_id and run["executor_kind"] == EXECUTOR_KIND_LOCAL
+            for run in self.store.list_runs(self.mission_id)
+        )
 
     def _cycle_verdict(self, cycle: int) -> str | None:
         verdict = None
