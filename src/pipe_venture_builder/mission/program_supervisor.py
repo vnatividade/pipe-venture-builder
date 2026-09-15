@@ -312,9 +312,10 @@ def _follow_mission(
     status = mission["status"]
     context = {"reason": f"stage_mission_{status}", "stage": stage["id"], "missionId": mission["missionId"]}
     kind = "escalation"
-    if _find_decision(store, program_id, kind=kind, context=context) is None:
+    if _find_decision(store, program_id, kind=kind, context=context, pending_only=True) is None:
         store.open_decision(
-            program_id, kind=kind, context=context, options=["stop", "resume_stage"],
+            program_id, kind=kind, context=_next_round(store, program_id, kind=kind, context=context),
+            options=["stop", "resume_stage"],
             safe_default="stop", blocked_scope="stage", deadline=None, at=at,
         )
     if status == "paused":
@@ -327,9 +328,10 @@ def _follow_mission(
 def _budget_block(store: MissionStore, program: Mapping[str, Any], *, at: str) -> ProgramStep:
     program_id = program["programId"]
     context = {"reason": "budget_reached"}
-    if _find_decision(store, program_id, kind="budget", context=context) is None:
+    if _find_decision(store, program_id, kind="budget", context=context, pending_only=True) is None:
         store.open_decision(
-            program_id, kind="budget", context=context, options=["stop", "revise_program"],
+            program_id, kind="budget", context=_next_round(store, program_id, kind="budget", context=context),
+            options=["stop", "revise_program"],
             safe_default="stop", blocked_scope="program", deadline=None, at=at,
         )
     if store.get_program(program_id)["status"] == "active":
@@ -353,6 +355,7 @@ def _finish_program(
     program_id = program["programId"]
     criteria = program["doneWhen"]
     satisfied = True
+    leaf_missing = False
     if criteria:
         try:
             refs = [
@@ -366,6 +369,7 @@ def _finish_program(
             # Folha apagada em todo lugar: não há como conferir o doneWhen.
             # Bloqueia pelo caminho que já existe em vez de morrer (PIP-917).
             refs = []
+            leaf_missing = True
         satisfied = bool(refs) and _evaluate_criteria_across_refs(
             program["workspace"]["repo"], refs, criteria, check_timeout=check_timeout, home=home
         )
@@ -373,6 +377,8 @@ def _finish_program(
         store.complete_program(program_id, at=at)
         return ProgramStep("completed", "done_when_satisfied")
     context = {"reason": "done_when_unsatisfied"}
+    if leaf_missing:
+        context["cause"] = "base_ref_missing"
     if _find_decision(store, program_id, kind="escalation", context=context, pending_only=True) is None:
         store.open_decision(
             program_id, kind="escalation",

@@ -569,3 +569,38 @@ class InternalErrorLeavesATraceTests(ProgramTestCase):
         self.assertEqual(detail["message"], "ValueError")
         self.assertRegex(detail["path"], r"^[a-z_]+\.py:\d+( < [a-z_]+\.py:\d+)?$")
         self.assertNotIn("invalid reference", err.getvalue(), "a mensagem vazou — o contrato de sanitização proíbe")
+
+
+class EveryBlockAsksAgainTests(ProgramTestCase):
+    """Segunda revisão do PIP-917 (P2): o conserto do dedup cobria startWhen e
+    doneWhen, mas não os bloqueios por missão parada nem por orçamento — que
+    seguiam casando a decisão já resolvida e ficavam calados."""
+
+    def test_a_stage_mission_still_stopped_after_resume_opens_a_new_decision(self) -> None:
+        h = self.program_harness([stage("a"), stage("b", depends=["a"], start_when=delivered("a"))])
+        blocked_worker = {"write_files": {}, "worker_output": {
+            "done": False, "summary": "preciso de ajuda", "filesChanged": [],
+            "criteriaSelfAssessment": [{"id": "C1", "met": False, "note": "parado"}],
+            "blockers": ["Qual arquivo recebe o conteudo?"]}}
+        h.fakes.scenario(worker=[blocked_worker], reviewer=[satisfied()])
+        h.run()
+        [decision] = h.store.pending_decisions(h.program_id)
+        h.store.resolve_decision(decision["decisionId"], option="resume_stage", decided_by="human:cli:vitor")
+        h.store.resume_program(h.program_id)
+        h.run()
+        self.assertEqual(len(h.store.pending_decisions(h.program_id)), 1,
+                         "programa parado sem decisão pendente: travado em silêncio")
+
+    def test_a_budget_still_exceeded_after_resume_opens_a_new_decision(self) -> None:
+        h = self.program_harness([
+            stage("a"), stage("b", depends=["a"], start_when=delivered("a")),
+        ], constraints={"maxBudgetUsd": 0.5})
+        expensive = dict(writes("a"))
+        expensive["result"] = {"total_cost_usd": 0.9}
+        h.fakes.scenario(worker=[expensive, writes("b")], reviewer=[satisfied(), satisfied()])
+        self.assertEqual(h.run().status, "blocked")
+        [decision] = h.store.pending_decisions(h.program_id)
+        h.store.resolve_decision(decision["decisionId"], option="revise_program", decided_by="human:cli:vitor")
+        h.store.resume_program(h.program_id)
+        self.assertEqual(h.run().status, "blocked")
+        self.assertEqual(len(h.store.pending_decisions(h.program_id)), 1)

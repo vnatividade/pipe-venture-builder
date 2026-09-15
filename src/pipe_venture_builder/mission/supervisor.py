@@ -407,6 +407,9 @@ class _Cycle:
         self._process: ClaudeProcess | None = None
         # Denied worker calls of this cycle (in memory only; see ``_revise``).
         self._denials: str | None = None
+        # Set by ``run()`` before any stage (PIP-917): the one base every git
+        # call of this step uses.
+        self.base_ref: str = ""
 
     # -- entry --------------------------------------------------------------
 
