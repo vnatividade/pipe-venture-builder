@@ -1,0 +1,92 @@
+{
+  "schemaVersion": "0.1.0",
+  "recordId": "LR-0010",
+  "title": "Finance OS TASK_01: extensão de distribuição de 2 para 3 níveis + correção do bug de base recebido/previsto — não inventar fórmula financeira ausente, mostrar ausência",
+  "learningType": "capability_usage",
+  "source": {
+    "originType": "manual_observation",
+    "linearId": null,
+    "pullRequestUrl": null,
+    "artifactPathOrUrl": "src/finance/engine.ts, src/components/fos/editores.tsx, src/routes/plano.tsx (finance-os-prototype, sem PR ainda — protótipo local)",
+    "observedAt": "2026-09-14",
+    "sourceSummary": "Extensão do editor de plano de área→categoria→subcategoria (3 níveis, antes travado em 2 no motor e na UI) e correção de um bug real: o editor sempre salvava base='salario-previsto', descartando silenciosamente a escolha 'salario-recebido' já salva na regra vigente e calculando contra um número errado sem avisar."
+  },
+  "scope": {
+    "domains": ["capability", "execution"],
+    "appliesToAgents": ["claude-code", "any-agent"],
+    "ticketTypes": ["product"],
+    "horizon": "now",
+    "limits": "Só a parte de engine.ts (lógica) foi validada e fechada de forma autônoma; a parte de UI (editores.tsx) foi construída e verificada visualmente, mas aguarda aceite humano explícito antes de ser considerada concluída — processo definido pelo fundador nesta sessão (lógica: agente valida sozinho; interface: fundador valida)."
+  },
+  "agent": {
+    "recordedBy": "claude-code (Atelier, Sonnet 5)",
+    "agentRole": "executor",
+    "intendedConsumers": ["atelier skill (knowledge/patterns)", "futuras execucoes Atelier", "founder"]
+  },
+  "capability": {
+    "name": "atelier",
+    "type": "skill",
+    "maturity": "pilot",
+    "notes": "Uso da skill em extensão pontual de componente existente (não greenfield): rota 'specific -> execute' do router, sem interview, reaproveitando o sistema visual já estabelecido (tokens v3-ink/v3-paper) em vez de introduzir direção nova."
+  },
+  "confidence": {
+    "level": "high",
+    "score": 4,
+    "rationale": "18/18 asserções de domínio via script ad hoc rodado com jiti contra o src real (não uma cópia); tsc --noEmit e npm run build limpos antes e depois; reprodução ao vivo no navegador do bug de base ANTES da correção (mostrando 'salário previsto R$ 20.000' quando a regra vigente dizia 'salário recebido') e da correção funcionando DEPOIS (seletor pré-selecionado com o valor certo, nota explícita de fórmula ausente); criação manual de um nó em cada um dos 3 níveis no navegador confirmando indentação, rótulos e ausência de botão 'Adicionar' no nível 2; zero erros de console em todas as passagens."
+  },
+  "importance": {
+    "level": "medium",
+    "score": 3,
+    "rationale": "Padrão reutilizável: (1) como testar lógica de domínio de um protótipo sem test runner instalado, usando jiti direto contra o src real (resolve imports sem extensão, ao contrário do node puro); (2) como recusar inventar uma fórmula financeira ausente — expor a ausência explicitamente (base=null, texto explicativo) em vez de silenciosamente substituir por outra base; (3) como generalizar um componente de árvore de 2 para N níveis preservando compatibilidade (parâmetro com default) para não quebrar quem ainda não foi atualizado."
+  },
+  "tags": ["atelier", "finance-os", "prototipo", "arvore-recursiva", "jiti", "validacao-dominio", "nao-inventar-formula", "gate-humano-ui"],
+  "summary": "Motor (engine.ts): distribuicao() generalizada de 2 para 3 níveis via função recursiva com limite de profundidade, mais validarAreas() (ciclo, pai inexistente, quarto nível) — tudo lógica pura, testada com 18 asserções e validada sozinho. UI (editores.tsx): árvore recursiva de 3 níveis, seletor explícito de base recebido/previsto que preserva a escolha salva em vez de sobrescrevê-la, remoção em cascata para não deixar órfãos, e correção da rota legada /plano. Construído com a skill Atelier carregada, verificado ao vivo no navegador, e mantido fora do 'pronto' até o fundador validar a interface.",
+  "insight": "1) TESTAR LÓGICA SEM TEST RUNNER: quando o projeto não tem vitest/jest mas usa imports extensionless (bundler-style, ex. './format' em vez de './format.ts'), 'node script.mjs' puro falha com ERR_MODULE_NOT_FOUND mesmo com type-stripping nativo (Node 22+). Antes de recriar uma cópia do motor num .mjs plano (anti-padrão já visto neste repo em handoff/baseline-tests, que o próprio CLAUDE.md do projeto desaconselha por 'não estar ligado a src'), procurar em node_modules/.bin por um loader com resolução estilo bundler (jiti, tsx, vite-node) — jiti resolveu de primeira, sem precisar tocar nada no projeto. Script de teste efêmero fica no scratchpad, nunca no repo. 2) NÃO INVENTAR FÓRMULA AUSENTE: quando uma regra de negócio explicitamente 'ainda não fechada' existe (aqui: base % sobre 'salário recebido', listada em doc do próprio projeto como decisão reservada ao fundador), a implementação correta NÃO é escolher a interpretação mais óbvia e computar um número — é fazer o mesmo caminho que o código já usa para 'ausência de informação' (retornar null, mostrar texto explicando por quê) e tornar a lacuna visível, nunca silenciosa. Isso vale tanto para o cálculo quanto para a cópia da UI. 3) BUG DE 'CAMPO EXISTE NO TIPO MAS NUNCA É LIDO': grep por onde um campo do tipo é realmente CONSUMIDO (não só onde é declarado/exibido) encontrou que VersaoRegras.base era lido para exibição mas nunca usado no cálculo nem preservado ao salvar — um padrão de bug fácil de replicar em outros campos 'documentados mas mortos'. 4) EXTENSÃO DE PROFUNDIDADE COM COMPATIBILIDADE: ao generalizar uma função de N para N+1 níveis usada por poucos call sites, dar um valor default ao novo parâmetro deixa os call sites antigos funcionando sem mudança até serem atualizados deliberadamente — permite separar 'mudança de lógica' (posso validar sozinho) de 'mudança de interface' (aguarda revisão) mesmo quando as duas nasceram da mesma tarefa. 5) LABEL COLLISION PRÉ-EXISTENTE: ao auditar visualmente uma extensão de componente, comparar com uma screenshot ANTES da mudança evita atribuir a si mesmo um defeito de layout que já existia (aqui: rótulos 'Área'/'Como' sobrepostos no diálogo estreito, presente antes de qualquer edição) — relatar como achado separado, não misturar no diff da tarefa atual.",
+  "evidence": [
+    {
+      "type": "repository_file",
+      "pathOrUrl": "src/finance/engine.ts (distribuicao, validarAreas)",
+      "summary": "Recursão de árvore a 3 níveis com limite de profundidade e base explícita (salario-previsto/salario-recebido, sem inventar fórmula); validação estrutural de ciclo/pai inexistente/quarto nível.",
+      "confidence": "high"
+    },
+    {
+      "type": "repository_file",
+      "pathOrUrl": "src/components/fos/editores.tsx (EditorDistribuicaoBase, NoArvore, LinhaArea)",
+      "summary": "Árvore recursiva de 3 níveis na UI, seletor de base que preserva a escolha salva, remoção em cascata, validação estrutural bloqueando salvar.",
+      "confidence": "high"
+    },
+    {
+      "type": "manual_test",
+      "pathOrUrl": "scratchpad/test-distribuicao.mjs (efêmero, via jiti)",
+      "summary": "18/18 asserções: 3 níveis, rótulos, quarto nível rejeitado, ciclo detectado, pai inexistente detectado, soma>100% inválida, sobra revelada, base ausente vira null (não 0), base 'recebido' não usa fórmula inventada, compatibilidade com chamada de 2 argumentos.",
+      "confidence": "high"
+    },
+    {
+      "type": "screenshot",
+      "pathOrUrl": "sessão do navegador (Browser pane), antes e depois da correção do bug de base",
+      "summary": "Antes: editor mostrava 'salário previsto R$ 20.000' apesar da regra vigente dizer 'salário recebido'. Depois: seletor pré-selecionado com 'Salário recebido', nota explícita de fórmula ainda não definida, valores 'sem base' em vez de número inventado; 3 níveis criados ao vivo (área→categoria→subcategoria) com indentação e rótulos corretos, sem botão de adicionar no nível 2.",
+      "confidence": "high"
+    }
+  ],
+  "recommendation": {
+    "action": "record_only",
+    "owner": "founder (curadoria do skill atelier)",
+    "timing": "batch-review",
+    "rationale": "O padrão 'jiti para testar lógica de domínio sem test runner' e o padrão 'não inventar fórmula ausente, expor null com explicação' são reutilizáveis em qualquer venture com regras financeiras/de negócio parcialmente especificadas; candidatos a uma seção curta em references/ na consolidação semanal."
+  },
+  "promotion": {
+    "state": "candidate",
+    "humanReviewRequiredForPromotion": true,
+    "humanReviewStatus": "not_requested",
+    "automaticPromotionAllowed": false,
+    "targetCanonicalArtifact": null,
+    "promotionRationale": "Dois padrões de processo (teste sem runner via jiti; ausência explícita em vez de fórmula inventada) valem uma nota curta em references/, mas ainda é uma única ocorrência — aguardar repetição antes de promover."
+  },
+  "sensitivity": {
+    "containsSensitiveData": false,
+    "containsCustomerEvidence": false,
+    "redactionRequired": false,
+    "humanReviewStatus": "not_required",
+    "notes": "Dados sintéticos do protótipo local; nenhum segredo ou dado real envolvido."
+  }
+}
