@@ -1,0 +1,70 @@
+{
+  "schemaVersion": "0.1.0",
+  "recordId": "LR-0012",
+  "title": "trilha (app de música pessoal): primeira entrega reprovada por \"estilo sem direção\" → sistema tipográfico derivado de ECM Records + Blue Note, com fonte OFL servida do próprio repo por next/font/local",
+  "learningType": "capability_usage",
+  "source": {
+    "originType": "manual_observation",
+    "linearId": null,
+    "pullRequestUrl": null,
+    "artifactPathOrUrl": "/Users/agents/Developer/trilha-playlist-ai: src/app/globals.css, src/app/page.module.css, src/app/slice.module.css, src/app/page.tsx, src/app/slice.tsx, src/app/fontes/",
+    "observedAt": "2026-09-21",
+    "sourceSummary": "Primeira passada trocou estilo inline por CSS Modules com stack de sistema (ui-serif/New York) e foi reprovada pelo dono: 'está fraco — fonte, tamanhos, disposição, hierarquia visual, de cor, tipográfica e de ação. Vai atrás, pesquisa referências'. Segunda passada: pesquisa de repertório gráfico de música impressa, sistema de tokens (escala 1.25, grade 4pt, 3 níveis de texto + 1 acento) e uma tela por modo com ação primária única."
+  },
+  "scope": {
+    "domains": ["capability", "execution"],
+    "appliesToAgents": ["claude-code", "any-agent"],
+    "ticketTypes": ["product"],
+    "horizon": "now",
+    "limits": "App pessoal, 2 usuários, iPhone/Safari via Tailscale. Sem Tailwind, sem dependência nova: CSS Modules + custom properties na mão."
+  },
+  "agent": {
+    "recordedBy": "claude-code (Atelier, Opus 5)",
+    "agentRole": "executor",
+    "intendedConsumers": ["atelier skill", "futuras execucoes Atelier", "founder"]
+  },
+  "capability": {
+    "name": "atelier",
+    "type": "skill",
+    "maturity": "pilot",
+    "notes": "Stack de sistema (ui-serif = New York no iOS) é zero-custo e renderiza bem, mas NÃO conta como direção: o dono leu como 'sem escolha de fonte'. Fonte própria com procedência escrita é o que fez a diferença."
+  },
+  "confidence": {
+    "level": "high",
+    "score": 4,
+    "rationale": "Todos os sete estados capturados no WebKit em viewport de iPhone 13 por harness fora do repo (cópia em /tmp com os subcomponentes exportados); interação dirigida por Playwright (espelhamento do nome, aviso de formato, 401 real); contraste dos tokens calculado (17.3 / 7.4 / 5.1 : 1); npm run verificar verde com 68 testes; app recarregado e conferido no endereço real."
+  },
+  "importance": {
+    "level": "high",
+    "score": 5,
+    "rationale": "Vale para toda tela de venture: 'limpo e sóbrio' sem procedência lê como ausência de direção. Referência nomeada + princípio extraído + comentário no CSS é o que sustenta a escolha na revisão."
+  },
+  "tags": ["atelier", "trilha", "tipografia", "ecm-records", "blue-note", "next-font-local", "escala-modular", "hierarquia-de-acao", "estado-de-espera-longa", "sticky-bottom"],
+  "summary": "Direção veio de repertório gráfico de música impressa: ECM Records (vazio dinâmico, blocos de tipo assimétricos, lema 'the most beautiful sound next to silence' que espelha a regra mestra do repo) e Blue Note/Reid Miles (um foco dominante por peça, hierarquia por ESCALA, título em Bodoni Bold, lista de faixas em sans pequena, metadado como número de catálogo). Virou: Bodoni Moda variável só em display + Archivo variável (eixo de largura) em UI/metadados, ambas OFL baixadas para src/app/fontes e carregadas por next/font/local — nenhuma dependência nova, nenhum request a terceiros.",
+  "insight": "1) FONTE DE SISTEMA NÃO É DIREÇÃO: ui-serif/New York renderiza lindo no iPhone e mesmo assim foi lido como 'não escolheram fonte'. Quando o pedido é direção visual, escolher família com procedência escrita (quem usou, em quê, por quê) — e colocar essa procedência em comentário no CSS, que é onde a revisão olha. 2) next/font/local RESOLVE A TRAVA 'SEM DEPENDÊNCIA NOVA': woff2 OFL dentro do repo + next/font/local dá webfont própria sem tocar no package.json e sem CLS; guardar um LEIA-ME com origem e licença ao lado do arquivo. 3) HIERARQUIA DE AÇÃO SE RESOLVE POR MODO, NÃO POR TAMANHO DE BOTÃO: formulário e resultado na mesma tela sempre geram ações competindo; um estado por modo (compor | esperando | resultado | recado) deixa uma ação primária inequívoca — e só ela usa o fundo sólido claro, o resto é contorno. 4) STICKY-BOTTOM SÓ PRENDE SE FOR ÚLTIMO NO FLUXO: botão posicionado antes da lista com 'position:sticky;bottom' não gruda (some pelo topo); mover para último filho do container fez a ação acompanhar a rolagem de 12 faixas. 5) ESPERA DE 13-35s PEDE CRONÔMETRO REAL, NÃO BARRA: sem progresso mensurável, barra é mentira; cronômetro contando + frase que muda depois do tempo típico ('na primeira chamada o modelo carrega o peso') sustenta meio minuto sem parecer travado. 6) NÚMERO SOLTO NA LISTA PRECISA DE CABEÇALHO: '90' alinhado à direita em 12 linhas não se explica; cabeçalho de coluna em versalete + uma nota única ('abaixo de 60 não entra') resolveu sem repetir legenda por item. 7) ESTADO NEGATIVO FREQUENTE É INFORMAÇÃO, NÃO ERRO: 'ficaram de fora' (o caso normal, porque o modelo local erra nome) desenhado em tom rebaixado neutro, com a explicação uma vez no topo da seção — nada de vermelho, que fica reservado a falha de sistema. 8) HARNESS FORA DO REPO PARA VER ESTADO LOGADO: com write set travado, copiar o projeto para /tmp, exportar os subcomponentes lá e montar uma vitrine dos sete estados permitiu verificar tudo sem criar rota de preview no repo nem precisar de credencial.",
+  "evidence": [
+    { "type": "screenshot", "pathOrUrl": "/tmp/v4.png, /tmp/sticky.png, /tmp/compor.png, /tmp/final2.png", "summary": "Vitrine dos sete estados em WebKit/iPhone 13, ação fixa durante rolagem, tela de compor e portão em produção local.", "confidence": "high" },
+    { "type": "repository_file", "pathOrUrl": "/Users/agents/Developer/trilha-playlist-ai/src/app/globals.css", "summary": "Tokens: cor em 3 níveis medidos + 1 acento, escala modular 1.25 (13/16/20/25/31/39/49), grade 4pt, e as referências citadas no cabeçalho.", "confidence": "high" }
+  ],
+  "recommendation": {
+    "action": "record_only",
+    "owner": "founder (curadoria do skill atelier)",
+    "timing": "batch-review",
+    "rationale": "Itens 1, 2 e 3 são candidatos a virar regra em references/typography.md e design-philosophy.md; item 5 cabe em states-loading.md (espera longa com custo local)."
+  },
+  "promotion": {
+    "state": "candidate",
+    "humanReviewRequiredForPromotion": true,
+    "humanReviewStatus": "not_requested",
+    "automaticPromotionAllowed": false,
+    "targetCanonicalArtifact": "references/typography.md",
+    "promotionRationale": "Segunda ocorrência de reprovação por 'interface funcional mas sem direção' (ver memória 'interface funcional ≠ interface boa'); a receita fonte-própria-com-procedência merece virar chapter."
+  },
+  "sensitivity": {
+    "containsSensitiveData": false,
+    "containsCustomerEvidence": false,
+    "redactionRequired": false,
+    "humanReviewStatus": "not_required",
+    "notes": "Nada de credencial: o harness rodou sem .env.local e o 401 foi observado como estado de interface."
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "0.1.0",
+  "recordId": "LR-0011",
+  "title": "Finance OS /plano: reprovação do editor funcional → redesenho a partir de app real no celular do fundador (Pierre), com identidade nova e medição antes da captura",
+  "learningType": "capability_usage",
+  "source": {
+    "originType": "manual_observation",
+    "linearId": null,
+    "pullRequestUrl": null,
+    "artifactPathOrUrl": "finance-os-prototype: src/routes/plano.tsx, src/components/casa/, src/identidade-casa.css (sem git)",
+    "observedAt": "2026-09-14",
+    "sourceSummary": "Primeira entrega (LR-0010) reprovada pelo fundador: modal com campos sobrepostos, sem hierarquia. Fundador liberou identidade nova e apontou o Pierre Finance aberto no celular via adb como referência de usabilidade/motion/hierarquia. Nova tela: anel segmentado com renda no centro, lista de áreas como superfícies expansíveis em 3 níveis, folha inferior por item, resumo pós-salvar."
+  },
+  "scope": {
+    "domains": ["capability", "execution"],
+    "appliesToAgents": ["claude-code", "any-agent"],
+    "ticketTypes": ["product"],
+    "horizon": "now",
+    "limits": "Uma tela (plano da casa). Demais telas continuam na identidade antiga até validação do fundador. Referência é padrão de interação, nunca marca/ícone/asset do app de referência."
+  },
+  "agent": {
+    "recordedBy": "claude-code (Atelier, Opus 5)",
+    "agentRole": "executor",
+    "intendedConsumers": ["atelier skill", "futuras execucoes Atelier", "founder"]
+  },
+  "capability": { "name": "atelier", "type": "skill", "maturity": "pilot", "notes": "Referência capturada do aparelho físico com adb -s <serial> (screencap + swipe/tap só de navegação), guardada no scratchpad, nunca no repo." },
+  "confidence": {
+    "level": "high",
+    "score": 4,
+    "rationale": "Capturas em 390px e 1280px, escuro e claro, máscara, console limpo em aba nova; 68 testes de domínio com 5 mutações pegas; 4 defeitos achados pela verificação antes de entregar (fonte serifada herdada de h1 global, teclado subindo ao abrir folha, rascunho criado antes da hidratação do localStorage, edição a partir de mês passado apagando plano futuro)."
+  },
+  "importance": {
+    "level": "high",
+    "score": 5,
+    "rationale": "Muda o procedimento de UI: pedir/obter referência concreta ANTES de desenhar e medir estilos/estado real antes de capturar evitaria a primeira reprovação."
+  },
+  "tags": ["atelier", "finance-os", "referencia-real", "adb", "bottom-sheet", "anel-segmentado", "hidratacao", "stale-frame"],
+  "summary": "Hierarquia vence densidade: uma pergunta por tela (como a renda se divide), número grande no centro do anel, lista com chip+nome+regra à esquerda e UM número à direita, edição por folha de item em vez de formulário inline. Cor de dado carrega semântica financeira (quente = teto, frio = mínimo) para não copiar a paleta arbitrária da referência.",
+  "insight": "1) REFERÊNCIA ANTES DO DESENHO: quando o usuário admira um app, capturar as telas equivalentes à tarefa (aqui, gastos por grupo/categoria expandida) e extrair padrões — anel com vãos e pontas arredondadas, total no centro, linha expansível com filhos sem cartão próprio — antes de escrever CSS. 2) NÚMERO DA DIREITA NUNCA VAZIO: quando o valor em reais não existe (base sem fórmula), promover a porcentagem a número principal; coluna de travessões destrói a hierarquia. Explicação da ausência aparece UMA vez no topo, não em cada linha. 3) MEDIR ANTES DE CAPTURAR: getComputedStyle revelou fonte serifada vinda de regra global h1/h2 em @layer base; regra da identidade precisa de :is(h1..h4). 4) BROWSER PANE MOSTRA QUADRO VELHO: folha 'invisível' e expansão 'vazia' eram frames antigos — confirmar pelo DOM (getBoundingClientRect, opacity) e recapturar; nunca 'consertar' sem essa checagem. 5) RASCUNHO X HIDRATAÇÃO: store que hidrata do localStorage após montar exige esperar o flag pronto antes de criar rascunho de edição a partir de deep link; senão o rascunho nasce dos dados de exemplo e salvar sobrescreve o plano real. 6) FOLHA NO CELULAR: onOpenAutoFocus padrão do Radix foca o primeiro input e sobe o teclado — prevenir e focar só em item novo. 7) HMR deixa erro de hook ('deps changed size') no buffer do console da aba; validar console em aba nova."
+  ,
+  "evidence": [
+    { "type": "screenshot", "pathOrUrl": "sessão Browser pane 14/09", "summary": "Mobile 390px (consulta, edição 3 níveis, folha de item, folha Plano salvo), desktop 1280 escuro e claro.", "confidence": "high" },
+    { "type": "repository_file", "pathOrUrl": "tests/dominio/plano-da-casa.mjs", "summary": "68 casos de domínio rodando com jiti contra o src real.", "confidence": "high" }
+  ],
+  "recommendation": { "action": "record_only", "owner": "founder (curadoria do skill atelier)", "timing": "batch-review", "rationale": "Itens 1, 3 e 4 merecem entrar no audit-checklist como passos obrigatórios." },
+  "promotion": { "state": "candidate", "humanReviewRequiredForPromotion": true, "humanReviewStatus": "not_requested", "automaticPromotionAllowed": false, "targetCanonicalArtifact": "references/audit-checklist.md", "promotionRationale": "Stale frame do pane já aparece em LR-0005; segunda ocorrência." },
+  "sensitivity": { "containsSensitiveData": false, "containsCustomerEvidence": false, "redactionRequired": false, "humanReviewStatus": "not_required", "notes": "Capturas do app de referência com dados pessoais ficaram só no scratchpad da sessão; nada entrou no repo nem no registro." }
+}

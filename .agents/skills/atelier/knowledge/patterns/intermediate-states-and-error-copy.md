@@ -1,12 +1,13 @@
 # Intermediate states and user-facing error copy
 
-Status: candidate pattern (consolidated 2026-09-14, pending founder review). Provenance: LR-0008 (execution), LR-0009 (adversarial review of the same work, PIP-797 — two lenses reproduced each defect).
+Status: candidate pattern (consolidated 2026-09-14, extended 2026-09-28, pending founder review; LR-0012 proposes section 5 for `references/states-loading.md`). Provenance: LR-0008 (execution), LR-0009 (adversarial review of the same work, PIP-797 — two lenses reproduced each defect), LR-0012.
 
 ## Use when
 
 - A wizard, multi-step form or choice UI invents a state between "on" and "off" (draft, pending, suggested, saved-but-not-counting).
 - An error is promoted from ephemeral (toast) to persistent (panel), or any RPC/tRPC error reaches an end user.
 - A button is unavailable for a reason the user should be able to reach.
+- A wait is long enough that the user will wonder whether the screen is stuck.
 
 ## 1. Answered ≠ resolved
 
@@ -44,6 +45,19 @@ Never match substrings of the message. Prove it with a negative control: a **ser
 
 `disabled` removes the button from tab order and takes its `aria-describedby` explanation with it. When there is a reason to reach, use `aria-disabled="true"` plus an inert submit handler.
 
+## 5. A long wait gets a real clock, not a fake bar
+
+With no measurable progress, a progress bar is a lie. For the 13–35s waits in LR-0012 (a local model loading its weights on the first call), what held the screen was a **counting timer** plus a sentence that changes once the typical duration is exceeded ("on the first call the model loads its weights"). Half a minute passes without the screen reading as frozen, and nothing was promised that could not be delivered.
+
+## 6. A frequent negative outcome is information, not an error
+
+"Left out" was the *normal* case in LR-0012 (the local model mis-spells track names), so it is drawn in a muted neutral tone with the explanation stated once at the top of the section. Red stays reserved for system failure. A normal outcome painted as an error teaches the user to distrust the screen.
+
+## 7. A bare number in a list needs a header
+
+`90` right-aligned across 12 rows explains nothing. A small-caps column header plus one note for the whole list ("below 60 does not get in") resolves it without repeating a legend per row.
+
 ## Evidence
 
 - AuraSite interview wizard `client/src/components/site/InterviewForm.tsx` (LR-0008), PR vnatividade/aurasite#78 (LR-0009).
+- trilha: waiting state with a real timer, "left out" section in a muted tone, score column with a header and a single note — all seven states captured in WebKit (LR-0012).
