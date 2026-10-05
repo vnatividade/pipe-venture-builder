@@ -1,0 +1,33 @@
+{
+  "version": "2026-10-04.1",
+  "default_role": "builder",
+  "roles": {
+    "worker": {
+      "codex": {"model": "gpt-6-luna", "effort": "low"},
+      "claude": {"model": "haiku", "effort": null},
+      "deliverable": "Resultado delimitado, arquivos afetados e verificação"
+    },
+    "builder": {
+      "codex": {"model": "gpt-6.1-sol", "effort": "medium"},
+      "claude": {"model": "sonnet", "effort": "medium"},
+      "deliverable": "Plano quando necessário; implementação, checks e pendências"
+    },
+    "architect": {
+      "codex": {"model": "gpt-6-astra", "effort": "medium"},
+      "claude": {"model": "opus", "effort": "medium"},
+      "deliverable": "Plano ou diagnóstico com evidências, decisões, riscos e critérios"
+    },
+    "reviewer": {
+      "codex": {"model": "gpt-6-astra", "effort": "low"},
+      "claude": {"model": "opus", "effort": "medium"},
+      "deliverable": "Problemas com prioridade, localização, evidência e impacto"
+    }
+  },
+  "release_trigger": "human_notice",
+  "release_adoption": "explicit_human_approval",
+  "sources": [
+    "https://learn.chatgpt.com/docs/developer-settings",
+    "https://code.claude.com/docs/en/model-config",
+    "https://code.claude.com/docs/en/memory"
+  ]
+}

@@ -330,6 +330,14 @@ def build_parser() -> argparse.ArgumentParser:
     handoff_render.add_argument("--json", action="store_true", dest="as_json")
     handoff_render.set_defaults(handler=_handle_handoff_render)
 
+    # Packaged routing policy; installation is explicitly separate from product bootstrap.
+    from .model_policy.model_policy import add_arguments
+    model_parser = commands.add_parser(
+        "model-policy", help="Plan/install local Codex/Claude policy or inspect routing."
+    )
+    add_arguments(model_parser)
+    model_parser.set_defaults(handler=_handle_model_policy)
+
     # Mission Loop (ticket A) — durable missions. Offline: no worker, no network here.
     register_mission_commands(commands)
 
@@ -375,6 +383,20 @@ def main(
     exit_code = int(payload.pop("_exit_code", SUCCESS))
     _render_success(payload, as_json=getattr(args, "as_json", False), stream=out)
     return exit_code
+
+
+def _handle_model_policy(args: argparse.Namespace) -> dict[str, Any]:
+    from .model_policy.model_policy import execute
+    args.as_json = args.json
+    try:
+        result, code = execute(args)
+    except (ValueError, OSError, KeyError, TypeError) as exc:
+        # Preserve intentional policy errors; parser/filesystem data may contain secrets.
+        message = str(exc) if type(exc) is ValueError else type(exc).__name__
+        raise PipeError(code="MODEL_POLICY_BLOCKED", message=message, exit_code=2) from exc
+    return {"command": "model-policy", "result": result,
+            "message": json.dumps(result, ensure_ascii=False, indent=2),
+            "_exit_code": code}
 
 
 def _internal_error_detail(exc: BaseException) -> dict[str, str]:

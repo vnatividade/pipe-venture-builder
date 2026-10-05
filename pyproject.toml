@@ -33,3 +33,6 @@ where = ["src"]
 # como um comando de CI nasce diferente do comando que a pessoa roda.
 norecursedirs = ["tests/fixtures", ".git", "node_modules", "runtime"]
 testpaths = ["tests"]
+
+[tool.setuptools.package-data]
+"pipe_venture_builder.model_policy" = ["*.json", "*.md"]

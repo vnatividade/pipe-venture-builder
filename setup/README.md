@@ -11,3 +11,5 @@ Do not store secrets, tokens, local credentials, or machine-specific configurati
 - [portable bootstrap and runtime boundaries](portable-bootstrap-and-runtime-boundaries.md)
 - [portable installation and first run](../docs/install/README.md)
 - [ProductManifest example](ProductManifest.example.json)
+
+- [Codex/Claude policy on another machine](../docs/install/model-policy.md)

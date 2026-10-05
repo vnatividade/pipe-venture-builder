@@ -278,3 +278,17 @@ Avoid:
 ## Important Rule
 
 The repository should remain understandable and operable by future agents without requiring conversational memory.
+
+
+## Model routing and deliverables
+
+For new Codex/Claude work, read `src/pipe_venture_builder/model_policy/POLICY.md`
+(or `~/.agents/model-policy/POLICY.md` after installation). Use `pipe model-policy select`, `inspect` and `check`; global defaults are Sol 6.1 Medium and Sonnet Medium.
+Preserve explicit human task choices and active sessions/contracts. Switching is
+announced and verified inside the same runtime; otherwise prepare handoff and
+request the selector change. Model choice does not authorize provider fallback,
+additional agents, new scope, publication, or weaker project gates.
+Human notice of a new release triggers operational architecture/rules/policy
+reassessment, with proposal/diff and explicit approval before adoption. No scheduled
+monitoring. Set up a new machine through `docs/install/model-policy.md`; installation
+is plan-first and separate from product bootstrap.

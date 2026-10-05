@@ -154,3 +154,12 @@ Bootstrap and doctor do not:
 - deploy anything
 
 Manifest and error rendering is schema-constrained and redacted. This is a defensive boundary, not a general secret scanner or a security/compliance certification.
+
+
+## Codex/Claude models and deliverables
+
+Use the separate, explicit [model policy installation](model-policy.md) after
+importing Pipe. `pipe model-policy install` defaults to a non-mutating plan;
+`--apply` configures the local user's new sessions. Product bootstrap does not
+perform this global installation. No credentials, sessions or machine state are
+copied. Hermes runtime selection and ProductManifest remain separate.

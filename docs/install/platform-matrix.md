@@ -13,3 +13,10 @@ An unknown operating system or architecture is `incompatible`, not silently supp
 Python 3.11+ and Git are required on every platform. Product repositories and manifest files must use repository-local paths; Windows drive paths, UNC-style absolute paths, Unix absolute paths, and `~` paths are rejected from the manifest.
 
 Platform support here applies to `pipe bootstrap`, `pipe doctor`, manifest loading, and the existing Python CLI. It does not claim that every selected executor, connector, Atelier dependency, or future runtime adapter supports the same matrix.
+
+
+Model-policy global installation and release registration currently support macOS
+and Linux (POSIX wrapper and file lock). Windows supports selection/inspection;
+install/release return an explicit unsupported-platform block without writes.
+macOS fixture and isolated wheel validation are recorded under PIP-1007; no native
+Linux or Windows acceptance is claimed for this policy helper.
