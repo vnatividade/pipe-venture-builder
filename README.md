@@ -53,6 +53,14 @@ See [setup/operating-manual.md](setup/operating-manual.md) for the operating man
 
 The portable CLI is documented in [docs/cli/README.md](docs/cli/README.md). With Python 3.11+, `pipe` provides installation, version reporting, Pipe root discovery, canonical ProductBaseline validation, and the executable `idea`, `adopt`, `bootstrap`, `doctor`, and `reconcile plan` commands (see `src/pipe_venture_builder/cli.py`). A Hermes probe/session adapter exists at `python -m pipe_venture_builder.adapters.hermes` (see `docs/hermes/operator-runbook.md`). A persistent, always-on runtime and the Atelier runtime are still open, not yet implemented.
 
+## Portable Model Policy
+
+After importing Pipe on another machine, run `pipe model-policy install --plan`,
+review the affected local files, then `pipe model-policy install --apply`. The
+package carries the shared Codex/Claude role, effort, deliverable and manual-release
+policy. It preserves local permissions and active contracts; it does not carry
+credentials or prove model access. See [installation and verification](docs/install/model-policy.md).
+
 ## When Not To Proceed
 
 Do not move into implementation when:

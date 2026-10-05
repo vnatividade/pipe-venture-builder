@@ -1,0 +1,23 @@
+{
+  "wheel_sha256": "8f6bb00509712d55a2b154e683be8a4116e45dacb9b5b05b74d51637a29f9fa1",
+  "isolated_package_install": true,
+  "cwd_outside_checkout": true,
+  "path_with_spaces": true,
+  "new_home_plan_writes": 0,
+  "defaults": {
+    "codex": {
+      "effort": "medium",
+      "model": "gpt-6.1-sol",
+      "plan_effort": null
+    },
+    "claude": {
+      "effort": "medium",
+      "model": "sonnet",
+      "plan_effort": null
+    }
+  },
+  "rerun_writes": 0,
+  "wrapper_without_toolkit_dependency": true,
+  "machine_paths_or_receipts_shipped": false,
+  "inference_measured": false
+}
